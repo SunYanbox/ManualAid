@@ -1,0 +1,66 @@
+name: Continuous Integration
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test-format:
+    name: Format and Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        id: setup-node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Cache conda packages
+        uses: actions/cache@v5
+        id: cache-conda
+        env:
+          # Increase this value to reset cache if etc/example-environment.yml has not changed
+          CACHE_NUMBER: 1
+        with:
+          enableCrossOsArchive: true
+          path: ~/conda_pkgs_dir
+          key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{
+            hashFiles('etc/example-environment.yml') }}
+
+      - name: Install conda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          activate-environment: ManualAid
+          auto-update-conda: true
+          python-version: "3.12"
+          environment-file: environment.yml
+          auto-activate: false
+          cache-environment: true
+          cache-downloads: true
+
+      - run: conda info
+
+      - name: Install Dependencies
+        id: npm-ci
+        run: npm cross-env NODE_OPTIONS=--experimental-vm-modules NODE_NO_WARNINGS=1 npx jest
+
+      - name: Check Format
+        id: format-check
+        run: npm run format:check
+
+      - name: test
+        id: test
+        run: npm run test
