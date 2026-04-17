@@ -227,7 +227,8 @@ class FullwidthChecker:
 
         # 显示进度
         end_idx = min(start_idx + self.page_size, total)
-        console.print(f"\n[bold cyan]问题 {start_idx + 1}-{end_idx} / {total}[/bold cyan]")
+        console.print(f"\n[bold cyan]问题 {start_idx + 1}-{end_idx} " +
+                      f"/ {total}[/bold cyan]")
         console.print("─" * console.width)
 
         # 创建表格
@@ -331,7 +332,8 @@ class FullwidthChecker:
                 current_idx += self.page_size
 
         console.print()
-        console.print("[bold cyan]💡 提示:[/bold cyan] 运行 [green]check_fullwidth.cmd write[/green] 自动修复")
+        console.print("[bold cyan]💡 提示:[/bold cyan] 运行 " +
+                      "[green]check_fullwidth.cmd write[/green] 自动修复")
 
     def fix(self) -> int:
         """修复所有检测到的问题。"""
@@ -348,7 +350,8 @@ class FullwidthChecker:
         for issue in self.issues:
             files_dict.setdefault(issue["file"], []).append(issue)
 
-        console.print(f"\n[bold yellow]🔧 准备修复 {len(files_dict)} 个文件...[/bold yellow]\n")
+        console.print("\n[bold yellow]🔧 准备修复 " +
+                      "{len(files_dict)} 个文件...[/bold yellow]\n")
 
         fixed_count = 0
         with Progress(
@@ -367,12 +370,16 @@ class FullwidthChecker:
 
                 try:
                     content = file_path.read_text(encoding="utf-8")
-                    new_content = self.pattern.sub(lambda m: FULLWIDTH_MAP[m.group(0)], content)
+                    new_content = self.pattern.sub(
+                        lambda m: FULLWIDTH_MAP[m.group(0)],
+                        content
+                    )
                     file_path.write_text(new_content, encoding="utf-8")
 
                     count = len(issues)
                     fixed_count += count
-                    console.print(f"  [green]✓[/green] {rel_path} [dim](修复 {count} 处)[/dim]")
+                    console.print("  [green]✓[/green] " +
+                                  f"{rel_path} [dim](修复 {count} 处)[/dim]")
                 except Exception as e:
                     console.print(f"  [red]✗[/red] {rel_path}: {e}")
                     return 1
@@ -414,12 +421,17 @@ def cli(ctx=None):
     multiple=True,
     help="排除的目录或文件(可多次使用)。例如: --exclude tests --exclude docs/old",
 )
-@click.option("--page-size", "-p", default=15, help="分页显示时每页显示的问题数量(默认: 15)")
+@click.option("--page-size", "-p",
+              default=15,
+              help="分页显示时每页显示的问题数量(默认: 15)")
 def check(exclude: list[str], page_size: int):
     """🔍 仅检测全角字符问题(不修改文件)"""
-    checker = FullwidthChecker(exclude_patterns=list(exclude) if exclude else None, page_size=page_size)
+    checker = FullwidthChecker(
+        exclude_patterns=list(exclude) if exclude else None,
+        page_size=page_size)
 
-    console.print(Panel.fit("[bold blue]🔍 全角字符检测模式[/bold blue]", border_style="blue"))
+    console.print(Panel.fit("[bold blue]🔍 全角字符检测模式[/bold blue]",
+                            border_style="blue"))
 
     if exclude:
         console.print(f"[dim]🚫 排除路径: {', '.join(exclude)}[/dim]")
@@ -442,7 +454,9 @@ def write(exclude: list[str]):
     """✏️  检测并自动修复全角字符问题"""
     checker = FullwidthChecker(exclude_patterns=list(exclude) if exclude else None)
 
-    console.print(Panel.fit("[bold yellow]✏️  全角字符修复模式[/bold yellow]", border_style="yellow"))
+    console.print(
+        Panel.fit("[bold yellow]✏️  全角字符修复模式[/bold yellow]",
+            border_style="yellow"))
 
     if exclude:
         console.print(f"[dim]🚫 排除路径: {', '.join(exclude)}[/dim]")
