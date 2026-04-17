@@ -1,0 +1,25 @@
+[project]
+name = "ManualAid"
+version = "0.1.0"
+description = ""
+requires-python = ">=3.12"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0",
+    "pytest-cov>=7.1",
+    "click>=8.3",
+    "markdown-it-py>=4.0",
+    "rich>=15.0",
+    "ruff>=0.15"
+]
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-v --tb=short"
