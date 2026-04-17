@@ -1,0 +1,4 @@
+[MESSAGES CONTROL]
+disable=
+    broad-exception-caught,
+    missing-module-docstring

@@ -279,7 +279,7 @@ class FullwidthChecker:
             key = Prompt.ask("", default="n", show_default=False).lower()
             if key in ("", "n", "next", "p", "prev", "previous"):
                 return True
-            elif key in ("q", "quit", "exit"):
+            if key in ("q", "quit", "exit"):
                 return False
             console.print("[yellow]无效输入,请重试[/yellow]")
 
@@ -322,7 +322,7 @@ class FullwidthChecker:
             if result is False:  # 用户退出
                 console.print("[yellow]已退出查看[/yellow]")
                 break
-            elif result == "prev":
+            if result == "prev":
                 current_idx = max(0, current_idx - self.page_size)
             else:  # True 或 "next"
                 current_idx += self.page_size
