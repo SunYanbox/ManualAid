@@ -52,6 +52,8 @@ jobs:
           cache-environment: true
           cache-downloads: true
 
+      - run: conda init
+
       - run: conda info
 
       - name: Install Dependencies

@@ -25,4 +25,5 @@ pythonpath = ["."]
 addopts = "-v --tb=short"
 
 [tool.black]
+line-length = 120
 extend-exclude = "fix_fullwidth.py"

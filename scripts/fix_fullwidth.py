@@ -8,6 +8,7 @@
 
 import re
 import sys
+from collections import Counter
 from pathlib import Path
 
 import click
@@ -73,6 +74,7 @@ console = Console()
 
 
 class FullwidthChecker:
+    """检查并修复全角字符的类."""
     def __init__(
         self,
         root_path: str = ".",
@@ -279,8 +281,7 @@ class FullwidthChecker:
                 return True
             elif key in ("q", "quit", "exit"):
                 return False
-            else:
-                console.print("[yellow]无效输入,请重试[/yellow]")
+            console.print("[yellow]无效输入,请重试[/yellow]")
 
     def report(self) -> None:
         """使用 Rich 美化打印检测结果(支持分页)。"""
@@ -303,9 +304,6 @@ class FullwidthChecker:
         summary.append(f"{files_count} ", style="bold red")
         summary.append("个文件", style="bold yellow")
         console.print(Panel(summary, border_style="yellow"))
-
-        # 按文件分组统计
-        from collections import Counter
 
         file_counter = Counter(Path(i["file"]).name for i in self.issues)
         console.print("\n[bold]📊 问题分布:[/bold]")
@@ -453,8 +451,11 @@ def write(exclude: list[str]):
     checker = FullwidthChecker(exclude_patterns=list(exclude) if exclude else None)
 
     console.print(
-        Panel.fit("[bold yellow]✏️  全角字符修复模式[/bold yellow]",
-            border_style="yellow"))
+        Panel.fit(
+            "[bold yellow]✏️  全角字符修复模式[/bold yellow]",
+            border_style="yellow"
+        )
+    )
 
     if exclude:
         console.print(f"[dim]🚫 排除路径: {', '.join(exclude)}[/dim]")
