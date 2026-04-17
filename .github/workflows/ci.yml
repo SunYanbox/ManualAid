@@ -56,9 +56,7 @@ jobs:
 
       - name: Install Dependencies
         id: npm-ci
-        run:
-          npm cross-env NODE_OPTIONS=--experimental-vm-modules
-          NODE_NO_WARNINGS=1 npx jest
+        run: npm ci
 
       - name: Check Format
         id: format-check
