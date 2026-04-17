@@ -25,7 +25,9 @@
     "format:fix": "npm run fw:format:fix && npm run md:format:fix && npm run ruff:format:fix && npm run prettier:format:fix",
     "test:ts": "cross-env NODE_OPTIONS=--experimental-vm-modules NODE_NO_WARNINGS=1 npx jest --passWithNoTests",
     "test:py": "conda activate ManualAid && pytest tests/ -v --cov=src --cov-report=term-missing",
-    "test": "npm run test:ts && npm run test:py"
+    "test": "npm run test:ts && npm run test:py",
+    "before:commit": "npm run format:fix && npm run test && npm run format:check",
+    "ci": "npm run before:commit"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.5",
