@@ -23,3 +23,6 @@ build-backend = "setuptools.backends._legacy:_Backend"
 testpaths = ["tests"]
 pythonpath = ["."]
 addopts = "-v --tb=short"
+
+[tool.black]
+extend-exclude = "fix_fullwidth.py"

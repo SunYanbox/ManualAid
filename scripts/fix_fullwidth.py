@@ -81,7 +81,7 @@ class FullwidthChecker:
     ):
         self.root = Path(root_path).resolve()
         self.pattern = re.compile("|".join(re.escape(k) for k in FULLWIDTH_MAP))
-        self.issues = []
+        self.issues: list[dict] = []
         self.page_size = page_size
 
         # 构建排除列表
@@ -138,7 +138,7 @@ class FullwidthChecker:
                     pass
         return False
 
-    def _display_exclude_info(self) -> None:
+    def display_exclude_info(self) -> None:
         """显示配置的排除路径信息。"""
         if not self.exclude_dirs and not self.exclude_files:
             return
@@ -160,7 +160,7 @@ class FullwidthChecker:
 
         # 收集所有目标文件
         console.print("[dim]📂 正在收集文件...[/dim]")
-        all_files = []
+        all_files: list[str] = []
         for ext in TARGET_EXTS:
             all_files.extend(self.root.rglob(f"*{ext}"))
 
@@ -344,7 +344,7 @@ class FullwidthChecker:
             return 0
 
         # 按文件分组
-        files_dict = {}
+        files_dict: dict[str, list] = {}
         for issue in self.issues:
             files_dict.setdefault(issue["file"], []).append(issue)
 
@@ -390,7 +390,7 @@ class FullwidthChecker:
 
 @click.group(invoke_without_command=True)
 @click.pass_context
-def cli(ctx):
+def cli(ctx=None):
     """🛠️  检测并修复项目中的全角字符问题。
 
     支持的文件类型:.py、.md
@@ -424,7 +424,7 @@ def check(exclude: list[str], page_size: int):
     if exclude:
         console.print(f"[dim]🚫 排除路径: {', '.join(exclude)}[/dim]")
 
-    checker._display_exclude_info()
+    checker.display_exclude_info()
 
     is_clean = checker.scan()
     checker.report()
@@ -447,7 +447,7 @@ def write(exclude: list[str]):
     if exclude:
         console.print(f"[dim]🚫 排除路径: {', '.join(exclude)}[/dim]")
 
-    checker._display_exclude_info()
+    checker.display_exclude_info()
 
     sys.exit(checker.fix())
 

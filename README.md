@@ -3,7 +3,7 @@
 ## ⚖️ Legal Disclaimer / 法律声明
 
 ManualAid is a **local-only, human-in-the-loop assistant**. It is designed to
-facilitate manual copy-paste workflows and **does not support automated
+facilitate manual copypaste workflows and **does not support automated
 interaction** with any LLM platform.
 
 **Users are solely responsible for:**
