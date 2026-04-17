@@ -162,13 +162,13 @@ class FullwidthChecker:
         console.print("[dim]📂 正在收集文件...[/dim]")
         all_files: list[str] = []
         for ext in TARGET_EXTS:
-            all_files.extend(self.root.rglob(f"*{ext}"))
+            all_files.extend(str(p) for p in self.root.rglob(f"*{ext}"))
 
         # 过滤排除的路径
         files = []
         excluded_count = 0
         for f in all_files:
-            if self._should_exclude(f):
+            if self._should_exclude(Path(f)):
                 excluded_count += 1
                 continue
             files.append(f)
@@ -192,7 +192,7 @@ class FullwidthChecker:
                 task = progress.add_task("[cyan]🔍 扫描全角字符...", total=len(files))
 
             for file_path in files:
-                self._check_file(file_path)
+                self._check_file(Path(file_path))
                 if show_progress:
                     progress.advance(task)
 
@@ -275,10 +275,8 @@ class FullwidthChecker:
 
         while True:
             key = Prompt.ask("", default="n", show_default=False).lower()
-            if key in ("", "n", "next"):
+            if key in ("", "n", "next", "p", "prev", "previous"):
                 return True
-            elif key in ("p", "prev", "previous"):
-                return "prev"
             elif key in ("q", "quit", "exit"):
                 return False
             else:
