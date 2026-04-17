@@ -2,21 +2,24 @@
 
 ## ⚖️ Legal Disclaimer / 法律声明
 
-ManualAid is a **local-only, human-in-the-loop assistant**. It is designed to facilitate manual copy-paste workflows
-and **does not support automated interaction** with any LLM platform.
+ManualAid is a **local-only, human-in-the-loop assistant**. It is designed to
+facilitate manual copy-paste workflows and **does not support automated
+interaction** with any LLM platform.
 
 **Users are solely responsible for:**
 
 1. Complying with the Terms of Service (ToS) of the LLM platforms they use.
-2. Ensuring their usage does not violate rate limits, automation bans, or other policies.
+2. Ensuring their usage does not violate rate limits, automation bans, or other
+   policies.
 
 **The author(s) of ManualAid explicitly disclaim any liability for:**
 
-- Misuse of this tool to automate requests, bypass paywalls, or abuse LLM services.
+- Misuse of this tool to automate requests, bypass paywalls, or abuse LLM
+  services.
 - Any account suspensions, legal actions, or damages resulting from such misuse.
 
-If you fork this project, you must retain this disclaimer and ensure your modifications do not promote
-or enable automated abuse.
+If you fork this project, you must retain this disclaimer and ensure your
+modifications do not promote or enable automated abuse.
 
 ---
 

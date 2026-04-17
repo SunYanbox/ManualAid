@@ -37,7 +37,8 @@ jobs:
         with:
           enableCrossOsArchive: true
           path: ~/conda_pkgs_dir
-          key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{
+          key:
+            ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{
             hashFiles('etc/example-environment.yml') }}
 
       - name: Install conda
@@ -45,7 +46,7 @@ jobs:
         with:
           activate-environment: ManualAid
           auto-update-conda: true
-          python-version: "3.12"
+          python-version: '3.12'
           environment-file: environment.yml
           auto-activate: false
           cache-environment: true
@@ -55,7 +56,9 @@ jobs:
 
       - name: Install Dependencies
         id: npm-ci
-        run: npm cross-env NODE_OPTIONS=--experimental-vm-modules NODE_NO_WARNINGS=1 npx jest
+        run:
+          npm cross-env NODE_OPTIONS=--experimental-vm-modules
+          NODE_NO_WARNINGS=1 npx jest
 
       - name: Check Format
         id: format-check
