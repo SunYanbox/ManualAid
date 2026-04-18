@@ -1,0 +1,53 @@
+target-version = "py312"
+line-length = 120
+src = ["src", "tests", "scripts", "tools"]
+
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".ipynb_checkpoints",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pyenv",
+    ".pytest_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    ".vscode",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "site-packages",
+    "venv"
+]
+
+[lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+    "RUF",  # ruff-specific
+    "RUF001",          # 歧义字符（例如全角字母、数字）
+    "RUF002",          # 歧义标点符号（例如全角逗号、句号）
+    "RUF003",          # 歧义空格（例如全角空格）
+]
+
+ignore = ["UP006"]
+
+isort = { known-first-party = ["src"] }
+
+per-file-ignores = { "scripts/fix_fullwidth.py" = ["RUF001"] }

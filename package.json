@@ -1,0 +1,32 @@
+{
+  "name": "manualaid-dev-tools",
+  "version": "1.0.0",
+  "author": "Suntion",
+  "description": "Dev tools and scripts for ManualAid project",
+  "homepage": "https://github.com/SunYanbox/ManualAid",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SunYanbox/ManualAid.git"
+  },
+  "bugs": {
+    "url": "https://github.com/SunYanbox/ManualAid/issues"
+  },
+  "scripts": {
+    "fw:format:check": "python ./scripts/fix_fullwidth.py check",
+    "md:format:check": "npx markdownlint .",
+    "ruff:format:check": "ruff check .",
+    "prettier:format:check": "npx prettier --check .",
+    "fw:format:fix": "python ./scripts/fix_fullwidth.py write",
+    "md:format:fix": "npx markdownlint --fix .",
+    "ruff:format:fix": "ruff format .",
+    "prettier:format:fix": "npx prettier --write .",
+    "format:check": "npm run fw:format:check && npm run md:format:check && npm run ruff:format:check && npm run prettier:format:check",
+    "format:fix": "npm run fw:format:fix && npm run md:format:fix && npm run ruff:format:fix && npm run prettier:format:fix",
+    "test": "pytest tests/ -v --cov=src --cov-report=term-missing",
+    "ci": "npm run format:fix && npm run test && npm run format:check"
+  },
+  "devDependencies": {
+    "markdownlint-cli": "^0.48.0",
+    "prettier": "^3.8.2"
+  }
+}
