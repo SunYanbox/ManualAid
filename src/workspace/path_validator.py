@@ -37,7 +37,7 @@ class PathValidator:
         """
         self.root = Path(workspace_root).resolve()
 
-    def validate(self, target: str | Path) -> Path:
+    def validate(self, target: str | Path, create_file_if_not_exist: bool = False) -> Path:
         """校验路径安全性,返回绝对路径.
 
         执行多层安全检查:
@@ -49,6 +49,7 @@ class PathValidator:
         Args:
             target: 待验证的目标路径,可以是相对路径或绝对路径.
                    绝对路径会相对于当前工作目录解析.
+            create_file_if_not_exist: 如果路径不存在则创建文件
 
         Returns:
             Path: 验证通过后的绝对路径对象,保证位于工作区边界内.
@@ -78,7 +79,9 @@ class PathValidator:
 
         # 存在性与基础权限
         if not resolved.exists():
-            raise PathNotFoundError(f"路径不存在: {target}")
+            if not create_file_if_not_exist:
+                raise PathNotFoundError(f"路径不存在: {target}")
+            Path.write_text(resolved, "", encoding="utf-8")
         if not os.access(resolved, os.R_OK):
             raise PermissionError(f"无读取权限: {target}")  # pragma: no cover  // 需要专门准备权限, 不测了
 

@@ -34,6 +34,7 @@ def test_in_wrapper():
     registry = ToolRegistry()
 
     with pytest.warns(UserWarning):
+
         @registry.register(name="add")
         def add(a: int, b: int) -> int:
             return a + b

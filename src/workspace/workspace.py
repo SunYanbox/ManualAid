@@ -241,11 +241,18 @@ class Workspace:
         except Exception as err:
             return ToolErrorResponse(self.search_content.__name__, err).to_str()
 
-    def write(self, file_path: str, old_str: str, new_str: str, encoding: str = "utf-8",
-              start_line: int = None, end_line: int = None) -> str:
-        """在工作区文件中精确替换字符串，支持通过start_line/end_line参数限制替换行范围(行号从1开始)，
-返回替换次数或详细错误指导；当文件不存在时自动创建文件，
-替换失败时会提示使用read_file/read_file_lines重新确认内容。"""
+    def write(
+        self,
+        file_path: str,
+        old_str: str,
+        new_str: str,
+        encoding: str = "utf-8",
+        start_line: int | None = None,
+        end_line: int | None = None,
+    ) -> str:
+        """在工作区文件中精确替换字符串,支持通过start_line/end_line参数限制替换行范围(行号从1开始),
+        返回替换次数或详细错误指导;当文件不存在时自动创建文件,
+        替换失败时会提示使用read_file/read_file_lines重新确认内容."""
         try:
             path = self.path_validator.validate(file_path, create_file_if_not_exist=True)
 
@@ -278,15 +285,13 @@ class Workspace:
 
                 if invalid_lines:
                     error_msg = (
-                        f"错误:行范围无效 - {', '.join(invalid_lines)}\n"
-                        f"文件总行数: {total_lines}\n"
-                        f"请调整行范围后重试"
+                        f"错误:行范围无效 - {', '.join(invalid_lines)}\n文件总行数: {total_lines}\n请调整行范围后重试"
                     )
                     return error_msg
 
                 # 提取指定行范围的内容
-                target_lines = lines[start_line - 1:end_line]
-                target_content = ''.join(target_lines)
+                target_lines = lines[start_line - 1 : end_line]
+                target_content = "".join(target_lines)
 
                 # 在目标范围内搜索要替换的字符串
                 if old_str not in target_content:
@@ -309,8 +314,8 @@ class Workspace:
                 count = target_content.count(old_str)
 
                 # 重新组装文件内容
-                new_lines = lines[:start_line - 1] + [new_target_content] + lines[end_line:]
-                new_content = ''.join(new_lines)
+                new_lines = [*lines[: start_line - 1], new_target_content, *lines[end_line:]]
+                new_content = "".join(new_lines)
 
             else:
                 # 没有行范围限制,全局替换

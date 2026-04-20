@@ -66,7 +66,7 @@ def parse_input(user_input: str) -> CommandResult:
                 func_kwargs={"name": parts[1]},
                 raw_input=user_input,
             )
-        if cmd in ("/prompt",):
+        if cmd in ("/prompt", "/pmt"):
             return CommandResult(is_command=True, command_type="prompt", raw_input=user_input)
         if cmd in ("/workspace", "/ws"):
             return CommandResult(is_command=True, command_type="workspace", raw_input=user_input)

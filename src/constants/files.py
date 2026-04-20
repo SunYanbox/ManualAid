@@ -1,0 +1,20 @@
+# 文件扩展名到语言的映射
+EXTENSION_TO_LANGUAGE = {
+    ".py": "python",
+    ".js": "javascript",
+    ".ts": "typescript",
+    ".jsx": "javascript",
+    ".tsx": "typescript",
+    ".json": "json",
+    ".html": "html",
+    ".css": "css",
+    ".md": "markdown",
+    ".yml": "yaml",
+    ".yaml": "yaml",
+    ".toml": "toml",
+    ".sh": "bash",
+    ".sql": "sql",
+    ".xml": "xml",
+    ".ini": "ini",
+    ".cfg": "ini",
+}
