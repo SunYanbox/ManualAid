@@ -197,7 +197,3 @@ class ToolHandler:
 
         # Show brief message
         self.console.print(f"[dim]✓ Result ##{entry.index} added to viewer.[/dim]")
-
-        # Auto-copy notification
-        if self.result_manager.AUTO_COPY:
-            self.console.print("[dim](Auto-copied to clipboard)[/dim]")

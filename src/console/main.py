@@ -55,6 +55,7 @@ def main() -> None:
     workspace = init_workspace(args.path)
     if workspace:
         result_manager = ResultManager()
+        result_manager.console = console
         repl = REPL(workspace, tool_registry, result_manager, console)
         repl.run()
 

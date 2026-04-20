@@ -105,8 +105,6 @@ class PromptCommand(Command):
             + f"[yellow]({lines_count} lines)[/yellow]"
         )
 
-        context.result_manager.add(f"/{self.name}", prompt)
-
         add_to_viewer(str(entry.index), title, prompt, "markdown")
         context.console.print(f"[dim]✓ Tool prompt ##{entry.index} added to viewer.[/dim]")
         return CommandResult(success=True)
@@ -131,8 +129,6 @@ class WorkspaceCommand(Command):
             f"[bold cyan]##{entry.index}[/bold cyan] [bold green]workspace_prompt[/bold green]"
             + f" [yellow]({lines_count} lines)[/yellow]"
         )
-
-        context.result_manager.add(f"/{self.name}", prompt)
 
         add_to_viewer(str(entry.index), title, prompt)
         context.console.print(f"[dim]✓ Workspace prompt ##{entry.index} added to viewer.[/dim]")

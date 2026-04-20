@@ -3,6 +3,8 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
+from rich.console import Console
+
 
 @dataclass
 class ResultEntry:
@@ -56,6 +58,7 @@ class ResultManager:
     """Result history manager (in-memory) with auto-cleanup"""
 
     def __init__(self):
+        self.console: Console | None = None
         self._history: list[ResultEntry] = []
         self._next_index: int = 1
         self.EXPIRE_MINUTES = float(os.getenv("RESULT_EXPIRE_MINUTES", "5"))
@@ -77,6 +80,10 @@ class ResultManager:
 
         if self.AUTO_COPY:
             self.copy_to_clipboard(entry.index)
+            if self.console is not None:
+                self.console.print("[dim](Auto-copied to clipboard)[/dim]")
+            else:
+                print("Auto-copied to clipboard")
 
         return entry
 
