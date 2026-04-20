@@ -198,5 +198,5 @@ class ToolHandler:
         self.console.print(f"[dim]✓ Result ##{entry.index} added to viewer.[/dim]")
 
         # Auto-copy notification
-        if self.result_manager.AUTO_COPY and not func_name.startswith(("tool_prompt", "workspace_prompt")):
+        if self.result_manager.AUTO_COPY:
             self.console.print("[dim](Auto-copied to clipboard)[/dim]")

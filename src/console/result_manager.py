@@ -75,7 +75,7 @@ class ResultManager:
         self._next_index += 1
         self._cleanup_expired()
 
-        if self.AUTO_COPY and not func_name.startswith(("tool_prompt", "workspace_prompt")):
+        if self.AUTO_COPY:
             self.copy_to_clipboard(entry.index)
 
         return entry

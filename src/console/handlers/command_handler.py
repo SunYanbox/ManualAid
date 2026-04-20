@@ -54,4 +54,8 @@ class CommandHandler:
         if not result.success and result.message:
             self.console.print(f"[red]Error: {result.message}[/red]")
 
+        # Auto-copy notification
+        if self.result_manager.AUTO_COPY:
+            self.console.print("[dim](Auto-copied to clipboard)[/dim]")
+
         return result.success
