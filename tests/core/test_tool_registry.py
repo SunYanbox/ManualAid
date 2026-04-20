@@ -14,6 +14,21 @@ LIST_TRUNCATE_THRESHOLD = int(os.getenv("TOOL_LIST_TRUNCATE_THRESHOLD", "100"))
 DICT_TRUNCATE_THRESHOLD = int(os.getenv("TOOL_DICT_TRUNCATE_THRESHOLD", "100"))
 
 
+# noinspection PyProtectedMember
+@pytest.fixture(autouse=True)
+def isolate_tool_registry():
+    """自动在每个测试前后隔离 ToolRegistry 单例"""
+    # 保存原始实例
+    original_instance = ToolRegistry._instance
+
+    # 重置为 None，让每个测试获得新实例
+    ToolRegistry._instance = None
+
+    yield
+
+    # 测试后恢复
+    ToolRegistry._instance = original_instance
+
 def test_in_wrapper():
     registry = ToolRegistry()
 
@@ -26,8 +41,6 @@ def test_in_wrapper():
 
 def test_validate_config():
     """测试配置验证 - 一次性测试所有阈值"""
-    obj = ToolRegistry._instance
-    ToolRegistry._instance = None
     config = ToolRegistry()
 
     # 设置所有值为过小
@@ -49,8 +62,6 @@ def test_validate_config():
     assert config.MAX_RESULT_LENGTH == 100
     assert config.LIST_TRUNCATE_THRESHOLD == 50
     assert config.DICT_TRUNCATE_THRESHOLD == 50
-
-    ToolRegistry._instance = obj
 
 
 def test_tool_registry_singleton():
