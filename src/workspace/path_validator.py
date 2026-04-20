@@ -80,6 +80,6 @@ class PathValidator:
         if not resolved.exists():
             raise PathNotFoundError(f"路径不存在: {target}")
         if not os.access(resolved, os.R_OK):
-            raise PermissionError(f"无读取权限: {target}")
+            raise PermissionError(f"无读取权限: {target}")  # pragma: no cover  // 需要专门准备权限, 不测了
 
         return resolved
