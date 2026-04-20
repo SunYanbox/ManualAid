@@ -21,13 +21,14 @@ def isolate_tool_registry():
     # 保存原始实例
     original_instance = ToolRegistry._instance
 
-    # 重置为 None，让每个测试获得新实例
+    # 重置为 None,让每个测试获得新实例
     ToolRegistry._instance = None
 
     yield
 
     # 测试后恢复
     ToolRegistry._instance = original_instance
+
 
 def test_in_wrapper():
     registry = ToolRegistry()

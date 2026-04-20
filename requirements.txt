@@ -13,3 +13,5 @@ rich==15.0.0
 ruff==0.15.11
 
 nest-asyncio
+pyperclip
+keyboard

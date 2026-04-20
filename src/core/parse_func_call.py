@@ -10,6 +10,6 @@ def parse_func_call(content: str) -> tuple[str, list[Any], dict[str, Any]]:
         raise ValueError("函数调用json必须包含在<func_call></func_call>标签中")
     result: dict = json.loads(content.replace("<func_call>", "").replace("</func_call>", ""))
     func_name: str = result["func_name"]
-    func_args: list = result["args"]
-    func_kwargs: dict = result["kwargs"]
+    func_args: list = result.get("args", [])
+    func_kwargs: dict = result.get("kwargs", {})
     return func_name, func_args, func_kwargs

@@ -27,7 +27,7 @@ class ToolInfo:
 
     def to_markdown(self) -> str:
         """转换为Markdown格式"""
-        return f'<func_name="{self.name}" params={self.params} doc="{self.doc}" />'
+        return f'<func_name="{self.name}" params={extract_params(self.func)} doc="{self.doc}" />'
 
 
 def extract_params(func: Callable[..., Any]) -> dict[str, Any]:
