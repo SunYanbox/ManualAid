@@ -20,6 +20,14 @@ def _generate_tool_prompt(context: CommandContext) -> str:
         "4. NEVER hallucinate tool return values. NEVER proceed without actual results.",
         "5. If a tool call fails or returns empty, ask the user for clarification.",
         "",
+        "## JSON FORMATTING & ESCAPING (CRITICAL)",
+        "The content inside <func_call> MUST be valid JSON.",
+        '- Double quotes inside strings MUST be escaped with backslash: \\"',
+        "- Backslashes MUST be escaped: \\\\",
+        "- Newlines MUST be escaped: \\n",
+        "- Example: {'old_str': 'He said \\\"hi\\\"'} is CORRECT.",
+        "- Example: {'old_str': 'He said \"hi\"'} is WRONG and will fail.",
+        "",
         "Tool call format:",
         "```txt",
         '<func_call>{"func_name": "tool_name", "args": [...], "kwargs": {...}}</func_call>',
@@ -59,6 +67,14 @@ def _generate_workspace_prompt(context: CommandContext) -> str:
             with open(agents_md, encoding="utf-8") as f:
                 prompt += f.read() + "\n"
             break
+
+    prompt += (
+        "\n# SYSTEM CONSTRAINTS\n"
+        "- You are a semi-automated assistant. You DO NOT have direct access to the file system or web.\n"
+        "- You MUST rely on tools provided by the user.\n"
+        "- AFTER emitting all <func_call> block you need, you MUST STOP generating text immediately.\n"
+        "- Do NOT say 'Here is the result' or simulate the result. WAIT for the user to paste the output.\n"
+    )
 
     # 仓库元数据
     prompt += (

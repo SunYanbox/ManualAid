@@ -6,22 +6,6 @@ from rich.panel import Panel
 from rich.table import Table
 
 from src.console.commands.base import Command, CommandContext, CommandResult
-from src.constants.commands import HELP_MESSAGE
-
-
-class HelpCommand(Command):
-    """Show help message"""
-
-    def __init__(self):
-        super().__init__()
-        self.name = "help"
-        self.aliases = ["/help", "/h", "/?"]
-        self.description = "Show help message"
-        self.usage = "/help or /h or /?"
-
-    def execute(self, context: CommandContext) -> CommandResult:
-        context.console.print(Panel(HELP_MESSAGE, title="Help"))
-        return CommandResult(success=True)
 
 
 class QuitCommand(Command):

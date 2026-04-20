@@ -2,19 +2,63 @@
 
 from typing import TYPE_CHECKING
 
-from rich.console import Console
+from rich.console import Console, Group
 from rich.panel import Panel
 from rich.prompt import Prompt
+from rich.table import Table
+from rich.text import Text
 
+from src.console.commands.base import Command, CommandContext, CommandResult
+from src.console.commands.registry import CommandRegistry
 from src.console.handlers.command_handler import CommandHandler
 from src.console.handlers.tool_handler import ToolHandler
 from src.console.input_parser import parse_input
-from src.constants.commands import HELP_MESSAGE
 
 if TYPE_CHECKING:
     from src.console.result_manager import ResultManager
     from src.core.tool_registry import ToolRegistry
     from src.workspace.workspace import Workspace
+
+
+def generate_help(cmds: list[Command]) -> Panel:
+    table: Table = Table(show_header=True, title="Available Commands", header_style="bold magenta")
+    table.add_column("Name", style="cyan", no_wrap=True)
+    table.add_column("Aliases", style="cyan", no_wrap=True)
+    table.add_column("Description", style="cyan", no_wrap=True)
+    table.add_column("Usage", style="cyan", no_wrap=True)
+    for cmd in cmds:
+        alias_list = [f"[italic magenta]{a.strip()}[/]" for a in cmd.aliases]
+        table.add_row(
+            cmd.name, " | ".join(alias_list), f"[grey85]{cmd.description}[/grey85]", f"[green]{cmd.usage}[/green]"
+        )
+    tools_hint = Text()
+    tools_hint.append("\n")
+    tools_hint.append("Tools: \n", style="bold cyan")
+    tools_hint.append("Use Tools with XML tags like: \n", style="dim")
+    tools_hint.append(
+        '<func_call>{"func_name": "tool_name", "args": [...], "kwargs": {...}}</func_call>\n', style="yellow bold"
+    )
+
+    renderable = Group(table, tools_hint)
+
+    panel = Panel(renderable, title="Help", border_style="white")
+    return panel
+
+
+class HelpCommand(Command):
+    """Show help message"""
+
+    def __init__(self, cmd_registry: CommandRegistry):
+        super().__init__()
+        self.name = "help"
+        self.aliases = ["/help", "/h", "/?"]
+        self.description = "Show help message"
+        self.usage = "/help or /h or /?"
+        self.cmd_registry = cmd_registry
+
+    def execute(self, context: CommandContext) -> CommandResult:
+        context.console.print(generate_help(self.cmd_registry.list_commands()))
+        return CommandResult(success=True)
 
 
 class REPL:
@@ -35,6 +79,7 @@ class REPL:
         self.console = console
 
         self.command_handler = CommandHandler(workspace, tool_registry, result_manager, console)
+        self.command_handler.registry.register(HelpCommand(self.command_handler.registry))
         self.tool_handler = ToolHandler(tool_registry, result_manager, console)
 
     def run(self) -> None:
@@ -59,7 +104,7 @@ class REPL:
         title_text = f"[bold green]{self.CONSOLE_TITLE}[/bold green] - Workspace: {self.workspace.root_path}"
         self.console.print(Panel(title_text, title=self.CONSOLE_TITLE))
         self.console.print(f"[dim]Workspace: {self.workspace.root_path}[/dim]")
-        self.console.print(HELP_MESSAGE)
+        self.console.print(generate_help(self.command_handler.registry.list_commands()))
         self.console.print("[dim]Type /help for commands, /quit to exit.[/dim]\n")
 
     def _read_multiline_input(self) -> str:

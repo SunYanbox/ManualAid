@@ -31,9 +31,9 @@ class CommandRegistry:
             return command.execute(context)
         return CommandResult(success=False, message=f"Unknown command: {command_type}")
 
-    def list_commands(self) -> list[tuple[str, list[str], str]]:
+    def list_commands(self) -> list[Command]:
         """List all registered commands with their aliases and descriptions"""
-        return [(cmd.name, cmd.aliases, cmd.description) for cmd in self._commands]
+        return self._commands
 
     @classmethod
     def create_default(cls) -> "CommandRegistry":
@@ -46,7 +46,6 @@ class CommandRegistry:
             ViewRemoveCommand,
         )
         from src.console.commands.system_commands import (
-            HelpCommand,
             QuitCommand,
             ToolDetailCommand,
             ToolsCommand,
@@ -59,7 +58,6 @@ class CommandRegistry:
         registry = cls()
         registry.register_many(
             [
-                HelpCommand(),
                 QuitCommand(),
                 ToolsCommand(),
                 ToolDetailCommand(),
