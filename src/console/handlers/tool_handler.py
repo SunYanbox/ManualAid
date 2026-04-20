@@ -125,7 +125,11 @@ class ToolHandler:
                 all_func_args.append(func_args)
                 all_func_kwargs.append(func_kwargs)
             except json.JSONDecodeError as json_err:
-                self.console.print(f"[yellow] Json decode error: {json_err}[/yellow]")
+                error_detail = (
+                    f"[yellow]JSON decode error at position {json_err.pos}: {json_err.msg}\n"
+                    f"问题位置快照: ...{m[max(0, json_err.pos - 60):json_err.pos + 60]}...[/yellow]"
+                )
+                self.console.print(error_detail)
                 continue
             except Exception as e:
                 self.console.print(f"[red]Parse error: {e}[/red]")
