@@ -105,13 +105,13 @@ class TestWorkspace(unittest.TestCase):
         """测试列出非目录路径."""
         result = self.workspace.ls("test.txt")
         self.assertIsInstance(result, str)
-        self.assertIn("tool_name=read_file", result)
+        self.assertIn("tool_name=ls", result)
 
     def test_ls_outside_workspace(self):
         """测试列出工作区外的目录."""
         result = self.workspace.ls("../../etc")
         self.assertIsInstance(result, str)
-        self.assertIn("tool_name=read_file", result)
+        self.assertIn("tool_name=ls", result)
         self.assertIn("WorkspaceBoundaryError", result)
 
     def test_glob_pattern(self):

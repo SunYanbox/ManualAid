@@ -33,9 +33,10 @@ def isolate_tool_registry():
 def test_in_wrapper():
     registry = ToolRegistry()
 
-    @registry.register(name="add")
-    def add(a: int, b: int) -> int:
-        return a + b
+    with pytest.warns(UserWarning):
+        @registry.register(name="add")
+        def add(a: int, b: int) -> int:
+            return a + b
 
     assert add(3, 2) == 5
 
@@ -328,6 +329,7 @@ def test_repr():
 
     @registry.register(name="a")
     def a():
+        """a"""
         pass
 
     repr_str = repr(registry)
@@ -496,6 +498,7 @@ def test_with_raise_register():
 
     @registry.register()
     def func() -> int:
+        """a"""
         raise ValueError("Test Error")
 
     assert "ValueError" in registry.execute("func")
