@@ -91,7 +91,7 @@ class PromptCommand(Command):
     def __init__(self):
         super().__init__()
         self.name = "prompt"
-        self.aliases = ["prompt", "pmt"]
+        self.aliases = ["/prompt", "/pmt"]
         self.description = "Generate tool call prompt"
         self.usage = "/prompt or /pmt"
 
@@ -105,7 +105,7 @@ class PromptCommand(Command):
             + f"[yellow]({lines_count} lines)[/yellow]"
         )
 
-        context.result_manager.add(f'/{self.name}', prompt)
+        context.result_manager.add(f"/{self.name}", prompt)
 
         add_to_viewer(str(entry.index), title, prompt, "markdown")
         context.console.print(f"[dim]✓ Tool prompt ##{entry.index} added to viewer.[/dim]")
@@ -118,7 +118,7 @@ class WorkspaceCommand(Command):
     def __init__(self):
         super().__init__()
         self.name = "workspace"
-        self.aliases = ["workspace", "/ws"]
+        self.aliases = ["/workspace", "/ws"]
         self.description = "Generate workspace metadata prompt"
         self.usage = "/workspace or /ws"
 
@@ -132,7 +132,7 @@ class WorkspaceCommand(Command):
             + f" [yellow]({lines_count} lines)[/yellow]"
         )
 
-        context.result_manager.add(f'/{self.name}', prompt)
+        context.result_manager.add(f"/{self.name}", prompt)
 
         add_to_viewer(str(entry.index), title, prompt)
         context.console.print(f"[dim]✓ Workspace prompt ##{entry.index} added to viewer.[/dim]")

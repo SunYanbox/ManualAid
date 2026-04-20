@@ -92,7 +92,7 @@ class REPL:
             if not user_input.strip():
                 continue
 
-            parsed = parse_input(user_input)
+            parsed = parse_input(user_input, self.command_handler.registry)
 
             if parsed.is_command:
                 self.command_handler.handle(parsed)

@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from rich.console import Console
 
-from src.console.commands.base import CommandContext
+from src.console.commands.base import CommandContext, CommandParseResult
 from src.console.commands.registry import CommandRegistry
 
 if TYPE_CHECKING:
@@ -29,11 +29,11 @@ class CommandHandler:
         self.console = console
         self.registry = CommandRegistry.create_default()
 
-    def handle(self, parsed_input) -> bool:
+    def handle(self, parsed_input: CommandParseResult) -> bool:
         """Handle a parsed command input
 
         Args:
-            parsed_input: CommandResult from input_parser
+            parsed_input: CommandParseResult from input_parser
 
         Returns:
             True if handled successfully, False otherwise

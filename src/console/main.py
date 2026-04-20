@@ -1,7 +1,8 @@
 """ManualAid Console - Rich-based TUI console tool"""
+
 import argparse
-from pathlib import Path
 import sys
+from pathlib import Path
 
 from rich.console import Console
 
@@ -48,11 +49,7 @@ def init_workspace(start_path: str | None = None) -> Workspace | None:
 def main() -> None:
     """Main entry point"""
     parser = argparse.ArgumentParser(description="ManualAid Console - Rich-based TUI console tool")
-    parser.add_argument(
-        "-p", "--path",
-        type=str,
-        help="Working directory path (skips folder picker dialog)"
-    )
+    parser.add_argument("-p", "--path", type=str, help="Working directory path (skips folder picker dialog)")
     args = parser.parse_args()
 
     workspace = init_workspace(args.path)

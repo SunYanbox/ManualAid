@@ -12,6 +12,19 @@ if TYPE_CHECKING:
 
 
 @dataclass
+class CommandParseResult:
+    """命令解析结果"""
+
+    source: str
+    is_command: bool
+    command_type: str | None = None
+    func_name: str | None = None
+    func_args: list[Any] | None = None
+    func_kwargs: dict[str, Any] | None = None
+    raw_input: str = ""
+
+
+@dataclass
 class CommandContext:
     """Command execution context"""
 
@@ -19,7 +32,7 @@ class CommandContext:
     tool_registry: "ToolRegistry"
     result_manager: "ResultManager"
     console: "Console"
-    parsed_input: Any  # CommandResult from input_parser
+    parsed_input: CommandParseResult
 
 
 @dataclass

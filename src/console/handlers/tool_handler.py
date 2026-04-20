@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from rich.console import Console
 
+from src.console.commands.base import CommandParseResult
 from src.console.interactive_viewer import add_to_viewer, run_viewer
 from src.constants.files import EXTENSION_TO_LANGUAGE
 from src.core.parse_func_call import parse_func_call
@@ -95,11 +96,11 @@ class ToolHandler:
         self.result_manager = result_manager
         self.console = console
 
-    def handle(self, parsed_input) -> bool:
+    def handle(self, parsed_input: CommandParseResult) -> bool:
         """Handle a parsed tool call input
 
         Args:
-            parsed_input: CommandResult from input_parser
+            parsed_input: CommandParseResult from input_parser
 
         Returns:
             True if handled successfully, False otherwise
@@ -127,7 +128,7 @@ class ToolHandler:
             except json.JSONDecodeError as json_err:
                 error_detail = (
                     f"[yellow]JSON decode error at position {json_err.pos}: {json_err.msg}\n"
-                    f"问题位置快照: ...{m[max(0, json_err.pos - 60):json_err.pos + 60]}...[/yellow]"
+                    f"问题位置快照: ...{m[max(0, json_err.pos - 60) : json_err.pos + 60]}...[/yellow]"
                 )
                 self.console.print(error_detail)
                 continue

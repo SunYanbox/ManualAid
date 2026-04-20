@@ -63,7 +63,12 @@ class ToolDetailCommand(Command):
         self.usage = "/tool <name>"
 
     def execute(self, context: CommandContext) -> CommandResult:
-        name = context.parsed_input.func_kwargs.get("name")
+        parts = context.parsed_input.source.split()
+        if len(parts) >= 2:
+            name = parts[1]
+        else:
+            return CommandResult(success=False, message=f"Input cmd cant parse func name: '{context.parsed_input}'")
+
         if not name:
             return CommandResult(success=False, message="Tool name required")
 
