@@ -49,6 +49,7 @@ class CommandRegistry:
             ViewRemoveCommand,
         )
         from src.console.commands.system_commands import (
+            ClsCommand,
             QuitCommand,
             ToolDetailCommand,
             ToolsCommand,
@@ -62,6 +63,7 @@ class CommandRegistry:
         registry.register_many(
             [
                 QuitCommand(),
+                ClsCommand(),
                 ToolsCommand(),
                 ToolDetailCommand(),
                 CopyCommand(),

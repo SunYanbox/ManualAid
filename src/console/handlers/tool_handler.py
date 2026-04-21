@@ -149,9 +149,9 @@ class ToolHandler:
 
                 # 避免多参数工具的返回值过于占上下文
                 if len(parms) > 120:
-                    parms = parms[:117] + '...'
+                    parms = parms[:117] + "..."
 
-                parms += '}'
+                parms += "}"
 
                 temp_result = [
                     "",
