@@ -345,7 +345,7 @@ class FullwidthChecker:
         for issue in self.issues:
             files_dict.setdefault(issue["file"], []).append(issue)
 
-        console.print("\n[bold yellow]🔧 准备修复 " + "{len(files_dict)} 个文件...[/bold yellow]\n")
+        console.print("\n[bold yellow]🔧 准备修复 " + f"{len(files_dict)} 个文件...[/bold yellow]\n")
 
         fixed_count = 0
         with Progress(

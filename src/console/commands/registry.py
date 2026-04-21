@@ -38,6 +38,9 @@ class CommandRegistry:
     @classmethod
     def create_default(cls) -> "CommandRegistry":
         """Create and populate a registry with default commands"""
+        from src.console.commands.launch_commands import (
+            NewWindowCommand,
+        )
         from src.console.commands.result_commands import (
             CopyCommand,
             HistoryCommand,
@@ -68,6 +71,7 @@ class CommandRegistry:
                 ViewRemoveCommand(),
                 PromptCommand(),
                 WorkspaceCommand(),
+                NewWindowCommand(),
             ]
         )
         return registry
