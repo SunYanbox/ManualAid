@@ -4,46 +4,17 @@ import os
 import threading
 import warnings
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
-from functools import wraps
 from typing import Any, ClassVar, ParamSpec, Self, TypeVar
 
 import nest_asyncio
+
+from src.workspace.tools.base_tool import BaseTool
+from src.workspace.workspace import Workspace
 
 P = ParamSpec("P")
 T = TypeVar("T")
 AsyncFunc = Callable[P, Awaitable[T]]
 SyncFunc = Callable[P, T]
-
-
-@dataclass
-class ToolInfo:
-    """工具信息数据类"""
-
-    name: str
-    func: Callable[..., Any]
-    params: dict[str, Any]
-    doc: str
-
-    def to_markdown(self) -> str:
-        """转换为Markdown格式"""
-        return f'<func_name="{self.name}" params={extract_params(self.func)} doc="{self.doc}" />'
-
-
-def extract_params(func: Callable[..., Any]) -> dict[str, Any]:
-    """提取函数参数信息"""
-    sig = inspect.signature(func)
-    params = {}
-    for param_name, param in sig.parameters.items():
-        if param_name not in ("self", "cls"):
-            param_info = {
-                "required": param.default == inspect.Parameter.empty,
-                "annotation": str(param.annotation) if param.annotation != inspect.Parameter.empty else "Any",
-            }
-            if param.default != inspect.Parameter.empty:
-                param_info["default"] = repr(param.default)
-            params[param_name] = param_info
-    return params
 
 
 class ToolRegistry:
@@ -70,7 +41,7 @@ class ToolRegistry:
         if self._initialized:
             return
 
-        self._tools: dict[str, ToolInfo] = {}
+        self._tools: dict[str, BaseTool] = {}
         self._initialized = True
 
         # 配置常量 - 从环境变量读取,带默认值
@@ -117,59 +88,25 @@ class ToolRegistry:
         if len(name) > self.MAX_FUNC_NAME_LENGTH:
             warnings.warn(f"工具名称 '{name}' 超过 {self.MAX_FUNC_NAME_LENGTH} 字符", UserWarning, stacklevel=3)
 
-    def register(self, name: str | None = None, doc: str | None = None) -> Callable[[SyncFunc[P, T]], SyncFunc[P, T]]:
-        """
-        注册同步函数的装饰器
+    def register(self, workspace: Workspace) -> None:
+        """为工作区注册工具"""
+        from src.workspace.tools.exact_search_tool import ExactSearchTool
+        from src.workspace.tools.glob_tool import GlobTool
+        from src.workspace.tools.ls_tool import LsTool
+        from src.workspace.tools.read_lines_tool import ReadLinesTool
+        from src.workspace.tools.read_tool import ReadTool
+        from src.workspace.tools.regex_search_tool import RegexSearchTool
+        from src.workspace.tools.write_tool import WriteTool
 
-        Args:
-            name: 工具名称,默认为函数名
-            doc: 文档描述,默认为函数docstring
-
-        Example:
-            @registry.register(name="my_tool", doc="这是一个示例工具")
-            def example(a: int, b: str = "default") -> str:
-                return f"{a}_{b}"
-        """
-
-        def decorator(func: SyncFunc[P, T]) -> SyncFunc[P, T]:
-            tool_name = name if name is not None else func.__name__
-            tool_doc = doc if doc is not None else inspect.getdoc(func) or ""
-
-            self._validate_tool_info(tool_name, tool_doc)
-
-            params = extract_params(func)
-
-            tool_info = ToolInfo(name=tool_name, func=func, params=params, doc=tool_doc)
-
-            self._tools[tool_name] = tool_info
-
-            @wraps(func)
-            def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
-                return func(*args, **kwargs)
-
-            return wrapper
-
-        return decorator
-
-    def register_function(self, func: Callable[..., Any], name: str | None = None, doc: str | None = None) -> None:
-        """
-        直接注册函数(非装饰器方式)
-
-        Args:
-            func: 要注册的函数
-            name: 工具名称,默认为函数名
-            doc: 文档描述,默认为函数docstring
-        """
-        tool_name = name if name is not None else func.__name__
-        tool_doc = doc if doc is not None else inspect.getdoc(func) or ""
-
-        self._validate_tool_info(tool_name, tool_doc)
-
-        params = extract_params(func)
-
-        tool_info = ToolInfo(name=tool_name, func=func, params=params, doc=tool_doc)
-
-        self._tools[tool_name] = tool_info
+        for cls in (ExactSearchTool, GlobTool, LsTool, ReadLinesTool, ReadTool, RegexSearchTool, WriteTool):
+            try:
+                tool = cls(workspace)
+                if tool.func is None or tool.params is None:
+                    warnings.warn(f"工具{tool.name}没有注册功能回调和参数", stacklevel=2)
+                    continue
+                self._tools[tool.name] = tool
+            except ValueError:
+                pass
 
     def _compress_result(self, result: Any) -> Any:
         """压缩过长的结果"""
@@ -243,7 +180,7 @@ class ToolRegistry:
         """列出所有已注册的工具"""
         return {"sync": list(self._tools.keys())}
 
-    def get_tool_info(self, name: str) -> ToolInfo | None:
+    def get_tool_info(self, name: str) -> BaseTool | None:
         """获取工具信息"""
         return self._tools.get(name)
 

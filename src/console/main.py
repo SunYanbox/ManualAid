@@ -36,12 +36,7 @@ def init_workspace(start_path: str | None = None) -> Workspace | None:
 
     workspace: Workspace = Workspace(str(folder_path))
 
-    tool_registry.register_function(workspace.glob)
-    tool_registry.register_function(workspace.ls)
-    tool_registry.register_function(workspace.read_file)
-    tool_registry.register_function(workspace.write)
-    tool_registry.register_function(workspace.search_content)
-    tool_registry.register_function(workspace.read_file_lines)
+    tool_registry.register(workspace)
 
     return workspace
 
