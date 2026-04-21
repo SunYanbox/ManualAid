@@ -145,9 +145,17 @@ class ToolHandler:
                 else:
                     response_str = f"<not_support_result>{response.__class__.__name__}({response})</not_support_result>"
 
+                parms: str = f'{{"args":{func_args}, "kwargs":{func_kwargs}'
+
+                # 避免多参数工具的返回值过于占上下文
+                if len(parms) > 120:
+                    parms = parms[:117] + '...'
+
+                parms += '}'
+
                 temp_result = [
                     "",
-                    f"<func_result name={func_name} args={func_args} kwargs={func_kwargs}>",
+                    f"<func_result name={func_name} parms={parms}>",
                     response_str,
                     "</func_result>",
                     "",
