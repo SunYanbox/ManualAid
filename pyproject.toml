@@ -6,7 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
     "click>=8.3",
     "rich>=15.0",
-    "nest-asyncio",
+    "nest_asyncio",
     "pyperclip",
     "keyboard"
 ]
