@@ -12,11 +12,14 @@ from src.console.commands.registry import CommandRegistry
 from src.console.handlers.command_handler import CommandHandler
 from src.console.handlers.tool_handler import ToolHandler
 from src.console.input_parser import parse_input
+from src.core.paste_cache import PasteReference
+from src.core.paste_window import show_paste_window
 
 if TYPE_CHECKING:
     from src.console.result_manager import ResultManager
     from src.core.tool_registry import ToolRegistry
     from src.workspace.workspace import Workspace
+
 
 def _generate_help_text(cmds: list[Command]) -> str:
     """生成帮助文本,返回 Rich markup 字符串"""
@@ -149,10 +152,26 @@ class REPL(App):
         background: $boost;
     }
 
+    #input-container {
+        width: 1fr;
+    }
+
+    #button-area {
+        width: auto;
+        margin-left: 1;
+        margin-right: 0;
+        padding: 1;
+    }
+
     /* 提交按钮 */
     #submit-btn {
-        width: 5;
-        min-height: 2;
+        width: 1;
+        min-height: 1;
+    }
+
+    #big-paste-btn {
+        width: 1;
+        min-height: 1;
     }
 
     /* 隐藏 footer 中的 palette */
@@ -165,6 +184,7 @@ class REPL(App):
     BINDINGS: ClassVar[list] = [
         Binding("ctrl+q", "quit_confirm", "退出", show=True),
         Binding("ctrl+j", "submit_text", "提交", show=True),
+        Binding("alt+v", "paste_big_text", "粘贴大文本", show=True),
     ]
 
     def __init__(
@@ -181,6 +201,8 @@ class REPL(App):
         # handler 在 on_mount 中创建(此时控件树已就绪)
         self.command_handler: CommandHandler | None = None
         self.tool_handler: ToolHandler | None = None
+
+        self.paste_refence: PasteReference = PasteReference()
 
         # 多行输入缓冲区(用于 func_call 跨行输入)
         self._multiline_buffer: list[str] = []
@@ -200,7 +222,7 @@ class REPL(App):
 
         # 输入区域:水平布局,多行输入框 + 提交按钮
         with Horizontal(id="input-area"):
-            with Vertical():
+            with Vertical(id="input-container"):
                 yield Label(
                     "输入命令或 [yellow]<func_call>[/yellow] 标签,Ctrl+J 提交",
                     id="input-label",
@@ -210,7 +232,9 @@ class REPL(App):
                     language="python",
                     id="input-field",
                 )
-            yield Button("提交", id="submit-btn", variant="primary")
+            with Vertical(id="button-area"):
+                yield Button("提交", id="submit-btn", variant="primary")
+                yield Button("大文本粘贴", id="big-paste-btn", variant="primary")
 
         yield Footer(show_command_palette=False)
 
@@ -254,6 +278,8 @@ class REPL(App):
         """处理提交按钮点击"""
         if event.button.id == "submit-btn":
             self._do_submit()
+        if event.button.id == "big-paste-btn":
+            self.action_paste_big_text()
 
     def _do_submit(self) -> None:
         """从 TextArea 中取出文本并提交"""
@@ -266,8 +292,25 @@ class REPL(App):
         if not text.strip():
             return
 
+        text = self.paste_refence.expand(text)
+        self.paste_refence.clear()
+
         # 单行模式下直接分发
         self._dispatch(text)
+
+    def action_paste_big_text(self):
+        def on_paste_result(text: str):
+            if text:
+                self.call_from_thread(self._insert_paste_text, text)
+
+        show_paste_window(callback=on_paste_result)
+
+    def _insert_paste_text(self, text: str) -> None:
+        """在主线程中插入粘贴的文本"""
+        text_area = self.query_one("#input-field", TextArea)
+        if self.paste_refence.should_collapse(text):
+            text = self.paste_refence.collapsed(text)
+        text_area.insert(text)
 
     def action_submit_text(self) -> None:
         """Ctrl+Enter 提交文本"""
