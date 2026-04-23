@@ -69,7 +69,7 @@ class ToolsCommand(Command):
         for name in tools["sync"]:
             info = context.tool_registry.get_tool_info(name)
             if info and info.doc:
-                table.add_row(name, info.to_markdown())
+                table.add_row(name, info.to_doc())
 
         context.console.print(table)
         return CommandResult(success=True)

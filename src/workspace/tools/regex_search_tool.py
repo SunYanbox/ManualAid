@@ -85,7 +85,7 @@ class RegexSearchTool(BaseTool):
         pattern: str,
         path: str = ".",
         context: int = 3,
-        file_pattern: str = "*.ts",
+        file_pattern: str = "*",
         limit: int = 256,
         ignore: list[str] | None = None,
     ) -> str:

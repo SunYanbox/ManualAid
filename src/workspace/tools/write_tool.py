@@ -13,15 +13,15 @@ class WriteTool(BaseTool):
         self.func = self.write
         self.params = BaseTool.extract_params(self.write)
 
-    def write(self, path: str, context: str = "") -> str:
+    def write(self, file_path: str, content: str = "") -> str:
         try:
-            file_path: Path = self.workspace.path_validator.validate(path, create_file_if_not_exist=True)
+            file_path: Path = self.workspace.path_validator.validate(file_path, create_file_if_not_exist=True)
             if not file_path.is_file():
                 return ToolErrorResponse(
-                    self.__class__.__name__, f'"{path}"不是文件路径, 请检查是否输错了文件夹路径'
+                    self.__class__.__name__, f'"{file_path}"不是文件路径, 请检查是否输错了文件夹路径'
                 ).to_str()
             with open(file_path, mode="w", encoding="utf-8") as file:
-                file.write(context)
+                file.write(content)
             return "write success"
         except PathNotFoundError as err1:
             return ToolErrorResponse(self.__class__.__name__, err1).to_str()

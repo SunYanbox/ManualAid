@@ -13,13 +13,14 @@ class ReadLinesTool(BaseTool):
         self.func = self.read_lines
         self.params = BaseTool.extract_params(self.read_lines)
 
-    def read_lines(self, path: str, start: int, end: int, context: int = 2, encoding="utf-8") -> str:
+    def read_lines(self, file_path: str, start: int, end: int, context: int = 2, encoding="utf-8") -> str:
         try:
-            path: Path = self.workspace.path_validator.validate(path)
-            content = ToolErrorResponse(self.__class__.__name__, f"读取文件{path}时未读取到完整文件").to_str()
+            path: Path = self.workspace.path_validator.validate(file_path)
 
             if not path.is_file():
-                return ToolErrorResponse(self.__class__.__name__, ValueError(f"{path} is not a file")).to_str()
+                return ToolErrorResponse(
+                    self.__class__.__name__, ValueError(f"读取文件{path}时未读取到完整文件")
+                ).to_str()
 
             with open(path, encoding=encoding) as f:
                 lines = f.readlines()

@@ -46,7 +46,7 @@ def _generate_tool_prompt(context: CommandContext) -> str:
     for name in tools["sync"]:
         info = context.tool_registry.get_tool_info(name)
         if info:
-            prompt_parts.append(info.to_markdown())
+            prompt_parts.append(info.to_doc())
 
     return "\n".join(prompt_parts)
 

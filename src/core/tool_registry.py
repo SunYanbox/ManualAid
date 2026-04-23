@@ -172,7 +172,7 @@ class ToolRegistry:
             markdown_lines.append("## 工具\n")
             for tool in self._tools.values():
                 if tool.doc:  # 只包含有文档描述的工具
-                    markdown_lines.append(tool.to_markdown())
+                    markdown_lines.append(tool.to_doc())
 
         return "\n".join(markdown_lines)
 
