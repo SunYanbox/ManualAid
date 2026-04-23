@@ -18,10 +18,14 @@ def _generate_tool_prompt(context: CommandContext) -> str:
         "Available tools:",
     ]
 
+    docs = []
+
     for name in tools["sync"]:
         info = context.tool_registry.get_tool_info(name)
         if info:
-            prompt_parts.append(info.to_doc())
+            docs.append(info.to_doc())
+
+    prompt_parts = [*prompt_parts, "\n\n".join(docs)]
 
     return "\n".join(prompt_parts)
 
