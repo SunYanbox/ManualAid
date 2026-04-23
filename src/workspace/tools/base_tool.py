@@ -57,7 +57,7 @@ class BaseTool:
                 param_doc += f"\n<required_params>\n{'\n'.join(required_params)}\n</required_params>"
             if optional_params:
                 param_doc += f"\n<optional_params>\n{'\n'.join(optional_params)}\n</optional_params>"
-            param_doc += "</params>"
+            param_doc += "\n</params>"
         else:
             param_doc = "<No any params />"
         return f'<func_name="{self.name}">\n{param_doc}\n' + f'<doc>{self.doc}</doc>\n</func_name="{self.name}">'
