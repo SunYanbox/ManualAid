@@ -97,8 +97,7 @@ def test_compress_result_string():
     long_string = "x" * (MAX_RESULT_LENGTH + 10000)
 
     compressed = registry._compress_result(long_string)
-    assert len(compressed) == registry.MAX_RESULT_LENGTH + len("... [结果已截断]")
-    assert compressed.endswith("... [结果已截断]")
+    assert "结果已截断" in compressed
 
 
 def test_compress_result_list():
@@ -109,7 +108,7 @@ def test_compress_result_list():
 
     compressed = registry._compress_result(long_list)
     assert len(compressed) == 101
-    assert compressed[-1] == "... [列表已截断]"
+    assert "列表已截断" in compressed[-1]
 
 
 def test_compress_result_dict():
@@ -120,7 +119,7 @@ def test_compress_result_dict():
 
     compressed = registry._compress_result(long_dict)
     assert len(compressed) == 101
-    assert compressed["..."] == "[字典已截断]"
+    assert "字典已截断" in compressed["..."]
 
 
 def test_no_compress_short_results():

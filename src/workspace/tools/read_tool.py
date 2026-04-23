@@ -13,16 +13,16 @@ class ReadTool(BaseTool):
         self.func = self.read
         self.params = BaseTool.extract_params(self.read)
 
-    def read(self, file_path: str, max_size=0, encoding="utf-8") -> str:
+    def read(self, file_path: str, max_lines=0, encoding="utf-8") -> str:
         try:
             path: Path = self.workspace.path_validator.validate(file_path)
             content = ToolErrorResponse(self.__class__.__name__, f"读取文件{file_path}时未读取到完整文件").to_str()
-            if max_size > 0:
+            if max_lines > 0:
                 # 按行读取,只读取前 max_size 行
                 lines = []
                 with open(path, encoding=encoding) as f:
                     for i, line in enumerate(f):
-                        if i >= max_size:
+                        if i >= max_lines:
                             break
                         lines.append(line)
                 content = "".join(lines)

@@ -17,7 +17,7 @@ class LsTool(BaseTool):
         try:
             path: Path = self.workspace.path_validator.validate(folder_path)
             if not path.is_dir():
-                raise ValueError(f"{path} is not a directory")
+                return ToolErrorResponse(self.__class__.__name__, f'参数错误: "{path}"不是一个目录').to_str()
             return [
                 f"{'[Folder]' if item.is_dir() else '[File]'} {item.relative_to(self.workspace.root_path)}"
                 for item in path.iterdir()

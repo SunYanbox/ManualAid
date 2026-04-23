@@ -110,15 +110,22 @@ class ToolRegistry:
 
     def _compress_result(self, result: Any) -> Any:
         """压缩过长的结果"""
+        result_length = len(result)
         if isinstance(result, str):
-            if len(result) > self.MAX_RESULT_LENGTH:
-                return result[: self.MAX_RESULT_LENGTH] + "... [结果已截断]"
+            if result_length > self.MAX_RESULT_LENGTH:
+                return (
+                    result[: self.MAX_RESULT_LENGTH]
+                    + f"... [字符串结果已截断 显示的字符数: {self.LIST_TRUNCATE_THRESHOLD} / {result_length}]"
+                )
         elif isinstance(result, (list, tuple)):
-            if len(result) > self.LIST_TRUNCATE_THRESHOLD:
-                return [*list(result[: self.LIST_TRUNCATE_THRESHOLD]), "... [列表已截断]"]
-        elif isinstance(result, dict) and len(result) > self.DICT_TRUNCATE_THRESHOLD:
+            if result_length > self.LIST_TRUNCATE_THRESHOLD:
+                return [
+                    *list(result[: self.LIST_TRUNCATE_THRESHOLD]),
+                    f"... [列表已截断 显示的项: {self.LIST_TRUNCATE_THRESHOLD} / {result_length}]",
+                ]
+        elif isinstance(result, dict) and result_length > self.DICT_TRUNCATE_THRESHOLD:
             compressed = {k: result[k] for k in list(result.keys())[: self.DICT_TRUNCATE_THRESHOLD]}
-            compressed["..."] = "[字典已截断]"
+            compressed["..."] = f"[字典已截断 显示的项: {self.DICT_TRUNCATE_THRESHOLD} / {result_length}]"
             return compressed
 
         return result
