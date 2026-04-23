@@ -133,8 +133,20 @@ class ToolHandler:
                 self.console.print(error_detail)
                 continue
             except Exception as e:
-                self.console.print(f"[red]Parse error: {e}[/red]")
-                return False
+                error = f"无法解析输入: {m if len(m) < 120 else m[:117] + '...'}; Error={e.__class__.__name__}({e})"
+                self.console.print(f"[red]{error}[/red]")
+                summary = "\n".join(["", "<ErrorParse>", error, "/<ErrorParse>", ""])
+                results.append(summary)
+                continue
+
+            parms: str = f'{{"args":{func_args}, "kwargs":{func_kwargs}'
+
+            # 避免多参数工具的返回值过于占上下文
+            if len(parms) > 120:
+                parms = parms[:117] + "..."
+
+            parms += "}"
+
             # 执行
             try:
                 response = self.tool_registry.execute(func_name, *func_args, **func_kwargs)
@@ -145,14 +157,6 @@ class ToolHandler:
                 else:
                     response_str = f"<not_support_result>{response.__class__.__name__}({response})</not_support_result>"
 
-                parms: str = f'{{"args":{func_args}, "kwargs":{func_kwargs}'
-
-                # 避免多参数工具的返回值过于占上下文
-                if len(parms) > 120:
-                    parms = parms[:117] + "..."
-
-                parms += "}"
-
                 temp_result = [
                     "",
                     f"<func_result name={func_name} parms={parms}>",
@@ -162,8 +166,12 @@ class ToolHandler:
                 ]
                 results.append(str.join("\n", temp_result))
             except Exception as e:
-                self.console.print(f"[red]Execution error: {e}[/red]")
-                return False
+                error = f"执行工具{func_name}(参数={parms})时出现错误: Error={e.__class__.__name__}({e})"
+                self.console.print(f"[red]{error}[/red]")
+                summary = "\n".join(["", "<ErrorExecute>", error, "/<ErrorExecute>", ""])
+                results.append(summary)
+                self.console.print(f"[red]{error}[/red]")
+                continue
 
         result = str.join("\n", results)
 
