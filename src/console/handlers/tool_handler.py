@@ -5,8 +5,6 @@ import os
 import re
 from typing import TYPE_CHECKING, Any
 
-from rich.console import Console
-
 from src.console.commands.base import CommandParseResult
 from src.console.interactive_viewer import add_to_viewer, run_viewer
 from src.constants.files import EXTENSION_TO_LANGUAGE
@@ -90,7 +88,7 @@ class ToolHandler:
         self,
         tool_registry: "ToolRegistry",
         result_manager: "ResultManager",
-        console: Console,
+        console,
     ):
         self.tool_registry = tool_registry
         self.result_manager = result_manager

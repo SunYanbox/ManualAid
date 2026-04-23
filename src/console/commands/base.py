@@ -4,8 +4,6 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from rich.console import Console
-
     from src.console.result_manager import ResultManager
     from src.core.tool_registry import ToolRegistry
     from src.workspace.workspace import Workspace
@@ -31,7 +29,7 @@ class CommandContext:
     workspace: "Workspace"
     tool_registry: "ToolRegistry"
     result_manager: "ResultManager"
-    console: "Console"
+    console: Any
     parsed_input: CommandParseResult
 
 

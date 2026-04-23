@@ -1,8 +1,6 @@
-"""Command handler for dispatching and executing commands"""
+"""命令分发处理器"""
 
 from typing import TYPE_CHECKING
-
-from rich.console import Console
 
 from src.console.commands.base import CommandContext, CommandParseResult
 from src.console.commands.registry import CommandRegistry
@@ -14,14 +12,14 @@ if TYPE_CHECKING:
 
 
 class CommandHandler:
-    """Handler for processing console commands"""
+    """处理控制台命令的处理器"""
 
     def __init__(
         self,
         workspace: "Workspace",
         tool_registry: "ToolRegistry",
         result_manager: "ResultManager",
-        console: Console,
+        console,  # 接受任何实现了 print/clear 的对象(_TuiConsole 或 rich.console.Console)
     ):
         self.workspace = workspace
         self.tool_registry = tool_registry
@@ -30,14 +28,7 @@ class CommandHandler:
         self.registry = CommandRegistry.create_default()
 
     def handle(self, parsed_input: CommandParseResult) -> bool:
-        """Handle a parsed command input
-
-        Args:
-            parsed_input: CommandParseResult from input_parser
-
-        Returns:
-            True if handled successfully, False otherwise
-        """
+        """处理一条解析后的命令输入"""
         if not parsed_input.is_command:
             return False
 
@@ -52,6 +43,6 @@ class CommandHandler:
         result = self.registry.execute(parsed_input.command_type, context)
 
         if not result.success and result.message:
-            self.console.print(f"[red]Error: {result.message}[/red]")
+            self.console.print(f"[red]错误: {result.message}[/red]")
 
         return result.success
