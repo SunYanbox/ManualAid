@@ -54,10 +54,7 @@ class CommandRegistry:
             ToolDetailCommand,
             ToolsCommand,
         )
-        from src.console.commands.workspace_commands import (
-            PromptCommand,
-            WorkspaceCommand,
-        )
+        from src.console.commands.workspace_commands import WorkspaceCommand
 
         registry = cls()
         registry.register_many(
@@ -71,7 +68,6 @@ class CommandRegistry:
                 ViewCommand(),
                 ViewClearCommand(),
                 ViewRemoveCommand(),
-                PromptCommand(),
                 WorkspaceCommand(),
                 NewWindowCommand(),
             ]

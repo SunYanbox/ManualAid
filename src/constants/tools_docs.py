@@ -32,7 +32,7 @@ Write_TOOL_DOC = """
 LS_TOOL = ("ls", LS_TOOL_DOC, True, False)
 READ_TOOL = ("read", READ_TOOL_DOC, True, False)
 Glob_TOOL = ("glob", Glob_TOOL_DOC, True, False)
-ReadLines_TOOL = ("read_lines", READ_TOOL_DOC, True, False)
+ReadLines_TOOL = ("read_lines", ReadLines_TOOL_DOC, True, False)
 REGEX_SEARCH_TOOL = ("regex_search", REGEX_SEARCH_TOOL_DOC, True, False)
 EXACT_SEARCH_TOOL = ("exact_search", EXACT_SEARCH_TOOL_DOC, True, False)
 

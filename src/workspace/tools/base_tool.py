@@ -9,7 +9,7 @@ def _build_param_doc(name: str, params: dict[str, Any]) -> str:
     """根据名字和参数生成参数的xml标签"""
     result = f'<param name="{name}"'
     if "annotation" in params:
-        result += f' type="{params["annotation"].__class__.__name__}"'
+        result += f' type="{params["annotation"]}"'
     else:
         result += " type=unknown"
     if "default" in params:
