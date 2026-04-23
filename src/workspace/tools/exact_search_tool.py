@@ -2,7 +2,6 @@ import contextlib
 import re
 from pathlib import Path
 
-from src.constants.tools_docs import EXACT_SEARCH_TOOL
 from src.core.tool_error_response import ToolErrorResponse
 from src.workspace.path_validator import PathNotFoundError, WorkspaceBoundaryError
 from src.workspace.tools.base_tool import BaseTool
@@ -76,7 +75,7 @@ class ExactSearchTool(BaseTool):
     """精确搜索工具,用于安全审计"""
 
     def __init__(self, workspace: Workspace):
-        super().__init__(workspace, *EXACT_SEARCH_TOOL)
+        super().__init__(workspace, "exact_search", self.exact_search.__doc__)
         self.func = self.exact_search
         self.params = BaseTool.extract_params(self.exact_search)
 
@@ -90,7 +89,7 @@ class ExactSearchTool(BaseTool):
         ignore: list[str] | None = None,
     ) -> str:
         """
-        精确搜索文件内容(大小写敏感、全词匹配)
+        精确搜索字符串(支持大小写敏感/全词匹配)
 
         Args:
             pattern: 搜索字符串

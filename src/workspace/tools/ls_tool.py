@@ -1,6 +1,5 @@
 from pathlib import Path
 
-from src.constants.tools_docs import LS_TOOL
 from src.core.tool_error_response import ToolErrorResponse
 from src.workspace.path_validator import PathNotFoundError, WorkspaceBoundaryError
 from src.workspace.tools.base_tool import BaseTool
@@ -9,11 +8,14 @@ from src.workspace.workspace import Workspace
 
 class LsTool(BaseTool):
     def __init__(self, workspace: Workspace):
-        super().__init__(workspace, *LS_TOOL)
+        super().__init__(workspace, "ls", self.ls.__doc__)
         self.func = self.ls
         self.params = BaseTool.extract_params(self.ls)
 
     def ls(self, folder_path: str = ".") -> list[str] | str:
+        """
+        列出指定目录下的文件和文件夹. 返回相对路径列表, 并标记[Folder]或[File]
+        """
         try:
             path: Path = self.workspace.path_validator.validate(folder_path)
             if not path.is_dir():

@@ -1,6 +1,5 @@
 from pathlib import Path
 
-from src.constants.tools_docs import ReadLines_TOOL
 from src.core.tool_error_response import ToolErrorResponse
 from src.workspace.path_validator import PathNotFoundError, WorkspaceBoundaryError
 from src.workspace.tools.base_tool import BaseTool
@@ -9,11 +8,22 @@ from src.workspace.workspace import Workspace
 
 class ReadLinesTool(BaseTool):
     def __init__(self, workspace: Workspace):
-        super().__init__(workspace, *ReadLines_TOOL)
+        super().__init__(workspace, "read_lines", self.read_lines.__doc__)
         self.func = self.read_lines
         self.params = BaseTool.extract_params(self.read_lines)
 
     def read_lines(self, file_path: str, start: int, end: int, context: int = 2, encoding="utf-8") -> str:
+        """
+        读取文件的指定行范围(行号从1开始), 可指定上下文行数扩展返回的实际行数范围,返回带行号的格式化内容
+
+        Parameters
+        ----------
+        file_path: 文件路径
+        start: 开始行数
+        end: 结束行数
+        context: 扩展结果行数范围 行数范围最终为(start-context, end+context)
+        encoding: 编码
+        """
         try:
             path: Path = self.workspace.path_validator.validate(file_path)
 

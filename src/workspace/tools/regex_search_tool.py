@@ -2,7 +2,6 @@ import contextlib
 import re
 from pathlib import Path
 
-from src.constants.tools_docs import REGEX_SEARCH_TOOL
 from src.core.tool_error_response import ToolErrorResponse
 from src.workspace.path_validator import PathNotFoundError, WorkspaceBoundaryError
 from src.workspace.tools.base_tool import BaseTool
@@ -76,7 +75,7 @@ class RegexSearchTool(BaseTool):
     """正则表达式搜索工具"""
 
     def __init__(self, workspace: Workspace):
-        super().__init__(workspace, *REGEX_SEARCH_TOOL)
+        super().__init__(workspace, "regex_search", self.regex_search.__doc__)
         self.func = self.regex_search
         self.params = BaseTool.extract_params(self.regex_search)
 
@@ -90,18 +89,16 @@ class RegexSearchTool(BaseTool):
         ignore: list[str] | None = None,
     ) -> str:
         """
-        使用正则表达式搜索文件内容
+        使用正则表达式搜索文件内容, 支持上下文显示、文件过滤和忽略路径, 返回匹配详情; 适合代码与文档探索
 
-        Args:
-            pattern: 正则表达式模式
-            path: 搜索路径,默认为当前目录
-            context: 显示匹配行的上下文行数,默认为3
-            file_pattern: 文件匹配模式,支持通配符,默认为"*.ts"
-            limit: 最大匹配数量限制,默认为256
-            ignore: 忽略匹配正则的文件或文件夹列表
-
-        Returns:
-            格式化的搜索结果字符串
+        Parameters
+        ----------
+        pattern: 正则表达式模式
+        path: 搜索路径,默认为当前目录
+        context: 显示匹配行的上下文行数,默认为3
+        file_pattern: 文件匹配模式,支持通配符,默认为"*"
+        limit: 最大匹配数量限制,默认为256
+        ignore: 忽略匹配正则的文件或文件夹列表
         """
         try:
             # 验证搜索路径
