@@ -322,7 +322,7 @@ class REPL(App):
         if not text.strip():
             return
 
-        text = self.paste_refence.expand(text)
+        text = self.paste_refence.expand(text).replace("&quot;", '"')
         self.paste_refence.clear()
 
         # 单行模式下直接分发
