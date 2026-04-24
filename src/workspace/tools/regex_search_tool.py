@@ -61,10 +61,36 @@ def _format_regex_results(results: list[dict], pattern: str, limit: int, file_co
             if "context" in match:
                 output.append(f"第 {match['line_num']} 行匹配:")
                 for ctx_line in match["context"]:
-                    prefix = ">>>" if ctx_line["is_match"] else "   "
-                    output.append(f"  {prefix} L{ctx_line['line_num']:4d}: {ctx_line['content']}")
+                    # 增强包裹标记:匹配行用 >>> 和 <<< 包裹
+                    if ctx_line["is_match"]:
+                        # 提取匹配的具体内容并用标记包裹
+                        content = ctx_line["content"]
+                        # 使用正则找到实际匹配的部分并包裹
+                        try:
+                            regex = re.compile(pattern)
+                            # 找到所有匹配位置并添加标记
+                            matches_positions = list(regex.finditer(content))
+                            if matches_positions:
+                                # 从后往前插入标记,避免位置偏移
+                                result_parts = []
+                                last_pos = 0
+                                for m in matches_positions:
+                                    result_parts.append(content[last_pos : m.start()])
+                                    result_parts.append(f">>>{m.group()}<<<")
+                                    last_pos = m.end()
+                                result_parts.append(content[last_pos:])
+                                marked_content = "".join(result_parts)
+                            else:
+                                marked_content = f">>>{content}<<<"
+                        except re.error:
+                            marked_content = f">>>{content}<<<"
+
+                        output.append(f" >>> L{ctx_line['line_num']:4d}: {marked_content}")
+                    else:
+                        output.append(f"     L{ctx_line['line_num']:4d}: {ctx_line['content']}")
             else:
-                output.append(f"  第 {match['line_num']:4d} 行: {match['content']}")
+                # 旧格式兼容
+                output.append(f"  第 {match['line_num']:4d} 行: >>>{match['content']}<<<")
             output.append("")
             displayed_matches += 1
 
