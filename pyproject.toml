@@ -2,7 +2,7 @@
 name = "ManualAid"
 version = "0.1.0"
 description = ""
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 dependencies = [
     "click>=8.3",
     "rich>=15.0",
@@ -12,7 +12,7 @@ dependencies = [
 ]
 
 [project.scripts]
-manualaid = "src.console.main:main"
+manualaid = "main:main"
 
 [project.optional-dependencies]
 dev = [
