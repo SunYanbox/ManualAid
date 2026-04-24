@@ -75,9 +75,7 @@ class PasteWindow:
         confirm_btn.pack(side="right", padx=5)
 
         # 绑定快捷键
-        window.bind("<Control-v>", lambda e: self._paste_from_clipboard())
         window.bind("<Control-a>", lambda e: self._select_all())
-        window.bind("<Control-c>", lambda e: self._copy_to_clipboard())
         window.bind("<Escape>", lambda e: self._on_cancel())
         window.bind("<Control-Return>", lambda e: self._on_confirm())
 
@@ -159,17 +157,6 @@ class PasteWindow:
         if self._text_widget and self._text_widget.winfo_exists():
             self._text_widget.delete(1.0, tk.END)
             self._update_stats()
-
-    def _paste_from_clipboard(self) -> None:
-        """粘贴"""
-        if self._window:
-            try:
-                text = self._window.clipboard_get()
-                if text:
-                    self._text_widget.insert(tk.INSERT, text)
-                    self._update_stats()
-            except Exception:
-                pass
 
     def _select_all(self) -> str | None:
         """全选"""
