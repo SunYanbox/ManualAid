@@ -97,9 +97,20 @@ class ToolRegistry:
         from src.workspace.tools.read_tool import ReadTool
         from src.workspace.tools.regex_search_tool import RegexSearchTool
         from src.workspace.tools.stat_tool import StatTool
+        from src.workspace.tools.symbol_ref_tool import SymbolRefTool
         from src.workspace.tools.write_tool import WriteTool
 
-        for cls in (ExactSearchTool, GlobTool, LsTool, ReadLinesTool, ReadTool, RegexSearchTool, WriteTool, StatTool):
+        for cls in (
+            ExactSearchTool,
+            GlobTool,
+            LsTool,
+            ReadLinesTool,
+            ReadTool,
+            RegexSearchTool,
+            WriteTool,
+            StatTool,
+            SymbolRefTool,
+        ):
             try:
                 tool = cls(workspace)
                 if tool.func is None or tool.params is None:
