@@ -22,13 +22,13 @@ class WriteTool(BaseTool):
         content: 写入的文本内容
         """
         try:
-            file_path: Path = self.workspace.path_validator.validate(file_path, create_file_if_not_exist=True)
-            if not file_path.is_file():
+            source_file_path = Path(file_path)
+            file_path: Path = self.workspace.path_validator.resolve_path(source_file_path)
+            if file_path.exists() and file_path.is_dir():
                 return ToolErrorResponse(
-                    self.__class__.__name__, f'"{file_path}"不是文件路径, 请检查是否输错了文件夹路径'
+                    self.__class__.__name__, f'"{source_file_path}"不是文件路径, 请检查是否输错了文件夹路径'
                 ).to_str()
-            with open(file_path, mode="w", encoding="utf-8") as file:
-                file.write(content)
+            self.workspace.path_validator.create_file_with_parents(file_path, content)
             return "write success"
         except PathNotFoundError as err1:
             return ToolErrorResponse(self.__class__.__name__, err1).to_str()
