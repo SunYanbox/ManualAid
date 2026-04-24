@@ -156,6 +156,7 @@ class ToolRegistry:
         """
         if func_name in self._tools:
             tool = self._tools[func_name]
+            kwargs = tool.convert_args(kwargs)
 
             try:
                 if inspect.iscoroutinefunction(tool.func):

@@ -9,23 +9,26 @@ TOOL USAGE RULES (STRICT)
 4. NEVER hallucinate tool return values. NEVER proceed without actual results.
 5. If a tool call fails or returns empty, ask the user for clarification.
 
-## JSON FORMATTING & ESCAPING (CRITICAL)
-The content inside <func_call> MUST be valid JSON.
-- Double quotes inside strings MUST be escaped with backslash: \\"
-- Backslashes MUST be escaped: \\\\
-- Newlines MUST be escaped: \\n
-- Example: {"old_str": "He said \\\"hi\\\""} is CORRECT.
-- Example: {"old_str": "He said \"hi\""} is WRONG and will fail.
-
 Tool call format:
 ```txt
-<func_call>{"func_name": "tool_name", "args": [...], "kwargs": {...}}</func_call>
+<func_call>
+    <func_name>工具名称</func_name>
+    <param name="参数名称">参数值</param>
+</func_call>
 ```
 
 Multiple tool calls example (NOTE the newlines):
 ```txt
-<func_call>{"func_name": "search_example", "kwargs": {"q": "weather"}}</func_call>
-<func_call>{"func_name": "translate_example", "kwargs": {"text": "result", "to": "zh"}}</func_call>
+<func_call>
+    <func_name>search_example</func_name>
+    <param name="q">weather</param>
+</func_call>
+
+<func_call>
+    <func_name>translate_example</func_name>
+    <param name="text">result</param>
+    <param name="to">zh</param>
+</func_call>
 ```
 
 """

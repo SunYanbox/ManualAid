@@ -22,15 +22,13 @@ def _auto_view_if_enabled() -> None:
         run_viewer()
 
 
-def _detect_language(func_name: str, func_args: list, func_kwargs: dict) -> str | None:
+def _detect_language(func_name: str, func_kwargs: dict) -> str | None:
     """Detect language for syntax highlighting"""
-    if func_name != "read_file":
+    if "read" not in func_name:
         return None
 
     file_path = ""
-    if func_args and isinstance(func_args[0], str):
-        file_path = func_args[0]
-    elif "file_path" in func_kwargs:
+    if "file_path" in func_kwargs:
         file_path = func_kwargs["file_path"]
 
     ext_map = EXTENSION_TO_LANGUAGE
@@ -42,17 +40,9 @@ def _detect_language(func_name: str, func_args: list, func_kwargs: dict) -> str 
     return "text"
 
 
-def _format_tool_params(args: list, kwargs: dict) -> str:
+def _format_tool_params(kwargs: dict) -> str:
     """Format tool parameters as concise string"""
     parts = []
-
-    # Positional arguments
-    for arg in args:
-        if isinstance(arg, str):
-            arg_str = arg if len(arg) <= 30 else f"{arg[:27]}..."
-            parts.append(f'"{arg_str}"')
-        else:
-            parts.append(str(arg))
 
     # Keyword arguments
     for key, value in kwargs.items():
@@ -72,9 +62,9 @@ def _format_tool_params(args: list, kwargs: dict) -> str:
     return params_str
 
 
-def _create_result_title(index: int, func_name: str, args: list, kwargs: dict, lines_count: int) -> str:
+def _create_result_title(index: int, func_name: str, kwargs: dict, lines_count: int) -> str:
     """Create result title with Rich markup"""
-    params_str = _format_tool_params(args, kwargs)
+    params_str = _format_tool_params(kwargs)
     return (
         f"[bold cyan]##{index}[/bold cyan] [bold green]{func_name}[/bold green]([dim]{params_str}[/dim])"
         + f" [yellow]({lines_count} lines)[/yellow]"
@@ -112,16 +102,14 @@ class ToolHandler:
         matches = re.findall(pattern, user_input, re.DOTALL)
 
         all_func_names: list[str] = []
-        all_func_args: list[list] = []
         all_func_kwargs: list[dict[str, str]] = []
         results: list[str] = []
 
         for m in matches:
             # 解析
             try:
-                func_name, func_args, func_kwargs = parse_func_call(m)
+                func_name, func_kwargs = parse_func_call(m)
                 all_func_names.append(func_name)
-                all_func_args.append(func_args)
                 all_func_kwargs.append(func_kwargs)
             except json.JSONDecodeError as json_err:
                 error_detail = (
@@ -137,7 +125,7 @@ class ToolHandler:
                 results.append(summary)
                 continue
 
-            parms: str = f'{{"args":{func_args}, "kwargs":{func_kwargs}'
+            parms: str = f"{{{func_kwargs}"
 
             # 避免多参数工具的返回值过于占上下文
             if len(parms) > 120:
@@ -147,7 +135,7 @@ class ToolHandler:
 
             # 执行
             try:
-                response = self.tool_registry.execute(func_name, *func_args, **func_kwargs)
+                response = self.tool_registry.execute(func_name, **func_kwargs)
                 if isinstance(response, str):
                     response_str = response
                 elif isinstance(response, (dict, list, tuple)):
@@ -177,11 +165,11 @@ class ToolHandler:
             # Add to result manager
             entry = self.result_manager.add(all_func_names[0], result)
             # Format and display result
-            self._display_result(entry, all_func_names[0], all_func_args[0], all_func_kwargs[0], result)
+            self._display_result(entry, all_func_names[0], all_func_kwargs[0], result)
         elif len(all_func_names) > 1:
             names = str.join(", ", all_func_names)
             entry = self.result_manager.add(names, result)
-            self._display_result(entry, names, [], {}, result)
+            self._display_result(entry, names, {}, result)
 
         if len(all_func_names) >= 1:
             _auto_view_if_enabled()
@@ -192,7 +180,6 @@ class ToolHandler:
         self,
         entry,
         func_name: str,
-        func_args: list,
         func_kwargs: dict,
         result: Any,
     ) -> None:
@@ -201,10 +188,10 @@ class ToolHandler:
         lines_count = result_str.count("\n") + 1
 
         # Create title
-        title = _create_result_title(entry.index, func_name, func_args, func_kwargs, lines_count)
+        title = _create_result_title(entry.index, func_name, func_kwargs, lines_count)
 
         # Detect language
-        language = _detect_language(func_name, func_args, func_kwargs)
+        language = _detect_language(func_name, func_kwargs)
 
         # Add to viewer
         add_to_viewer(str(entry.index), title, result_str, language)
