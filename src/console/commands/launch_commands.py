@@ -120,7 +120,7 @@ class NewWindowCommand(Command):
 
             # 显示启动信息
             message = "[dim]运行模式: 打包可执行文件[/dim]" if is_frozen() else "[dim]运行模式: 开发环境 (Python)[/dim]"
-            message += '\n' + f"[dim]启动命令: {' '.join(launch_cmd)}[/dim]\n"
+            message += "\n" + f"[dim]启动命令: {' '.join(launch_cmd)}[/dim]\n"
 
             # 执行启动命令
             if sys.platform == "win32":
@@ -131,9 +131,9 @@ class NewWindowCommand(Command):
                 subprocess.Popen(launch_cmd)
 
             if workspace_path:
-                message += f'[dim]工作区: {workspace_path}[/dim]'
+                message += f"[dim]工作区: {workspace_path}[/dim]"
 
-            context.console.print(Panel(message, title='[green]✓ 已启动新的 ManualAid 窗口[/green]'))
+            context.console.print(Panel(message, title="[green]✓ 已启动新的 ManualAid 窗口[/green]"))
 
             return CommandResult(success=True, message="New window launched")
 
