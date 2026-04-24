@@ -2,6 +2,8 @@
 
 from typing import TYPE_CHECKING
 
+from textual.app import App
+
 from src.console.commands.base import CommandContext, CommandParseResult
 from src.console.commands.registry import CommandRegistry
 
@@ -20,12 +22,14 @@ class CommandHandler:
         tool_registry: "ToolRegistry",
         result_manager: "ResultManager",
         console,  # 接受任何实现了 print/clear 的对象(_TuiConsole 或 rich.console.Console)
+        app: App | None = None,
     ):
         self.workspace = workspace
         self.tool_registry = tool_registry
         self.result_manager = result_manager
         self.console = console
         self.registry = CommandRegistry.create_default()
+        self.app = app
 
     def handle(self, parsed_input: CommandParseResult) -> bool:
         """处理一条解析后的命令输入"""
@@ -38,6 +42,7 @@ class CommandHandler:
             result_manager=self.result_manager,
             console=self.console,
             parsed_input=parsed_input,
+            app=self.app,
         )
 
         result = self.registry.execute(parsed_input.command_type, context)

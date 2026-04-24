@@ -1,7 +1,5 @@
 """System-related commands (help, quit, tools)"""
 
-import os
-import platform
 import sys
 
 from rich.panel import Panel
@@ -23,27 +21,6 @@ class QuitCommand(Command):
     def execute(self, context: CommandContext) -> CommandResult:
         context.console.print("[bold]Goodbye![/bold]")
         sys.exit(0)
-
-
-class ClsCommand(Command):
-    """Cls command"""
-
-    def __init__(self):
-        super().__init__()
-        self.name = "cls"
-        self.aliases = ["/cls"]
-        self.description = "Clear the console"
-        self.usage = "/cls"
-
-    def execute(self, context: CommandContext) -> CommandResult:
-        # Windows
-        if platform.system() == "Windows":
-            os.system("cls")
-        # Linux/macOS
-        else:
-            os.system("clear")
-        context.console.clear()
-        return CommandResult(success=True)
 
 
 class ToolsCommand(Command):

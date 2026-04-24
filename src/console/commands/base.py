@@ -3,6 +3,8 @@
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from textual.app import App
+
 if TYPE_CHECKING:
     from src.console.result_manager import ResultManager
     from src.core.tool_registry import ToolRegistry
@@ -31,6 +33,7 @@ class CommandContext:
     result_manager: "ResultManager"
     console: Any
     parsed_input: CommandParseResult
+    app: App | None
 
 
 @dataclass

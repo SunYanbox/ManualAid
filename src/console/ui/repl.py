@@ -1,5 +1,7 @@
 """REPL 循环实现 -- 基于 Textual 的 TUI"""
 
+import os
+import platform
 from typing import TYPE_CHECKING, ClassVar
 
 from textual.app import App, ComposeResult
@@ -58,6 +60,31 @@ class HelpCommand(Command):
 
     def execute(self, context: CommandContext) -> CommandResult:
         context.console.print(_generate_help_text(self.cmd_registry.list_commands()))
+        return CommandResult(success=True)
+
+
+class ClsCommand(Command):
+    """Cls command"""
+
+    def __init__(self, command_registry: CommandRegistry):
+        super().__init__()
+        self.name = "cls"
+        self.aliases = ["/cls"]
+        self.description = "Clear the console"
+        self.usage = "/cls"
+        self._command_registry = command_registry
+
+    def execute(self, context: CommandContext) -> CommandResult:
+        # Windows
+        if platform.system() == "Windows":
+            os.system("cls")
+        # Linux/macOS
+        else:
+            os.system("clear")
+        context.console.clear()
+        if context.app:
+            context.app.refresh()
+            context.console.print(_generate_help_text(self._command_registry.list_commands()))
         return CommandResult(success=True)
 
 
@@ -257,8 +284,11 @@ class REPL(App):
             self.tool_registry,
             self.result_manager,
             tui_console,  # type: ignore[arg-type]
+            self,
         )
-        self.command_handler.registry.register(HelpCommand(self.command_handler.registry))
+        self.command_handler.registry.register_many(
+            [HelpCommand(self.command_handler.registry), ClsCommand(self.command_handler.registry)]
+        )
 
         # 创建 tool handler
         self.tool_handler = ToolHandler(
