@@ -1,7 +1,7 @@
 """符号引用查找工具 - 查找函数、类、变量等的定义和引用"""
 
-import contextlib
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from src.core.tool_error_response import ToolErrorResponse
@@ -9,8 +9,22 @@ from src.workspace.path_validator import PathNotFoundError, WorkspaceBoundaryErr
 from src.workspace.tools.base_tool import BaseTool
 from src.workspace.workspace import Workspace
 
+# 默认排除的目录(与 workspace.py 保持一致, 后续改为从项目配置加载)
+DEFAULT_EXCLUDED_DIRS = {".git", "__pycache__", "node_modules", ".venv", "venv", "dist", "build", ".idea", ".vscode"}
 
-# noinspection SpellCheckingInspection
+
+def _get_file_pattern_by_language(language: str) -> str:
+    """根据语言获取默认的文件匹配模式"""
+    lang_patterns = {
+        "python": "*.py",
+        "javascript": "*.js",
+        "typescript": "*.ts",
+        "markdown": "*.md",
+        "general": "*",
+    }
+    return lang_patterns.get(language, "*")
+
+
 def _generate_patterns(symbol_name: str, language: str, include_def: bool, include_ref: bool) -> list[dict[str, str]]:
     """根据语言生成搜索模式"""
     patterns = []
@@ -111,91 +125,124 @@ def _generate_patterns(symbol_name: str, language: str, include_def: bool, inclu
     return unique_patterns
 
 
-def _search_pattern(
-    search_path: Path,
-    pattern: str,
-    match_type: str,
+def _search_single_pattern(
+    workspace: Workspace,
+    pattern_info: dict,
+    search_path: str,
     symbol_name: str,
     context_lines: int,
     limit: int,
+    file_pattern: str,
     ignore: list[str] | None,
 ) -> list[dict]:
-    """执行单个模式的搜索"""
+    """使用 Workspace.search_content 执行单个模式的搜索(并发版本)"""
     results = []
 
     try:
-        regex = re.compile(pattern, re.IGNORECASE)
-    except re.error:
-        return results
+        # 使用 workspace 的并发搜索能力
+        search_result = workspace.search_content(
+            pattern=pattern_info["pattern"],
+            folder_path=search_path,
+            file_pattern=file_pattern,
+            max_workers=4,  # 并发线程数
+            case_sensitive=False,
+        )
 
-    # 编译忽略模式
-    ignore_patterns = []
-    if ignore:
-        for ignore_pattern in ignore:
-            with contextlib.suppress(re.error):
-                ignore_patterns.append(re.compile(ignore_pattern))
+        # 解析 search_content 的返回结果
+        if not search_result or "未找到匹配" in search_result:
+            return results
 
-    # 遍历文件
-    for file_path in search_path.rglob("*"):
-        if len(results) >= limit:
-            break
+        # 解析结果格式: search_content 返回的是格式化的字符串
+        # 格式: [文件] path\n----\n  行号 | 内容
+        lines = search_result.split("\n")
+        current_file = None
+        current_matches = []
 
-        if not file_path.is_file():
-            continue
+        for line in lines:
+            if line.startswith("[文件] "):
+                # 保存上一个文件的结果
+                if current_file and current_matches:
+                    results.append({"file": current_file, "matches": current_matches, "type": pattern_info["type"]})
+                current_file = line[6:]  # 去掉 "[文件] "
+                current_matches = []
+            elif line.startswith("----"):
+                continue
+            elif line.strip() and current_file:
+                # 解析匹配行: "  行号 | 内容"
+                match = re.match(r"\s+(\d+)\s*\|\s*(.*)", line)
+                if match:
+                    line_num = int(match.group(1))
+                    content = match.group(2)
 
-        # 检查是否应该忽略
-        should_ignore = False
-        try:
-            relative_path = file_path.relative_to(search_path)
-            for ignore_pattern in ignore_patterns:
-                if ignore_pattern.search(str(relative_path)):
-                    should_ignore = True
-                    break
-        except ValueError:
-            should_ignore = True
+                    # 收集上下文(这里简化处理,因为 search_content 不直接提供上下文)
+                    # 为了保持兼容性,我们构建一个简化的上下文
+                    current_matches.append(
+                        {
+                            "line_num": line_num,
+                            "content": content,
+                            "context": [{"line_num": line_num, "content": content, "is_match": True}],
+                            "match_type": pattern_info["type"],
+                            "symbol_name": symbol_name,
+                        }
+                    )
 
-        if should_ignore:
-            continue
+        # 保存最后一个文件的结果
+        if current_file and current_matches:
+            results.append({"file": current_file, "matches": current_matches, "type": pattern_info["type"]})
 
-        # 读取文件内容
-        try:
-            with open(file_path, encoding="utf-8") as f:
-                lines = f.readlines()
-        except (UnicodeDecodeError, PermissionError, OSError):
-            continue
-
-        # 搜索匹配
-        file_matches = []
-        for i, line in enumerate(lines):
-            if regex.search(line):
-                # 收集上下文
-                start_line = max(0, i - context_lines)
-                end_line = min(len(lines), i + context_lines + 1)
-
-                context_data = []
-                for j in range(start_line, end_line):
-                    context_data.append({"line_num": j + 1, "content": lines[j].rstrip("\n\r"), "is_match": j == i})
-
-                file_matches.append(
-                    {
-                        "line_num": i + 1,
-                        "content": line.rstrip("\n\r"),
-                        "context": context_data,
-                        "match_type": match_type,
-                        "symbol_name": symbol_name,  # 使用 symbol_name 参数
-                    }
-                )
-
-                if len(file_matches) >= 10:  # 每个文件最多10个匹配
-                    break
-
-        if file_matches:
-            results.append({"file": str(file_path), "matches": file_matches, "type": match_type})
+    except Exception:
+        # 如果搜索失败,静默跳过
+        pass
 
     return results
 
 
-# noinspection SpellCheckingInspection
+def _search_patterns_concurrent(
+    workspace: Workspace,
+    patterns: list[dict],
+    search_path: str,
+    symbol_name: str,
+    context_lines: int,
+    limit: int,
+    file_pattern: str,
+    ignore: list[str] | None,
+) -> list[dict]:
+    """并发执行多个模式的搜索"""
+    all_results = []
+
+    # 使用线程池并发执行多个模式的搜索
+    with ThreadPoolExecutor(max_workers=min(len(patterns), 4)) as executor:
+        future_to_pattern = {
+            executor.submit(
+                _search_single_pattern,
+                workspace,
+                pattern_info,
+                search_path,
+                symbol_name,
+                context_lines,
+                limit - len(all_results),
+                file_pattern,
+                ignore,
+            ): pattern_info
+            for pattern_info in patterns
+        }
+
+        for future in as_completed(future_to_pattern):
+            try:
+                results = future.result()
+                all_results.extend(results)
+                if len(all_results) >= limit:
+                    # 达到限制,取消剩余任务
+                    for f in future_to_pattern:
+                        f.cancel()
+                    break
+            except Exception:
+                # 单个模式失败不影响其他模式
+                pass
+
+    return all_results[:limit]
+
+
 def _detect_language(search_path: Path, specified_lang: str) -> str:
     """检测项目的主要语言"""
     if specified_lang != "auto":
@@ -271,7 +318,7 @@ def _format_results(results: list[dict], symbol_name: str, language: str, limit:
             break
 
         output.append(f"\n文件: {file_result['file']}")
-        output.append(f"匹配类型: {file_result['type']}")
+        output.append(f"匹配类型: {file_result.get('type', 'unknown')}")
         output.append("-" * 80)
 
         for match in file_result["matches"]:
@@ -280,12 +327,12 @@ def _format_results(results: list[dict], symbol_name: str, language: str, limit:
                 break
 
             # 类型标签
-            type_label = _get_type_label(match["match_type"])
+            type_label = _get_type_label(match.get("match_type", "general_reference"))
             output.append(f"{type_label} 第 {match['line_num']} 行:")
 
             # 显示上下文
-            for ctx_line in match["context"]:
-                prefix = ">>>" if ctx_line["is_match"] else "   "
+            for ctx_line in match.get("context", []):
+                prefix = ">>>" if ctx_line.get("is_match", False) else "   "
                 output.append(f"  {prefix} L{ctx_line['line_num']:4d}: {ctx_line['content']}")
 
             output.append("")  # 空行分隔
@@ -312,6 +359,7 @@ class SymbolRefTool(BaseTool):
         context_lines: int = 2,
         limit: int = 256,
         ignore: list[str] | None = None,
+        file_pattern: str | None = None,
     ) -> str:
         """
         查找符号(函数、类、变量等)的定义和引用位置
@@ -328,6 +376,7 @@ class SymbolRefTool(BaseTool):
             context_lines: 显示匹配行的上下文行数,默认2
             limit: 最大匹配数量限制,默认为256
             ignore: 忽略匹配正则的文件或文件夹列表
+            file_pattern: 文件匹配模式(如 *.py),默认根据语言自动选择
 
         Returns:
             格式化的符号引用搜索结果
@@ -341,27 +390,27 @@ class SymbolRefTool(BaseTool):
             # 自动检测语言
             detected_lang = _detect_language(search_path, language)
 
+            # 确定文件匹配模式
+            if file_pattern is None:
+                file_pattern = _get_file_pattern_by_language(detected_lang)
+
             # 生成搜索模式
             patterns = _generate_patterns(symbol_name, detected_lang, include_definitions, include_references)
 
             if not patterns:
                 return f"无法为符号 '{symbol_name}' 生成有效的搜索模式(语言: {detected_lang})"
 
-            # 执行搜索
-            all_results = []
-            for pattern_info in patterns:
-                results = _search_pattern(
-                    search_path,
-                    pattern_info["pattern"],
-                    pattern_info["type"],
-                    symbol_name,
-                    context_lines,
-                    limit - len(all_results),
-                    ignore,
-                )
-                all_results.extend(results)
-                if len(all_results) >= limit:
-                    break
+            # 使用并发搜索执行所有模式
+            all_results = _search_patterns_concurrent(
+                self.workspace,
+                patterns,
+                path,
+                symbol_name,
+                context_lines,
+                limit,
+                file_pattern,
+                ignore,
+            )
 
             # 格式化输出
             return _format_results(all_results, symbol_name, detected_lang, limit)
