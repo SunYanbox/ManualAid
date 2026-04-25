@@ -12,7 +12,7 @@ class ReadTool(BaseTool):
         self.func = self.read
         self.params = BaseTool.extract_params(self.read)
 
-    def read(self, file_path: str, max_lines=0, encoding="utf-8") -> str:
+    def read(self, file_path: str, max_lines: int=0, encoding: str="utf-8") -> str:
         """
         读取文件全部内容, 若指定max_lines>0,则仅读取前max_lines行, 返回字符串
 
