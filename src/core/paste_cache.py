@@ -12,10 +12,7 @@ class PasteReference:
 
     def collapsed(self, text: str) -> str:
         ref_id = str(uuid.uuid4())[:8]
-        if '<func_call>{"func_name":' in text and "</func_call>" in text:
-            ref_id = f"[func_call_{ref_id}]"
-        else:
-            ref_id = f"[paste_{ref_id}]"
+        ref_id = f"[func_call_{ref_id}]" if "<func_call" in text and "</func_call>" in text else f"[paste_{ref_id}]"
         self._paste_cache[ref_id] = text
         return ref_id
 
