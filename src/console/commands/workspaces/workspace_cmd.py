@@ -1,7 +1,7 @@
 """Workspace-related commands (prompt, workspace)"""
 
 from src.console.ui.interactive_viewer import add_to_viewer
-from src.constants.prompts import AGENTIC_LOOP_OVERRIDE_CONTRACT, TOOL_BASE_PROMPT, WORKSPACE_CONSTRAINTS
+from src.constants.prompts import AGENTIC_LOOP_OVERRIDE_CONTRACT, SYSTEM_CONSTRAINTS, TOOL_BASE_PROMPT
 from src.models.commands import Command, CommandContext, CommandResult
 
 INSTRUCTION: list[str] = ["AGENTS.md", "CLAUDE.md"]
@@ -35,7 +35,16 @@ def _generate_workspace_metadata(context: CommandContext) -> str:
     root = str(workspace.root_path)
     is_git = workspace.is_git_repo
     platform = workspace.platform
-    return f'<workspace root="{root}" git="{is_git}"' + f' platform="{platform}" date="{workspace.date}" />'
+    return (
+        f"<workspace_info>\n"
+        f"  <root_path>{root}</root_path>\n"
+        f"  <is_git_repo>{is_git}</is_git_repo>\n"
+        f"  <platform>{platform}</platform>\n"
+        f"  <date>{workspace.date}</date>\n"
+        f"</workspace_info>\n\n"
+        f"Note: All file paths are relative to <root_path>. "
+        f"Use this context when constructing tool calls."
+    )
 
 
 def _load_agents_md(context: CommandContext) -> str:
@@ -64,7 +73,7 @@ class WorkspaceCommand(Command):
 
     def execute(self, context: CommandContext) -> CommandResult:
         prompt = (
-            WORKSPACE_CONSTRAINTS
+            SYSTEM_CONSTRAINTS
             + _generate_tool_prompt(context)
             + "\n"
             + _generate_workspace_metadata(context)

@@ -1,7 +1,7 @@
 import warnings
 from argparse import ArgumentParser
 
-from core.copy2clip import copy_to_clipboard
+from src.core.copy2clip import copy_to_clipboard
 from src.models.commands import Command, CommandContext, CommandResult
 
 
