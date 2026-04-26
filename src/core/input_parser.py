@@ -1,11 +1,9 @@
 import re
+import shlex
 import warnings
 
 from src.console.commands.command_registry import CommandRegistry
 from src.models.commands import CommandParseResult
-
-COPY_PATTERN = re.compile(r"^(?:/copy|/c)(?:\s+(\d+))?$")
-VIEW_REMOVE_PATTERN = re.compile(r"^/view_remove\s+(\d+)$")
 
 
 def parse_input(user_input: str, cmd_register: CommandRegistry, warns: list[str]) -> CommandParseResult:
@@ -16,28 +14,9 @@ def parse_input(user_input: str, cmd_register: CommandRegistry, warns: list[str]
     if not user_input:
         return parse_result
 
-    # 匹配 /copy 或 /c,可选数字参数
-    copy_match = COPY_PATTERN.match(user_input)
-    if copy_match:
-        index_str = copy_match.group(1)
-        index = int(index_str) if index_str else None
-        parse_result.is_command = True
-        parse_result.command_type = "copy"
-        parse_result.cmd_kwargs = {"index": index}
-        return parse_result
-
-    # 匹配 /view_remove
-    view_remove_match = VIEW_REMOVE_PATTERN.match(user_input)
-    if view_remove_match:
-        index = int(view_remove_match.group(1))
-        parse_result.is_command = True
-        parse_result.command_type = "view_remove"
-        parse_result.cmd_kwargs = {"index": index}
-        return parse_result
-
     if user_input.startswith("/"):
-        parts = user_input.split()
-        cmd = parts[0].lower()
+        parts = shlex.split(user_input)
+        cmd = parts[0].lower()  # 有`/`的
 
         for maybe_cmd in cmd_register.list_commands():
             if cmd in maybe_cmd.aliases:

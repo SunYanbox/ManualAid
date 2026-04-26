@@ -121,6 +121,18 @@ class BaseTool:
             param_doc = "<No any params />"
         return f'<func_name="{self.name}">\n{param_doc}\n' + f"<doc>{self.doc}</doc>\n</func_name>"
 
+    def to_func_call(self) -> str:
+        """将工具转换为标准格式"""
+        func_call: str = f"<func_call>\n    <func_name>{self.name}</func_name>\n"
+        for name, params in self.params.items():
+            func_call += (
+                f'    <param name="{name}">'
+                + ("" if "default" not in params else str(params.get("default")))
+                + "</param>\n"
+            )
+        func_call += "</func_call>"
+        return func_call
+
     @staticmethod
     def extract_params(func: Callable[..., Any]) -> dict[str, Any]:
         """提取函数参数信息"""
