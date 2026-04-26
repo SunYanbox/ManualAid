@@ -1,6 +1,6 @@
 """Command registry for managing and dispatching commands"""
 
-from src.console.commands.base import Command, CommandContext, CommandResult
+from src.models.commands import Command, CommandContext, CommandResult
 
 
 class CommandRegistry:
@@ -49,6 +49,8 @@ class CommandRegistry:
             ViewRemoveCommand,
         )
         from src.console.commands.system_commands import (
+            ClsCommand,
+            HelpCommand,
             QuitCommand,
             ToolDetailCommand,
             ToolsCommand,
@@ -68,6 +70,8 @@ class CommandRegistry:
                 ViewRemoveCommand(),
                 WorkspaceCommand(),
                 NewWindowCommand(),
+                HelpCommand(),
+                ClsCommand(),
             ]
         )
         return registry

@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date
 from pathlib import Path
 
-from src.core.tool_error_response import ToolErrorResponse
+from src.models.tool_error_response import ToolErrorResponse
 from src.workspace.path_validator import PathNotFoundError, PathValidator, WorkspaceBoundaryError
 
 

@@ -2,13 +2,11 @@
 
 import json
 import os
-import re
 from typing import TYPE_CHECKING, Any
 
-from src.console.commands.base import CommandParseResult
-from src.console.interactive_viewer import add_to_viewer, run_viewer
+from src.console.ui.interactive_viewer import add_to_viewer, run_viewer
 from src.constants.files import EXTENSION_TO_LANGUAGE
-from src.core.parse_func_call import parse_func_call
+from src.models.commands import CommandParseResult
 
 if TYPE_CHECKING:
     from src.console.result_manager import ResultManager
@@ -96,34 +94,13 @@ class ToolHandler:
         if parsed_input.is_command:
             return False
 
-        user_input = parsed_input.raw_input
-
-        pattern = r"(<func_call>.*?</func_call>)"
-        matches = re.findall(pattern, user_input, re.DOTALL)
-
         all_func_names: list[str] = []
         all_func_kwargs: list[dict[str, str]] = []
         results: list[str] = []
 
-        for m in matches:
-            # 解析
-            try:
-                func_name, func_kwargs = parse_func_call(m)
-                all_func_names.append(func_name)
-                all_func_kwargs.append(func_kwargs)
-            except json.JSONDecodeError as json_err:
-                error_detail = (
-                    f"[yellow]JSON decode error at position {json_err.pos}: {json_err.msg}\n"
-                    f"问题位置快照: ...{m[max(0, json_err.pos - 60) : json_err.pos + 60]}...[/yellow]"
-                )
-                self.console.print(error_detail)
-                continue
-            except Exception as e:
-                error = f"无法解析输入: {m if len(m) < 120 else m[:117] + '...'}; Error={e.__class__.__name__}({e})"
-                self.console.print(f"[red]{error}[/red]")
-                summary = "\n".join(["", "<ErrorParse>", error, "/<ErrorParse>", ""])
-                results.append(summary)
-                continue
+        for func_name, func_kwargs in parsed_input.funcs:
+            all_func_names.append(func_name)
+            all_func_kwargs.append(func_kwargs)
 
             parms: str = f"{{{func_kwargs}"
 
@@ -152,7 +129,12 @@ class ToolHandler:
                 ]
                 results.append(str.join("\n", temp_result))
             except Exception as e:
-                error = f"执行工具{func_name}(参数={parms})时出现错误: Error={e.__class__.__name__}({e})"
+                import traceback
+
+                error = (
+                    f"执行工具{func_name}(参数={parms})时出现错误: "
+                    f"Error={e.__class__.__name__}({e}, {traceback.format_exc()})"
+                )
                 self.console.print(f"[red]{error}[/red]")
                 summary = "\n".join(["", "<ErrorExecute>", error, "/<ErrorExecute>", ""])
                 results.append(summary)

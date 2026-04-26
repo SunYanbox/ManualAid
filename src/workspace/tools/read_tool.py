@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from src.core.tool_error_response import ToolErrorResponse
+from src.models.tool_error_response import ToolErrorResponse
 from src.workspace.path_validator import PathNotFoundError, WorkspaceBoundaryError
 from src.workspace.tools.base_tool import BaseTool
 from src.workspace.workspace import Workspace
@@ -12,7 +12,7 @@ class ReadTool(BaseTool):
         self.func = self.read
         self.params = BaseTool.extract_params(self.read)
 
-    def read(self, file_path: str, max_lines: int=0, encoding: str="utf-8") -> str:
+    def read(self, file_path: str, max_lines: int = 0, encoding: str = "utf-8") -> str:
         """
         读取文件全部内容, 若指定max_lines>0,则仅读取前max_lines行, 返回字符串
 

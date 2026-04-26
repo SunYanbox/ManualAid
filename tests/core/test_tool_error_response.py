@@ -1,6 +1,6 @@
 import pytest
 
-from src.core.tool_error_response import ToolErrorResponse
+from src.models.tool_error_response import ToolErrorResponse
 
 
 class TestToolErrorResponse:

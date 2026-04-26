@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from src.core.tool_error_response import ToolErrorResponse
+from src.models.tool_error_response import ToolErrorResponse
 from src.workspace.path_validator import PathNotFoundError, WorkspaceBoundaryError
 from src.workspace.tools.base_tool import BaseTool
 from src.workspace.workspace import Workspace
@@ -12,7 +12,7 @@ class ReadLinesTool(BaseTool):
         self.func = self.read_lines
         self.params = BaseTool.extract_params(self.read_lines)
 
-    def read_lines(self, file_path: str, start: int, end: int, context: int = 2, encoding: str="utf-8") -> str:
+    def read_lines(self, file_path: str, start: int, end: int, context: int = 2, encoding: str = "utf-8") -> str:
         """
         读取文件的指定行范围(行号从1开始), 可指定上下文行数扩展返回的实际行数范围,返回带行号的格式化内容
 

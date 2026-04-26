@@ -4,8 +4,8 @@ from typing import TYPE_CHECKING
 
 from textual.app import App
 
-from src.console.commands.base import CommandContext, CommandParseResult
-from src.console.commands.registry import CommandRegistry
+from src.console.commands.command_registry import CommandRegistry
+from src.models.commands import CommandContext, CommandParseResult
 
 if TYPE_CHECKING:
     from src.console.result_manager import ResultManager
@@ -28,7 +28,7 @@ class CommandHandler:
         self.tool_registry = tool_registry
         self.result_manager = result_manager
         self.console = console
-        self.registry = CommandRegistry.create_default()
+        self.registry: CommandRegistry = CommandRegistry.create_default()
         self.app = app
 
     def handle(self, parsed_input: CommandParseResult) -> bool:
@@ -43,6 +43,7 @@ class CommandHandler:
             console=self.console,
             parsed_input=parsed_input,
             app=self.app,
+            command_registry=self.registry,
         )
 
         result = self.registry.execute(parsed_input.command_type, context)

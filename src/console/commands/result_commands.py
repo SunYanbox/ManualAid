@@ -1,11 +1,11 @@
 """Result-related commands (copy, history, view)"""
 
-from src.console.commands.base import Command, CommandContext, CommandResult
-from src.console.interactive_viewer import (
+from src.console.ui.interactive_viewer import (
     clear_viewer,
     get_viewer,
     run_viewer,
 )
+from src.models.commands import Command, CommandContext, CommandResult
 
 
 class CopyCommand(Command):
@@ -19,7 +19,7 @@ class CopyCommand(Command):
         self.usage = "/copy <n> or /c <n>"
 
     def execute(self, context: CommandContext) -> CommandResult:
-        index = context.parsed_input.func_kwargs.get("index")
+        index = context.parsed_input.cmd_kwargs.get("index")
 
         if index is None:
             history = context.result_manager.list_history()
@@ -100,7 +100,7 @@ class ViewRemoveCommand(Command):
         self.usage = "/view_remove <n>"
 
     def execute(self, context: CommandContext) -> CommandResult:
-        index = context.parsed_input.func_kwargs.get("index")
+        index = context.parsed_input.cmd_kwargs.get("index")
         if index:
             viewer = get_viewer()
             if viewer.remove_item(str(index)):

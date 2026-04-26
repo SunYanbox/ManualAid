@@ -1,8 +1,8 @@
 """Workspace-related commands (prompt, workspace)"""
 
-from src.console.commands.base import Command, CommandContext, CommandResult
-from src.console.interactive_viewer import add_to_viewer
+from src.console.ui.interactive_viewer import add_to_viewer
 from src.constants.prompts import AGENTIC_LOOP_OVERRIDE_CONTRACT, TOOL_BASE_PROMPT, WORKSPACE_CONSTRAINTS
+from src.models.commands import Command, CommandContext, CommandResult
 
 INSTRUCTION: list[str] = ["AGENTS.md", "CLAUDE.md"]
 

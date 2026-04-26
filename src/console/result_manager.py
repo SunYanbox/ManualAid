@@ -1,18 +1,8 @@
 import os
 import time
-from dataclasses import dataclass
 from typing import Any
 
-
-@dataclass
-class ResultEntry:
-    """Result history entry"""
-
-    index: int
-    func_name: str
-    result: str
-    timestamp: float
-    copied: bool = False
+from src.models.result_entry import ResultEntry
 
 
 # noinspection SpellCheckingInspection

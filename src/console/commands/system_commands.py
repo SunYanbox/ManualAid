@@ -1,11 +1,38 @@
 """System-related commands (help, quit, tools)"""
 
+import os
+import platform
 import sys
 
 from rich.panel import Panel
 from rich.table import Table
 
-from src.console.commands.base import Command, CommandContext, CommandResult
+from src.models.commands import Command, CommandContext, CommandResult
+
+
+def generate_help_text(cmds: list[Command]) -> str:
+    """生成帮助文本,返回 Rich markup 字符串"""
+    lines: list[str] = [
+        "[bold magenta]可用命令[/bold magenta]\n",
+        "  [cyan]名称[/cyan]          [cyan]别名[/cyan]              [cyan]描述[/cyan]",
+        "  " + chr(9472) * 70,
+    ]
+    for cmd in cmds:
+        alias_str = " | ".join(f"[italic magenta]{a}[/italic magenta]" for a in cmd.aliases)
+        lines.append(f"  [cyan]{cmd.name:<16}[/cyan] {alias_str:<24} [grey85]{cmd.description}[/grey85]")
+    lines.append("")
+    lines.append("[bold cyan]工具:[/bold cyan]")
+    lines.append("[dim]使用 XML 标签调用工具,格式如下:[/dim]")
+    lines.append(
+        """[yellow bold]
+<func_call>
+    <func_name>工具名称</func_name>
+    <param name="参数名称">参数值</param>
+</func_call>
+        [/yellow bold]
+        """
+    )
+    return "\n".join(lines)
 
 
 class QuitCommand(Command):
@@ -89,4 +116,43 @@ class ToolDetailCommand(Command):
             details += f"  - {param}: {param_info.get('annotation')} [{required}]{default}\n"
 
         context.console.print(Panel(details, title=f"Tool: {name}"))
+        return CommandResult(success=True)
+
+
+class HelpCommand(Command):
+    """显示帮助信息"""
+
+    def __init__(self):
+        super().__init__()
+        self.name = "help"
+        self.aliases = ["/help", "/h", "/?"]
+        self.description = "显示帮助信息"
+        self.usage = "/help 或 /h 或 /?"
+
+    def execute(self, context: CommandContext) -> CommandResult:
+        context.console.print(generate_help_text(context.command_registry.list_commands()))
+        return CommandResult(success=True)
+
+
+class ClsCommand(Command):
+    """Cls command"""
+
+    def __init__(self):
+        super().__init__()
+        self.name = "cls"
+        self.aliases = ["/cls"]
+        self.description = "Clear the console"
+        self.usage = "/cls"
+
+    def execute(self, context: CommandContext) -> CommandResult:
+        # Windows
+        if platform.system() == "Windows":
+            os.system("cls")
+        # Linux/macOS
+        else:
+            os.system("clear")
+        context.console.clear()
+        if context.app:
+            context.app.refresh()
+            context.console.print(generate_help_text(context.command_registry.list_commands()))
         return CommandResult(success=True)

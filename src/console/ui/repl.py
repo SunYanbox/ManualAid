@@ -1,19 +1,17 @@
 """REPL 循环实现 -- 基于 Textual 的 TUI"""
 
-import os
-import platform
 from typing import TYPE_CHECKING, ClassVar
 
+from rich.panel import Panel
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Button, Footer, Label, RichLog, TextArea
 
-from src.console.commands.base import Command, CommandContext, CommandResult
-from src.console.commands.registry import CommandRegistry
+from src.console.commands.system_commands import generate_help_text
 from src.console.handlers.command_handler import CommandHandler
 from src.console.handlers.tool_handler import ToolHandler
-from src.console.input_parser import parse_input
+from src.core.input_parser import parse_input
 from src.core.paste_cache import PasteReference
 from src.core.paste_window import show_paste_window
 
@@ -21,77 +19,6 @@ if TYPE_CHECKING:
     from src.console.result_manager import ResultManager
     from src.core.tool_registry import ToolRegistry
     from src.workspace.workspace import Workspace
-
-
-def _generate_help_text(cmds: list[Command]) -> str:
-    """生成帮助文本,返回 Rich markup 字符串"""
-    lines: list[str] = [
-        "[bold magenta]可用命令[/bold magenta]\n",
-        "  [cyan]名称[/cyan]          [cyan]别名[/cyan]              [cyan]描述[/cyan]",
-        "  " + chr(9472) * 70,
-    ]
-    for cmd in cmds:
-        alias_str = " | ".join(f"[italic magenta]{a}[/italic magenta]" for a in cmd.aliases)
-        lines.append(f"  [cyan]{cmd.name:<16}[/cyan] {alias_str:<24} [grey85]{cmd.description}[/grey85]")
-    lines.append("")
-    lines.append("[bold cyan]工具:[/bold cyan]")
-    lines.append("[dim]使用 XML 标签调用工具,格式如下:[/dim]")
-    lines.append(
-        """[yellow bold]
-<func_call>
-    <func_name>工具名称</func_name>
-    <param name="参数名称">参数值</param>
-</func_call>
-        [/yellow bold]
-        """
-    )
-    return "\n".join(lines)
-
-
-# ---------------------------------------------------------------------------
-# 命令(在 REPL 初始化时注册)
-# ---------------------------------------------------------------------------
-
-
-class HelpCommand(Command):
-    """显示帮助信息"""
-
-    def __init__(self, cmd_registry: CommandRegistry):
-        super().__init__()
-        self.name = "help"
-        self.aliases = ["/help", "/h", "/?"]
-        self.description = "显示帮助信息"
-        self.usage = "/help 或 /h 或 /?"
-        self.cmd_registry = cmd_registry
-
-    def execute(self, context: CommandContext) -> CommandResult:
-        context.console.print(_generate_help_text(self.cmd_registry.list_commands()))
-        return CommandResult(success=True)
-
-
-class ClsCommand(Command):
-    """Cls command"""
-
-    def __init__(self, command_registry: CommandRegistry):
-        super().__init__()
-        self.name = "cls"
-        self.aliases = ["/cls"]
-        self.description = "Clear the console"
-        self.usage = "/cls"
-        self._command_registry = command_registry
-
-    def execute(self, context: CommandContext) -> CommandResult:
-        # Windows
-        if platform.system() == "Windows":
-            os.system("cls")
-        # Linux/macOS
-        else:
-            os.system("clear")
-        context.console.clear()
-        if context.app:
-            context.app.refresh()
-            context.console.print(_generate_help_text(self._command_registry.list_commands()))
-        return CommandResult(success=True)
 
 
 # ---------------------------------------------------------------------------
@@ -106,7 +33,7 @@ class _TuiConsole:
     def __init__(self, log: RichLog) -> None:
         self._log = log
 
-    def print(self, *args, **kwargs) -> None:
+    def print(self, *args) -> None:
         """将内容写入 RichLog 控件"""
         for arg in args:
             if isinstance(arg, str):
@@ -227,6 +154,7 @@ class REPL(App):
         result_manager: "ResultManager",
     ):
         super().__init__()
+        self.rich_log: _TuiConsole | None = None
         self.workspace = workspace
         self.tool_registry = tool_registry
         self.result_manager = result_manager
@@ -278,6 +206,7 @@ class REPL(App):
         log = self.query_one("#output", RichLog)
         tui_console = _TuiConsole(log)
 
+        self.rich_log = tui_console
         self.result_manager.console = tui_console
 
         # 更新标题栏右侧显示实际工作区路径
@@ -291,9 +220,6 @@ class REPL(App):
             self.result_manager,
             tui_console,  # type: ignore[arg-type]
             self,
-        )
-        self.command_handler.registry.register_many(
-            [HelpCommand(self.command_handler.registry), ClsCommand(self.command_handler.registry)]
         )
 
         # 创建 tool handler
@@ -325,6 +251,8 @@ class REPL(App):
         # 清空输入框
         text_area.clear()
 
+        self.rich_log.print(f"> {text if len(text) < 70 else text[:67] + '...'}")
+
         if not text.strip():
             return
 
@@ -352,25 +280,33 @@ class REPL(App):
         """Ctrl+Enter 提交文本"""
         self._do_submit()
 
-    def _maybe_finish_multiline(self) -> None:
-        """检查多行缓冲区是否已完整"""
-        if self._multiline_buffer[-1].strip().endswith("</func_call>"):
-            full_input = "\n".join(self._multiline_buffer)
-            self._multiline_buffer.clear()
-            self._update_prompt(f"{self.CONSOLE_TITLE}>")
-            self._dispatch(full_input)
-
     def _dispatch(self, user_input: str) -> None:
         """解析并执行一条完整的用户输入"""
         assert self.command_handler is not None
         assert self.tool_handler is not None
 
-        parsed = parse_input(user_input, self.command_handler.registry)
+        warns: list[str] = []
+        parsed = parse_input(user_input, self.command_handler.registry, warns)
 
-        if parsed.is_command:
-            self.command_handler.handle(parsed)
-        else:
-            self.tool_handler.handle(parsed)
+        try:
+            if parsed.is_command:
+                self.command_handler.handle(parsed)
+            elif parsed.is_func:
+                self.tool_handler.handle(parsed)
+            else:
+                self.rich_log.print(
+                    Panel(
+                        f"输入内容既不是工具也不是函数: {
+                            user_input if len(user_input) < 70 else user_input[:67] + '...'
+                        }",
+                        title="输入解析错误",
+                    )
+                )
+        except Exception as e:
+            warns.append(f"分发输入后在执行时出现错误: {e}")
+
+        if len(warns) > 0:
+            self.rich_log.print(Panel(f"[yellow]{'\n'.join(warns)}[/yellow]", title="输入分发警告"))
 
     def _update_prompt(self, label: str) -> None:
         """更新提示符文本"""
@@ -391,6 +327,6 @@ class REPL(App):
         log.write(f"[bold green]{self.CONSOLE_TITLE}[/bold green]")
         log.write(f"[dim]工作区: {self.workspace.root_path}[/dim]")
         log.write("")
-        log.write(_generate_help_text(self.command_handler.registry.list_commands()))
+        log.write(generate_help_text(self.command_handler.registry.list_commands()))
         log.write("[dim]输入 /help 查看命令,Ctrl+Q 退出[/dim]")
         log.write("")
