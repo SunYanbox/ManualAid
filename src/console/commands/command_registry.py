@@ -38,24 +38,17 @@ class CommandRegistry:
     @classmethod
     def create_default(cls) -> "CommandRegistry":
         """Create and populate a registry with default commands"""
+        from console.commands.results.copy_cmd import CopyCommand
+        from console.commands.results.history_cmd import HistoryCommand
+        from console.commands.systems.cls_cmd import ClsCommand
+        from console.commands.systems.help_cmd import HelpCommand
+        from console.commands.systems.quit_cmd import QuitCommand
+        from console.commands.systems.tool_detail_cmd import ToolDetailCommand
+        from console.commands.systems.tools_cmd import ToolsCommand
+        from console.commands.workspaces.workspace_cmd import WorkspaceCommand
         from src.console.commands.launch_commands import (
             NewWindowCommand,
         )
-        from src.console.commands.result_commands import (
-            CopyCommand,
-            HistoryCommand,
-            ViewClearCommand,
-            ViewCommand,
-            ViewRemoveCommand,
-        )
-        from src.console.commands.system_commands import (
-            ClsCommand,
-            HelpCommand,
-            QuitCommand,
-            ToolDetailCommand,
-            ToolsCommand,
-        )
-        from src.console.commands.workspace_commands import WorkspaceCommand
 
         registry = cls()
         registry.register_many(
@@ -65,9 +58,6 @@ class CommandRegistry:
                 ToolDetailCommand(),
                 CopyCommand(),
                 HistoryCommand(),
-                ViewCommand(),
-                ViewClearCommand(),
-                ViewRemoveCommand(),
                 WorkspaceCommand(),
                 NewWindowCommand(),
                 HelpCommand(),

@@ -39,6 +39,7 @@ def _generate_workspace_metadata(context: CommandContext) -> str:
 
 
 def _load_agents_md(context: CommandContext) -> str:
+    """加载AGENTS.md文件"""
     workspace = context.workspace
     for agent_instruction in INSTRUCTION:
         agents_md = workspace.root_path / agent_instruction

@@ -8,12 +8,12 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Button, Footer, Label, RichLog, TextArea
 
-from src.console.commands.system_commands import generate_help_text
 from src.console.handlers.command_handler import CommandHandler
 from src.console.handlers.tool_handler import ToolHandler
 from src.core.input_parser import parse_input
 from src.core.paste_cache import PasteReference
 from src.core.paste_window import show_paste_window
+from src.utils.generate_help_text import generate_help_text
 
 if TYPE_CHECKING:
     from src.console.result_manager import ResultManager

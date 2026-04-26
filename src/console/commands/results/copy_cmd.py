@@ -1,9 +1,7 @@
-"""Result-related commands (copy, history, view)"""
-
 import warnings
 from argparse import ArgumentParser
 
-from src.core.copy2clip import copy_to_clipboard
+from core.copy2clip import copy_to_clipboard
 from src.models.commands import Command, CommandContext, CommandResult
 
 
@@ -64,70 +62,3 @@ class CopyCommand(Command):
         else:
             context.console.print(f"[red]复制历史记录 #{index} 失败\n{format_help}[/red]")
             return CommandResult(success=False, message="复制失败")
-
-
-class HistoryCommand(Command):
-    """Show command history"""
-
-    def __init__(self):
-        super().__init__()
-        self.name = "history"
-        self.aliases = ["/history"]
-        self.description = "Show command history"
-        self.usage = "/history"
-
-    def execute(self, context: CommandContext) -> CommandResult:
-        history = context.result_manager.list_history()
-        if not history:
-            context.console.print("[dim]No history yet.[/dim]")
-            return CommandResult(success=True)
-
-        for entry in history:
-            copied_mark = " [copied]" if entry.copied else ""
-            context.console.print(f"[bold cyan]{entry.index}:[/bold cyan] [bold]{entry.func_name}[/bold]{copied_mark}")
-        return CommandResult(success=True)
-
-
-@warnings.deprecated("将被抛弃的命令, 改为UI")
-class ViewCommand(Command):
-    """Open interactive result viewer"""
-
-    def __init__(self):
-        super().__init__()
-        self.name = "view"
-        self.aliases = ["/view", "/v"]
-        self.description = "Open interactive result viewer"
-        self.usage = "/view or /v"
-
-    def execute(self, context: CommandContext) -> CommandResult:
-        return CommandResult(success=True, message="已弃用命令返回值")
-
-
-@warnings.deprecated("将被抛弃的命令, 改为UI")
-class ViewClearCommand(Command):
-    """Clear all items from viewer"""
-
-    def __init__(self):
-        super().__init__()
-        self.name = "view_clear"
-        self.aliases = ["/view_clear"]
-        self.description = "Clear all items from viewer"
-        self.usage = "/view_clear"
-
-    def execute(self, context: CommandContext) -> CommandResult:
-        return CommandResult(success=True, message="已弃用命令返回值")
-
-
-@warnings.deprecated("将被抛弃的命令, 改为UI")
-class ViewRemoveCommand(Command):
-    """Remove specific item from viewer"""
-
-    def __init__(self):
-        super().__init__()
-        self.name = "view_remove"
-        self.aliases = ["/view_remove"]
-        self.description = "Remove item from viewer"
-        self.usage = "/view_remove <n>"
-
-    def execute(self, context: CommandContext) -> CommandResult:
-        return CommandResult(success=True, message="已弃用命令返回值")
