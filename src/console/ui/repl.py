@@ -1,0 +1,332 @@
+"""REPL 循环实现 -- 基于 Textual 的 TUI"""
+
+from typing import TYPE_CHECKING, ClassVar
+
+from rich.panel import Panel
+from textual.app import App, ComposeResult
+from textual.binding import Binding
+from textual.containers import Horizontal, Vertical
+from textual.widgets import Button, Footer, Label, RichLog, TextArea
+
+from src.console.handlers.command_handler import CommandHandler
+from src.console.handlers.tool_handler import ToolHandler
+from src.core.input_parser import parse_input
+from src.core.paste_cache import PasteReference
+from src.core.paste_window import show_paste_window
+from src.utils.generate_help_text import generate_help_text
+
+if TYPE_CHECKING:
+    from src.console.result_manager import ResultManager
+    from src.core.tool_registry import ToolRegistry
+    from src.workspace.workspace import Workspace
+
+
+# ---------------------------------------------------------------------------
+# 适配器:将 Textual RichLog 伪装成 rich.console.Console
+# 让现有命令中 context.console.print / clear 调用无需立即改动
+# ---------------------------------------------------------------------------
+
+
+class _TuiConsole:
+    """适配器,将对 rich.console.Console 的调用转发到 Textual RichLog"""
+
+    def __init__(self, log: RichLog) -> None:
+        self._log = log
+
+    def print(self, *args) -> None:
+        """将内容写入 RichLog 控件"""
+        for arg in args:
+            if isinstance(arg, str):
+                self._log.write(arg)
+            else:
+                self._log.write(arg)
+
+    def clear(self) -> None:
+        """清空输出区域"""
+        self._log.clear()
+
+
+# ---------------------------------------------------------------------------
+# Textual 应用
+# ---------------------------------------------------------------------------
+
+
+class REPL(App):
+    """ManualAid REPL —— 基于 Textual 的终端应用"""
+
+    CONSOLE_TITLE = "ManualAid"
+
+    # 内联 CSS
+    CSS = """
+    /* 标题栏:水平容器,整体垂直居中 */
+    #title-bar {
+        height: 3;
+        dock: top;
+        border-bottom: solid $primary;
+    }
+
+    #title-bar > Horizontal {
+        height: 100%;
+        align: center middle;
+    }
+
+    #title-left {
+        width: 40%;
+        content-align: center middle;
+        text-style: bold;
+        color: $success;
+    }
+
+    #title-right {
+        width: 60%;
+        content-align: center middle;
+        color: $text-muted;
+    }
+
+    /* 输出区域占据剩余空间 */
+    #output {
+        height: 1fr;
+        border: none;
+    }
+
+    /* 输入区域:固定在底部 */
+    #input-area {
+        dock: bottom;
+        height: auto;
+        min-height: 3;
+        max-height: 12;
+        padding: 1;
+        border-top: solid $primary;
+    }
+
+    #input-area > Horizontal {
+        height: auto;
+    }
+
+    /* 余多行输入框占据剩宽度 */
+    #input-field {
+        width: 1fr;
+        min-height: 2;
+        max-height: 10;
+        border: wide $accent;
+        background: $boost;
+    }
+
+    #input-container {
+        width: 1fr;
+    }
+
+    #button-area {
+        width: auto;
+        margin-left: 1;
+        margin-right: 0;
+        padding: 1;
+    }
+
+    /* 提交按钮 */
+    #submit-btn {
+        width: 1;
+        min-height: 1;
+    }
+
+    #big-paste-btn {
+        width: 1;
+        min-height: 1;
+    }
+
+    /* 隐藏 footer 中的 palette */
+    Footer > #palette {
+        display: none;
+    }
+    """
+
+    # 按键绑定
+    BINDINGS: ClassVar[list] = [
+        Binding("ctrl+q", "quit_confirm", "退出", show=True),
+        Binding("ctrl+j", "submit_text", "提交", show=True),
+        Binding("alt+v", "paste_big_text", "粘贴大文本", show=True),
+    ]
+
+    def __init__(
+        self,
+        workspace: "Workspace",
+        tool_registry: "ToolRegistry",
+        result_manager: "ResultManager",
+    ):
+        super().__init__()
+        self.rich_log: _TuiConsole | None = None
+        self.workspace = workspace
+        self.tool_registry = tool_registry
+        self.result_manager = result_manager
+
+        # handler 在 on_mount 中创建(此时控件树已就绪)
+        self.command_handler: CommandHandler | None = None
+        self.tool_handler: ToolHandler | None = None
+
+        self.paste_refence: PasteReference = PasteReference()
+
+        # 多行输入缓冲区(用于 func_call 跨行输入)
+        self._multiline_buffer: list[str] = []
+
+    # -- 构建控件树 ---------------------------------------------------------
+
+    def compose(self) -> ComposeResult:
+        """构建控件树"""
+
+        # 标题栏:左侧 app 名称 + 右侧工作区路径,整体垂直居中
+        with Horizontal(id="title-bar"), Horizontal():
+            yield Label(self.CONSOLE_TITLE, id="title-left")
+            yield Label("工作区", id="title-right")
+
+        # 输出区域
+        yield RichLog(id="output", highlight=True, markup=True, wrap=True)
+
+        # 输入区域:水平布局,多行输入框 + 提交按钮
+        with Horizontal(id="input-area"):
+            with Vertical(id="input-container"):
+                yield Label(
+                    "输入命令或 [yellow]<func_call>[/yellow] 标签,Ctrl+J 提交",
+                    id="input-label",
+                )
+                yield TextArea(
+                    "",
+                    language="python",
+                    id="input-field",
+                )
+            with Vertical(id="button-area"):
+                yield Button("提交", id="submit-btn", variant="primary")
+                yield Button("大文本粘贴", id="big-paste-btn", variant="primary")
+
+        yield Footer(show_command_palette=False)
+
+    # -- 生命周期 -----------------------------------------------------------
+
+    def on_mount(self) -> None:
+        """控件挂载后初始化 handler 并打印欢迎横幅"""
+        log = self.query_one("#output", RichLog)
+        tui_console = _TuiConsole(log)
+
+        self.rich_log = tui_console
+        self.result_manager.console = tui_console
+
+        # 更新标题栏右侧显示实际工作区路径
+        title_right = self.query_one("#title-right", Label)
+        title_right.update(f"工作区: {self.workspace.root_path}")
+
+        # 创建 command handler
+        self.command_handler = CommandHandler(
+            self.workspace,
+            self.tool_registry,
+            self.result_manager,
+            tui_console,  # type: ignore[arg-type]
+            self,
+        )
+
+        # 创建 tool handler
+        self.tool_handler = ToolHandler(
+            self.tool_registry,
+            self.result_manager,
+            tui_console,  # type: ignore[arg-type]
+        )
+
+        self._print_welcome()
+
+        # 自动聚焦输入框
+        self.query_one("#input-field", TextArea).focus()
+
+    # -- 输入处理 -----------------------------------------------------------
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """处理提交按钮点击"""
+        if event.button.id == "submit-btn":
+            self._do_submit()
+        if event.button.id == "big-paste-btn":
+            self.action_paste_big_text()
+
+    def _do_submit(self) -> None:
+        """从 TextArea 中取出文本并提交"""
+        text_area = self.query_one("#input-field", TextArea)
+        text = text_area.text.rstrip("\n")
+
+        # 清空输入框
+        text_area.clear()
+
+        self.rich_log.print(f"> {text if len(text) < 70 else text[:67] + '...'}")
+
+        if not text.strip():
+            return
+
+        text = self.paste_refence.expand(text).replace("&quot;", '"')
+        self.paste_refence.clear()
+
+        # 单行模式下直接分发
+        self._dispatch(text)
+
+    def action_paste_big_text(self):
+        def on_paste_result(text: str):
+            if text:
+                self.call_from_thread(self._insert_paste_text, text)
+
+        show_paste_window(callback=on_paste_result)
+
+    def _insert_paste_text(self, text: str) -> None:
+        """在主线程中插入粘贴的文本"""
+        text_area = self.query_one("#input-field", TextArea)
+        if self.paste_refence.should_collapse(text):
+            text = self.paste_refence.collapsed(text)
+        text_area.insert(text)
+
+    def action_submit_text(self) -> None:
+        """Ctrl+Enter 提交文本"""
+        self._do_submit()
+
+    def _dispatch(self, user_input: str) -> None:
+        """解析并执行一条完整的用户输入"""
+        assert self.command_handler is not None
+        assert self.tool_handler is not None
+
+        warns: list[str] = []
+        parsed = parse_input(user_input, self.command_handler.registry, warns)
+
+        try:
+            if parsed.is_command:
+                self.command_handler.handle(parsed)
+            elif parsed.is_func:
+                self.tool_handler.handle(parsed)
+            else:
+                self.rich_log.print(
+                    Panel(
+                        f"输入内容既不是工具也不是函数: {
+                            user_input if len(user_input) < 70 else user_input[:67] + '...'
+                        }",
+                        title="输入解析错误",
+                    )
+                )
+        except Exception as e:
+            warns.append(f"分发输入后在执行时出现错误: {e}")
+
+        if len(warns) > 0:
+            self.rich_log.print(Panel(f"[yellow]{'\n'.join(warns)}[/yellow]", title="输入分发警告"))
+
+    def _update_prompt(self, label: str) -> None:
+        """更新提示符文本"""
+        prompt_widget = self.query_one("#prompt-label", Label)
+        prompt_widget.update(label)
+
+    def action_quit_confirm(self) -> None:
+        """退出应用"""
+        log = self.query_one("#output", RichLog)
+        log.write("[bold]再见![/bold]")
+        self.exit()
+
+    def _print_welcome(self) -> None:
+        """在输出区域打印欢迎横幅"""
+        log = self.query_one("#output", RichLog)
+        assert self.command_handler is not None
+
+        log.write(f"[bold green]{self.CONSOLE_TITLE}[/bold green]")
+        log.write(f"[dim]工作区: {self.workspace.root_path}[/dim]")
+        log.write("")
+        log.write(generate_help_text(self.command_handler.registry.list_commands()))
+        log.write("[dim]输入 /help 查看命令,Ctrl+Q 退出[/dim]")
+        log.write("")

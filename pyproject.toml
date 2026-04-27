@@ -2,11 +2,17 @@
 name = "ManualAid"
 version = "0.1.0"
 description = ""
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 dependencies = [
     "click>=8.3",
-    "rich>=15.0"
+    "rich>=15.0",
+    "nest_asyncio",
+    "pyperclip",
+    "keyboard"
 ]
+
+[project.scripts]
+manualaid = "main:main"
 
 [project.optional-dependencies]
 dev = [
