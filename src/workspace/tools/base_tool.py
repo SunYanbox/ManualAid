@@ -5,15 +5,21 @@ from typing import Any
 from src.workspace.workspace import Workspace
 
 
-def _build_param_doc(name: str, params: dict[str, Any]) -> str:
-    """根据名字和参数生成参数的xml标签"""
+def build_param_doc(name: str, params: dict[str, Any]) -> str:
+    """Generate a concise XML parameter doc."""
+    from src.constants.prompts import clean_type_annotation
+
     result = f'<param name="{name}"'
     if "annotation" in params:
-        result += f' type="{params["annotation"]}"'
+        result += f' type="{clean_type_annotation(params["annotation"])}"'
     else:
-        result += " type=unknown"
+        result += ' type="string"'
+    if params.get("required", False):
+        result += ' required="true"'
+    else:
+        result += ' required="false"'
     if "default" in params:
-        result += f" default={params['default']}"
+        result += f' default="{params["default"]}"'
     result += " />"
     return result
 
@@ -107,19 +113,16 @@ class BaseTool:
 
     def to_doc(self) -> str:
         """转换为模型可读文档格式"""
-        if self.params is not None and len(self.params) > 0:
-            required_params = []
-            param_docs = []
+        lines = [f'<func_name="{self.name}">', f"    <description>{self.doc}</description>"]
+        if self.params and len(self.params) > 0:
+            lines.append("    <params>")
             for name, param in self.params.items():
-                if param.get("required", False):
-                    required_params.append(name)
-                param_docs.append(_build_param_doc(name, param))
-            param_doc = (
-                f"<params>\n{'\n'.join(param_docs)}\n<required>{','.join(required_params)}</required>\n</params>"
-            )
+                lines.append(f"        {build_param_doc(name, param)}")
+            lines.append("    </params>")
         else:
-            param_doc = "<No any params />"
-        return f'<func_name="{self.name}">\n{param_doc}\n' + f"<doc>{self.doc}</doc>\n</func_name>"
+            lines.append("    <params><!-- 此工具不需要参数 --></params>")
+        lines.append("</tool>")
+        return "\n".join(lines)
 
     def to_func_call(self) -> str:
         """将工具转换为标准格式"""
