@@ -1,19 +1,19 @@
 """Output formatting utilities"""
 
 from src.constants.files import EXTENSION_TO_LANGUAGE
+from src.utils.string_snapshot import truncate_params_string, truncate_single_string
 
 
 class OutputFormatter:
     """Formatter for console output"""
 
     @staticmethod
-    def format_tool_params(args: list, kwargs: dict, max_length: int = 50) -> str:
+    def format_tool_params(args: list, kwargs: dict) -> str:
         """Format tool parameters as concise string
 
         Args:
             args: Positional arguments
             kwargs: Keyword arguments
-            max_length: Maximum length before truncation
 
         Returns:
             Formatted parameter string
@@ -23,16 +23,14 @@ class OutputFormatter:
         # Positional arguments
         for arg in args:
             if isinstance(arg, str):
-                arg_str = arg if len(arg) <= 30 else f"{arg[:27]}..."
-                parts.append(f'"{arg_str}"')
+                parts.append(f'"{truncate_single_string(arg)}"')
             else:
                 parts.append(str(arg))
 
         # Keyword arguments
         for key, value in kwargs.items():
             if isinstance(value, str):
-                val_str = value if len(value) <= 30 else f"{value[:27]}..."
-                parts.append(f'{key}="{val_str}"')
+                parts.append(f'{key}="{truncate_single_string(value)}"')
             else:
                 parts.append(f"{key}={value}")
 
@@ -40,10 +38,8 @@ class OutputFormatter:
             return "no parameters"
 
         params_str = ", ".join(parts)
-        if len(params_str) > max_length:
-            params_str = params_str[: max_length - 3] + "..."
 
-        return params_str
+        return truncate_params_string(params_str)
 
     @staticmethod
     def create_result_title(

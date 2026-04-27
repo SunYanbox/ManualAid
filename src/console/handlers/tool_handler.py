@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 from src.console.ui.interactive_viewer import add_to_viewer, run_viewer
 from src.constants.files import EXTENSION_TO_LANGUAGE
 from src.models.commands import CommandParseResult
+from src.utils.string_snapshot import truncate_params_string, truncate_single_string
 
 if TYPE_CHECKING:
     from src.console.result_manager import ResultManager
@@ -45,17 +46,14 @@ def _format_tool_params(kwargs: dict) -> str:
     # Keyword arguments
     for key, value in kwargs.items():
         if isinstance(value, str):
-            val_str = value if len(value) <= 30 else f"{value[:27]}..."
-            parts.append(f'{key}="{val_str}"')
+            parts.append(f'{key}="{truncate_single_string(value)}"')
         else:
             parts.append(f"{key}={value}")
 
     if not parts:
         return "no parameters"
 
-    params_str = ", ".join(parts)
-    if len(params_str) > 50:
-        params_str = params_str[:47] + "..."
+    params_str = truncate_params_string(", ".join(parts))
 
     return params_str
 

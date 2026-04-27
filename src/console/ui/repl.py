@@ -14,6 +14,7 @@ from src.core.input_parser import parse_input
 from src.core.paste_cache import PasteReference
 from src.core.paste_window import show_paste_window
 from src.utils.generate_help_text import generate_help_text
+from src.utils.string_snapshot import truncate_for_display
 
 if TYPE_CHECKING:
     from src.console.result_manager import ResultManager
@@ -251,7 +252,7 @@ class REPL(App):
         # 清空输入框
         text_area.clear()
 
-        self.rich_log.print(f"> {text if len(text) < 70 else text[:67] + '...'}")
+        self.rich_log.print(f"> {truncate_for_display(text)}")
 
         if not text.strip():
             return
@@ -296,9 +297,7 @@ class REPL(App):
             else:
                 self.rich_log.print(
                     Panel(
-                        f"输入内容既不是工具也不是函数: {
-                            user_input if len(user_input) < 70 else user_input[:67] + '...'
-                        }",
+                        f"输入内容既不是工具也不是函数: {truncate_for_display(user_input)}",
                         title="输入解析错误",
                     )
                 )
