@@ -49,6 +49,8 @@ TOOL_RULES: str = """<tool_rules>
   <rule>绝不虚构工具返回的数据</rule>
   <rule>在调用工具后停止——不要代表工具生成结果</rule>
   <rule>如果工具返回错误或空结果,向用户请求澄清</rule>
+  <rule>当参数值包含XML标签字符(`<`或`>`)时, 必须将其转换为HTML实体转义符(`&lt;`和`&gt;`).
+      例如: 如果参数值是<func_call>, 必须写为&lt;func_call&gt;</rule>
 </anti_hallucination>
 </tool_rules>"""
 
@@ -73,7 +75,7 @@ AUGMENTATION_WRAPPER: str = """<augmentation priority="MAXIMUM" precedence="OVER
 </augmentation>"""
 
 # ---------------------------------------------------------------------------
-# Extension hooks (Skills / MCP placeholders)
+# Extension hooks(Skills / MCP placeholders)
 # ---------------------------------------------------------------------------
 
 EXTENSION_HOOKS: list[Callable[[], str]] = []
@@ -101,7 +103,7 @@ def generate_extensions_section() -> str:
 
 
 # ---------------------------------------------------------------------------
-# Type annotation cleanup (for tool doc output)
+# Type annotation cleanup(for tool doc output)
 # ---------------------------------------------------------------------------
 
 PYTHON_TYPE_TO_CLEAN: dict[str, str] = {

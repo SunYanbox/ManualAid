@@ -1,3 +1,4 @@
+import html
 import re
 import shlex
 import warnings
@@ -93,7 +94,7 @@ def parse_func_call(content: str, warns: list[str]) -> tuple[str, dict]:
     for match in re.finditer(standard_param_pattern, inner, re.DOTALL):
         param_name = match.group(1).strip()
         param_value = match.group(2).strip()
-        kwargs[param_name] = param_value
+        kwargs[param_name] = unescape(param_value, warns)
 
     # 属性格式:<param name="xxx" value="yyy"></param> 或 <param name="xxx" value="yyy" />
     attr_param_pattern = r'<param\s+name="([^"]+)"\s+value="([^"]*)"\s*/?>'
@@ -102,7 +103,7 @@ def parse_func_call(content: str, warns: list[str]) -> tuple[str, dict]:
         param_value = match.group(2).strip()
 
         if param_name not in kwargs:  # 避免覆盖已有的同名参数
-            kwargs[param_name] = param_value
+            kwargs[param_name] = unescape(param_value, warns)
             warns.append(f"检测到非标准格式:参数 '{param_name}' 使用 value 属性而非标签文本")
         else:
             warns.append(f"参数 '{param_name}' 已存在,跳过属性格式的值")
@@ -114,3 +115,12 @@ def parse_func_call(content: str, warns: list[str]) -> tuple[str, dict]:
         warns.append("检测到混合参数格式(标签文本和属性值),可能存在不一致")
 
     return func_name, kwargs
+
+
+def unescape(context: str, warns: list[str]) -> str:
+    """还原参数中的转义字符"""
+    try:
+        return html.unescape(context)
+    except Exception as err:
+        warns.append(f"转义HTML实体符号时出错: {err}")
+    return context
