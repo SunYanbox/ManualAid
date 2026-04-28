@@ -153,7 +153,7 @@ class ToolHandler:
         tool_result_widget.set_collection(collection)
 
         self.console.print_collapsible_with_widget(
-            truncate_single_string(f"调用工具结果 | {tool_names} | {time.ctime(time.time())}"), tool_result_widget
+            truncate_single_string(f"调用工具结果 | {tool_names}") + f" | {time.ctime(time.time())}", tool_result_widget
         )
 
         return True

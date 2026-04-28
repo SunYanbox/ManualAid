@@ -32,7 +32,7 @@ class ToolsResultWidget(Vertical):
         width: 1fr;
     }
 
-    #tools-result-collapsibles {
+    #tools-result-collapsible {
         height: 1fr;
         overflow-y: auto;
     }
@@ -44,7 +44,7 @@ class ToolsResultWidget(Vertical):
 
     def compose(self):
         yield DataTable(id="tools-result-table")
-        yield Vertical(id="tools-result-collapsibles")
+        yield Vertical(id="tools-result-collapsible")
 
     def on_mount(self) -> None:
         """Called when the widget is mounted. Update display if collection is set."""
