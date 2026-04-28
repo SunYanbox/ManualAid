@@ -1,4 +1,4 @@
-"""REPL 循环实现 -- 基于 Textual 的 TUI"""
+from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar
 
@@ -120,9 +120,9 @@ class REPL(App):
 
     def __init__(
         self,
-        workspace: "Workspace",
-        tool_registry: "ToolRegistry",
-        result_manager: "ResultManager",
+        workspace: Workspace,
+        tool_registry: ToolRegistry,
+        result_manager: ResultManager,
     ):
         super().__init__()
         self.tui_console: TuiConsole | None = None

@@ -1,4 +1,4 @@
-"""Tool handler for executing tool calls"""
+from __future__ import annotations
 
 import json
 import os
@@ -75,8 +75,8 @@ class ToolHandler:
 
     def __init__(
         self,
-        tool_registry: "ToolRegistry",
-        result_manager: "ResultManager",
+        tool_registry: ToolRegistry,
+        result_manager: ResultManager,
         console,
     ):
         self.tool_registry = tool_registry
