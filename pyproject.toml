@@ -8,7 +8,8 @@ dependencies = [
     "rich>=15.0",
     "nest_asyncio",
     "pyperclip",
-    "keyboard"
+    "keyboard",
+    "python-dotenv"
 ]
 
 [project.scripts]
