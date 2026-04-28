@@ -1,5 +1,4 @@
 import hashlib
-import tempfile
 from pathlib import Path
 
 from src.core.file_tracker import FileTracker

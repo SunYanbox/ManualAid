@@ -182,6 +182,12 @@ class REPL(App):
         title_right = self.query_one("#title-right", Label)
         title_right.update(f"工作区: {self.workspace.root_path}")
 
+        # 创建审核提交模块并注入审核标签页
+        from src.core.audit_committer import AuditCommitter
+
+        audit_committer = AuditCommitter(self.workspace)
+        tui_console.audit_tab.set_committer(audit_committer)
+
         # 创建 command handler
         self.command_handler = CommandHandler(
             self.workspace,

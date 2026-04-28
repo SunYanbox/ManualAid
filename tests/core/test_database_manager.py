@@ -1,4 +1,3 @@
-import sqlite3
 import time
 from pathlib import Path
 
@@ -199,6 +198,92 @@ class TestFileSnapshots:
         row = db.fetchone("SELECT session_id FROM file_snapshots WHERE file_path = 'src/main.py'")
         assert row is not None
         assert row[0] == session_id
+
+
+class TestPendingContentMigration:
+    def test_pending_content_column_exists(self, db: DatabaseManager):
+        cols = db.fetchall("PRAGMA table_info(file_snapshots)")
+        col_names = [c[1] for c in cols]
+        assert "pending_content" in col_names
+
+    def test_pending_content_default_empty(self, db: DatabaseManager):
+        snapshot_id = db.record_file_snapshot("src/main.py", "old", "new", "diff")
+        row = db.fetchone("SELECT pending_content FROM file_snapshots WHERE id = ?", (snapshot_id,))
+        assert row is not None
+        assert row[0] == ""
+
+    def test_pending_content_stored(self, db: DatabaseManager):
+        session_id = db.create_session()
+        db.execute(
+            "UPDATE file_snapshots SET pending_content = ? WHERE id = ?",
+            ("new file content", 1),
+        )
+        # Use record_file_snapshot with explicit pending_content via direct SQL
+        # since the method currently doesn't have pending_content param
+        snapshot_id = db.record_file_snapshot(
+            "src/main.py",
+            "old_hash",
+            "new_hash",
+            "diff_content",
+            audit_status="PENDING_AUDIT",
+            session_id=session_id,
+        )
+        db.execute(
+            "UPDATE file_snapshots SET pending_content = ? WHERE id = ?",
+            ("pending content here", snapshot_id),
+        )
+        row = db.fetchone("SELECT pending_content FROM file_snapshots WHERE id = ?", (snapshot_id,))
+        assert row is not None
+        assert row[0] == "pending content here"
+
+
+class TestGetSnapshotById:
+    def test_get_existing_snapshot(self, db: DatabaseManager):
+        session_id = db.create_session()
+        db.record_file_snapshot(
+            "src/main.py",
+            "old_hash",
+            "new_hash",
+            "diff_content",
+            audit_status="PENDING_AUDIT",
+            session_id=session_id,
+        )
+        # Set pending_content directly
+        db.execute(
+            "UPDATE file_snapshots SET pending_content = ? WHERE id = ?",
+            ("pending content", 1),
+        )
+
+        row = db.get_snapshot_by_id(1)
+        assert row is not None
+        assert row[1] == "src/main.py"
+        assert row[8] == "pending content"
+
+    def test_get_nonexistent_snapshot(self, db: DatabaseManager):
+        row = db.get_snapshot_by_id(9999)
+        assert row is None
+
+
+class TestGetSnapshotsByAuditStatus:
+    def test_filter_by_status(self, db: DatabaseManager):
+        db.record_file_snapshot("a.py", None, "h1", "diff1")
+        db.record_file_snapshot("b.py", "h0", "h2", "diff2", audit_status="APPROVED")
+        db.record_file_snapshot("c.py", "h0", "h3", "diff3", audit_status="REJECTED")
+
+        pending = db.get_snapshots_by_audit_status("PENDING_AUDIT")
+        approved = db.get_snapshots_by_audit_status("APPROVED")
+        rejected = db.get_snapshots_by_audit_status("REJECTED")
+
+        assert len(pending) == 1
+        assert pending[0][1] == "a.py"
+        assert len(approved) == 1
+        assert approved[0][1] == "b.py"
+        assert len(rejected) == 1
+        assert rejected[0][1] == "c.py"
+
+    def test_no_matching_status(self, db: DatabaseManager):
+        rows = db.get_snapshots_by_audit_status("NONEXISTENT_STATUS")
+        assert len(rows) == 0
 
 
 class TestThreadSafety:

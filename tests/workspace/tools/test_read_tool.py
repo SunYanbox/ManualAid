@@ -4,7 +4,6 @@ from pathlib import Path
 import pytest
 
 from src.core.database_manager import DatabaseManager
-from src.core.file_tracker import FileTracker
 from src.workspace.workspace import Workspace
 
 

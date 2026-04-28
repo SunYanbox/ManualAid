@@ -8,6 +8,8 @@ from rich.markdown import Markdown
 from textual.containers import Vertical, Widget
 from textual.widgets import Collapsible, RichLog, Static, TabbedContent, TabPane
 
+from src.console.ui.widgets.audit_tab import AuditTab
+
 
 class TuiConsole(Vertical):
     """功能完备的 TUI 控制台组件.
@@ -15,6 +17,7 @@ class TuiConsole(Vertical):
     包含:
     - Tab 1 (RichLog): 用于普通富文本日志.
     - Tab 2 (Tool Calls): 用于显示工具调用情况.
+    - Tab 3 (Audit): 用于审核待处理的写入/编辑操作.
     """
 
     DEFAULT_CSS = """
@@ -53,6 +56,8 @@ class TuiConsole(Vertical):
                 yield RichLog(id="tui-console-main-log", highlight=True, markup=True, wrap=True)
             with TabPane("Tool Calls", id="tab-tool-calls"):
                 yield Vertical(id="tui-console-tool-calls")
+            with TabPane("Audit", id="tab-audit"):
+                yield AuditTab()
 
     @property
     def main_log(self) -> RichLog:
@@ -61,6 +66,10 @@ class TuiConsole(Vertical):
     @property
     def tool_calls_container(self) -> Vertical:
         return self.query_one("#tui-console-tool-calls", Vertical)
+
+    @property
+    def audit_tab(self) -> AuditTab:
+        return self.query_one(AuditTab)
 
     def print(self, *args) -> None:
         """将内容写入主日志区"""

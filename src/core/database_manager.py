@@ -104,6 +104,17 @@ class DatabaseManager:
         )
         conn.commit()
 
+        # Phase 2 migration: add pending_content column to file_snapshots
+        self._migrate_add_pending_content(conn)
+
+    @staticmethod
+    def _migrate_add_pending_content(conn: sqlite3.Connection) -> None:
+        try:
+            conn.execute("ALTER TABLE file_snapshots ADD COLUMN pending_content TEXT NOT NULL DEFAULT ''")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+
     def close(self) -> None:
         if hasattr(self._thread_local, "connection") and self._thread_local.connection is not None:
             self._thread_local.connection.close()
@@ -205,12 +216,13 @@ class DatabaseManager:
         diff_content: str,
         audit_status: str = "PENDING_AUDIT",
         session_id: int | None = None,
+        pending_content: str = "",
     ) -> int:
         cursor = self.execute(
             "INSERT INTO file_snapshots "
-            "(file_path, old_hash, new_hash, diff_content, timestamp, session_id, audit_status) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (file_path, old_hash, new_hash, diff_content, time.time(), session_id, audit_status),
+            "(file_path, old_hash, new_hash, diff_content, timestamp, session_id, audit_status, pending_content) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (file_path, old_hash, new_hash, diff_content, time.time(), session_id, audit_status, pending_content),
         )
         return cursor.lastrowid
 
@@ -222,8 +234,22 @@ class DatabaseManager:
 
     def get_pending_audits(self) -> list[tuple]:
         return self.fetchall(
-            "SELECT id, file_path, old_hash, new_hash, diff_content, timestamp, session_id, audit_status "
-            "FROM file_snapshots WHERE audit_status = 'PENDING_AUDIT'"
+            "SELECT id, file_path, old_hash, new_hash, diff_content, timestamp, session_id, audit_status"
+            " FROM file_snapshots WHERE audit_status = 'PENDING_AUDIT'"
+        )
+
+    def get_snapshot_by_id(self, snapshot_id: int) -> tuple | None:
+        return self.fetchone(
+            "SELECT id, file_path, old_hash, new_hash, diff_content, timestamp, session_id, audit_status,"
+            " pending_content FROM file_snapshots WHERE id = ?",
+            (snapshot_id,),
+        )
+
+    def get_snapshots_by_audit_status(self, status: str) -> list[tuple]:
+        return self.fetchall(
+            "SELECT id, file_path, old_hash, new_hash, diff_content, timestamp, session_id, audit_status,"
+            " pending_content FROM file_snapshots WHERE audit_status = ?",
+            (status,),
         )
 
     # -- Class-level cleanup for testing --
