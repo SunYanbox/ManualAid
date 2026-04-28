@@ -10,11 +10,13 @@ from rich.live import Live
 from rich.panel import Panel
 from rich.syntax import Syntax
 from rich.text import Text
+from typing_extensions import deprecated
 
 console = Console()
 
 
 @dataclass
+@deprecated("将要弃用")
 class ViewerItem:
     """查看器项目"""
 
@@ -57,6 +59,7 @@ class ViewerItem:
         self.expanded = not self.expanded
 
 
+@deprecated("将要弃用")
 class InteractiveViewer:
     """通用交互式查看器"""
 
@@ -239,6 +242,7 @@ class InteractiveViewer:
 _global_viewer: InteractiveViewer | None = None
 
 
+@deprecated("将要弃用")
 def get_viewer(title: str = "ManualAid Result Viewer") -> InteractiveViewer:
     """获取全局查看器实例(单例)"""
     global _global_viewer
@@ -247,6 +251,7 @@ def get_viewer(title: str = "ManualAid Result Viewer") -> InteractiveViewer:
     return _global_viewer
 
 
+@deprecated("将要弃用")
 def add_to_viewer(id: str, title: str, content: str, language: str | None = None) -> None:
     """添加到全局查看器
 
@@ -260,12 +265,14 @@ def add_to_viewer(id: str, title: str, content: str, language: str | None = None
     viewer.add_item(id, title, content, language)
 
 
+@deprecated("将要弃用")
 def run_viewer() -> None:
     """运行全局查看器"""
     viewer = get_viewer()
     viewer.run()
 
 
+@deprecated("将要弃用")
 def clear_viewer() -> None:
     """清空查看器"""
     viewer = get_viewer()
