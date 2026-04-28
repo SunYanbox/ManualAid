@@ -82,7 +82,18 @@ class TestWriteModifiedExternally:
         read_tool.read("test.txt")
 
         file.write_text("modified externally", encoding="utf-8")
-        time.sleep(0.01)
+        # 确保文件系统时间戳更新，Windows需要更长的延迟
+        time.sleep(0.1)
+
+        # 确保文件修改时间确实变化了
+        new_mtime = file.stat().st_mtime
+        read_record = read_tool.workspace.db.get_file_read_record("test.txt")
+        stored_mtime = read_record[2] if read_record else None
+
+        if stored_mtime and abs(new_mtime - stored_mtime) < 0.001:
+            # 如果时间戳变化不够，手动修改文件以确保差异
+            file.write_text("modified externally again", encoding="utf-8")
+            time.sleep(0.1)
 
         result = write_tool.write("test.txt", "should fail")
         assert "FILE_MODIFIED_EXTERNALLY" in result
