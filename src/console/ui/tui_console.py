@@ -6,15 +6,15 @@ from typing import ClassVar
 
 from rich.markdown import Markdown
 from textual.containers import Vertical, Widget
-from textual.widgets import Collapsible, RichLog, Static
+from textual.widgets import Collapsible, RichLog, Static, TabbedContent, TabPane
 
 
 class TuiConsole(Vertical):
     """功能完备的 TUI 控制台组件.
 
     包含:
-    - #tui-console-main-log: 用于普通富文本日志的 RichLog.
-    - #tui-console-structured-stack: 用于存放 Collapsible 控件的垂直容器.
+    - Tab 1 (RichLog): 用于普通富文本日志.
+    - Tab 2 (Tool Calls): 用于显示工具调用情况.
     """
 
     DEFAULT_CSS = """
@@ -23,13 +23,20 @@ class TuiConsole(Vertical):
         width: 1fr;
     }
 
+    TuiConsole TabbedContent {
+        height: 1fr;
+    }
+
+    TuiConsole TabbedContent > TabPane {
+        padding: 0;
+    }
+
     #tui-console-main-log {
         height: 1fr;
     }
 
-    #tui-console-structured-stack {
-        height: auto;
-        max-height: 50%;
+    #tui-console-tool-calls {
+        height: 1fr;
         overflow-y: auto;
     }
     """
@@ -41,28 +48,36 @@ class TuiConsole(Vertical):
         self._collapsible: dict[str, Collapsible] = {}
 
     def compose(self):
-        yield RichLog(id="tui-console-main-log", highlight=True, markup=True, wrap=True)
-        yield Vertical(id="tui-console-structured-stack")
+        with TabbedContent():
+            with TabPane("RichLog", id="tab-richlog"):
+                yield RichLog(id="tui-console-main-log", highlight=True, markup=True, wrap=True)
+            with TabPane("Tool Calls", id="tab-tool-calls"):
+                yield Vertical(id="tui-console-tool-calls")
+
+    @property
+    def main_log(self) -> RichLog:
+        return self.query_one("#tui-console-main-log", RichLog)
+
+    @property
+    def tool_calls_container(self) -> Vertical:
+        return self.query_one("#tui-console-tool-calls", Vertical)
 
     def print(self, *args) -> None:
         """将内容写入主日志区"""
-        log = self.query_one("#tui-console-main-log", RichLog)
         for arg in args:
             if isinstance(arg, str):
-                log.write(arg)
+                self.main_log.write(arg)
             else:
-                log.write(arg)
+                self.main_log.write(arg)
 
     def clear(self) -> None:
-        """清空主日志区和结构化输出区"""
-        log = self.query_one("#tui-console-main-log", RichLog)
-        log.clear()
-        stack = self.query_one("#tui-console-structured-stack", Vertical)
-        stack.remove_children()
+        """清空主日志区和工具调用区"""
+        self.main_log.clear()
+        self.tool_calls_container.remove_children()
         self._collapsible.clear()
 
     def print_collapsible(self, title: str, content: str, cid: str | None = None) -> None:
-        """添加一个可折叠的输出块.
+        """添加一个可折叠的输出块到工具调用标签页.
 
         Args:
             title: 折叠块的标题.
@@ -76,22 +91,20 @@ class TuiConsole(Vertical):
         if cid in self._collapsible:
             cid = f"{cid}-{len(self._collapsible)}"
 
-        stack = self.query_one("#tui-console-structured-stack", Vertical)
-
         # 使用 Markdown 渲染内容
         markdown_content = Markdown(content)
         content_widget = Static(markdown_content, id=f"tui-collapsible-content-{cid}")
 
         collapsible = Collapsible(content_widget, title=title, id=f"tui-collapsible-{cid}")
 
-        stack.mount(collapsible)
+        self.tool_calls_container.mount(collapsible)
         self._collapsible[cid] = collapsible
 
         # 自动滚动到底部
         self.scroll_end(animate=False)
 
     def print_collapsible_with_widget(self, title: str, widget: Widget, cid: str | None = None) -> None:
-        """添加一个可折叠的输出块.
+        """添加一个可折叠的输出块到工具调用标签页.
 
         Args:
             title: 折叠块的标题.
@@ -105,11 +118,9 @@ class TuiConsole(Vertical):
         if cid in self._collapsible:
             cid = f"{cid}-{len(self._collapsible)}"
 
-        stack = self.query_one("#tui-console-structured-stack", Vertical)
-
         collapsible = Collapsible(widget, title=title, id=f"tui-collapsible-{cid}")
 
-        stack.mount(collapsible)
+        self.tool_calls_container.mount(collapsible)
         self._collapsible[cid] = collapsible
 
         # 自动滚动到底部
