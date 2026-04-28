@@ -1,4 +1,4 @@
-"""命令分发处理器"""
+from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
@@ -18,9 +18,9 @@ class CommandHandler:
 
     def __init__(
         self,
-        workspace: "Workspace",
-        tool_registry: "ToolRegistry",
-        result_manager: "ResultManager",
+        workspace: Workspace,
+        tool_registry: ToolRegistry,
+        result_manager: ResultManager,
         console,  # 接受任何实现了 print/clear 的对象(_TuiConsole 或 rich.console.Console)
         app: App | None = None,
     ):

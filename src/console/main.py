@@ -4,6 +4,8 @@ import argparse
 import sys
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 from src.console.folder_picker import pick_folder
 from src.console.result_manager import ResultManager
 from src.console.ui.repl import REPL
@@ -38,6 +40,7 @@ def init_workspace(start_path: str | None = None) -> Workspace | None:
 
 def main() -> None:
     """主入口"""
+    load_dotenv()
     parser = argparse.ArgumentParser(description="ManualAid 控制台 -- 基于 Textual 的 TUI 工具")
     parser.add_argument("-p", "--path", type=str, help="工作目录路径(跳过文件夹选择对话框)")
     args = parser.parse_args()

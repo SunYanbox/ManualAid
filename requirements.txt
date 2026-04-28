@@ -7,3 +7,4 @@ pytest-cov==7.1.0
 rich==15.0.0
 ruff==0.15.11
 textual
+python-dotenv
