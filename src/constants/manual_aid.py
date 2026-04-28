@@ -2,6 +2,7 @@
 
 # .ManualAid 目录名
 MANUALAID_DIR = ".ManualAid"
+DB_FILE = "manualaid.db"
 
 # 会话子目录
 SESSIONS_DIR = "sessions"

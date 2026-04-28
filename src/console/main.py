@@ -1,7 +1,9 @@
 """ManualAid 控制台 -- 基于 Textual 的 TUI 工具"""
 
 import argparse
+import atexit
 import sys
+import time
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -35,7 +37,20 @@ def init_workspace(start_path: str | None = None) -> Workspace | None:
 
     workspace: Workspace = Workspace(str(folder_path))
     tool_registry.register(workspace)
+
+    session_id = workspace.db.create_session(name=f"session_{time.strftime('%Y%m%d_%H%M%S')}")
+    tool_registry.set_session_id(session_id)
+    workspace._current_session_id = session_id
+
+    atexit.register(_cleanup, workspace, session_id)
+
     return workspace
+
+
+def _cleanup(workspace: Workspace, session_id: int) -> None:
+    if session_id and hasattr(workspace, "db"):
+        workspace.db.close_session(session_id)
+        workspace.db.close()
 
 
 def main() -> None:

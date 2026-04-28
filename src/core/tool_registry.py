@@ -1,7 +1,10 @@
 import asyncio
+import hashlib
 import inspect
+import json
 import os
 import threading
+import time
 import warnings
 from collections.abc import Awaitable, Callable
 from typing import Any, ClassVar, ParamSpec, Self, TypeVar
@@ -42,6 +45,8 @@ class ToolRegistry:
             return
 
         self._tools: dict[str, BaseTool] = {}
+        self._current_session_id: int | None = None
+        self._workspace: Workspace | None = None
         self._initialized = True
 
         # 配置常量 - 从环境变量读取,带默认值
@@ -99,6 +104,8 @@ class ToolRegistry:
         from src.workspace.tools.stat_tool import StatTool
         from src.workspace.tools.symbol_ref_tool import SymbolRefTool
         from src.workspace.tools.write_tool import WriteTool
+
+        self._workspace = workspace
 
         for cls in (
             ExactSearchTool,
@@ -158,6 +165,8 @@ class ToolRegistry:
             tool = self._tools[func_name]
             kwargs = tool.convert_args(kwargs)
 
+            start_time = time.perf_counter()
+            status = "success"
             try:
                 if inspect.iscoroutinefunction(tool.func):
                     coro = tool.func(*args, **kwargs)
@@ -173,7 +182,11 @@ class ToolRegistry:
                     # 同步函数
                     result = tool.func(*args, **kwargs)
             except Exception as e:
+                status = "error"
                 result = f'<func_name="{tool.name}", errors={e.__class__.__name__}({e})>'
+
+            duration_ms = (time.perf_counter() - start_time) * 1000
+            self._log_tool_call(func_name, kwargs, duration_ms, status)
 
             return self._compress_result(result)
         else:
@@ -204,5 +217,24 @@ class ToolRegistry:
         """获取工具信息"""
         return self._tools.get(name)
 
-    def __repr__(self) -> str:
+    def set_session_id(self, session_id: int) -> None:
+        """设置当前会话 ID"""
+        self._current_session_id = session_id
+
+    @staticmethod
+    def _compute_args_hash(kwargs: dict) -> str:
+        sorted_json = json.dumps(kwargs, sort_keys=True, default=str)
+        return hashlib.blake2b(sorted_json.encode("utf-8")).hexdigest()
+
+    def _log_tool_call(self, func_name: str, kwargs: dict, duration_ms: float, status: str) -> None:
+        session_id = getattr(self, "_current_session_id", None)
+        if session_id is None:
+            return
+        try:
+            args_hash = self._compute_args_hash(kwargs)
+            workspace = getattr(self, "_workspace", None)
+            if workspace is not None:
+                workspace.db.log_tool_call(session_id, func_name, args_hash, duration_ms=duration_ms, status=status)
+        except Exception:
+            pass
         return f"ToolRegistry(sync_tools={len(self._tools)})"

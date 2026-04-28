@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from src.core.file_tracker import FileTracker
 from src.models.tool_error_response import ToolErrorResponse
 from src.workspace.path_validator import PathNotFoundError, WorkspaceBoundaryError
 from src.workspace.tools.base_tool import BaseTool
@@ -62,6 +63,8 @@ class ReadLinesTool(BaseTool):
             header = f"\n[文件: {path}]\n[行 {start}-{end} / 共 {total_lines} 行]\n"
             separator = "-" * 80 + "\n"
 
+            self._record_read_meta(path)
+
             return header + separator + "\n".join(result_lines)
         except PathNotFoundError as err1:
             return ToolErrorResponse(self.__class__.__name__, err1).to_str()
@@ -71,3 +74,12 @@ class ReadLinesTool(BaseTool):
             return ToolErrorResponse(self.__class__.__name__, err3).to_str()
         except Exception as err:
             return ToolErrorResponse(self.__class__.__name__, err).to_str()
+
+    def _record_read_meta(self, resolved_path: Path) -> None:
+        try:
+            meta = FileTracker.get_file_meta(resolved_path)
+            if meta:
+                rel_path = str(resolved_path.relative_to(self.workspace.root_path))
+                self.workspace.db.record_file_read(rel_path, meta["mtime"], meta["size"], meta["checksum"])
+        except Exception:
+            pass

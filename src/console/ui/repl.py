@@ -278,6 +278,9 @@ class REPL(App):
 
     def action_quit_confirm(self) -> None:
         """退出应用"""
+        session_id = getattr(self.tool_registry, "_current_session_id", None)
+        if session_id is not None and hasattr(self.workspace, "db"):
+            self.workspace.db.close_session(session_id)
         if self.tui_console:
             self.tui_console.print("[bold]再见![/bold]")
         self.exit()
