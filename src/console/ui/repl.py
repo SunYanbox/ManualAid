@@ -6,10 +6,11 @@ from rich.panel import Panel
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
-from textual.widgets import Button, Footer, Label, RichLog, TextArea
+from textual.widgets import Button, Footer, Label, TextArea
 
 from src.console.handlers.command_handler import CommandHandler
 from src.console.handlers.tool_handler import ToolHandler
+from src.console.ui.tui_console import TuiConsole
 from src.core.input_parser import parse_input
 from src.core.paste_cache import PasteReference
 from src.core.paste_window import show_paste_window
@@ -20,31 +21,6 @@ if TYPE_CHECKING:
     from src.console.result_manager import ResultManager
     from src.core.tool_registry import ToolRegistry
     from src.workspace.workspace import Workspace
-
-
-# ---------------------------------------------------------------------------
-# 适配器:将 Textual RichLog 伪装成 rich.console.Console
-# 让现有命令中 context.console.print / clear 调用无需立即改动
-# ---------------------------------------------------------------------------
-
-
-class _TuiConsole:
-    """适配器,将对 rich.console.Console 的调用转发到 Textual RichLog"""
-
-    def __init__(self, log: RichLog) -> None:
-        self._log = log
-
-    def print(self, *args) -> None:
-        """将内容写入 RichLog 控件"""
-        for arg in args:
-            if isinstance(arg, str):
-                self._log.write(arg)
-            else:
-                self._log.write(arg)
-
-    def clear(self) -> None:
-        """清空输出区域"""
-        self._log.clear()
 
 
 # ---------------------------------------------------------------------------
@@ -82,12 +58,6 @@ class REPL(App):
         width: 60%;
         content-align: center middle;
         color: $text-muted;
-    }
-
-    /* 输出区域占据剩余空间 */
-    #output {
-        height: 1fr;
-        border: none;
     }
 
     /* 输入区域:固定在底部 */
@@ -155,7 +125,7 @@ class REPL(App):
         result_manager: "ResultManager",
     ):
         super().__init__()
-        self.rich_log: _TuiConsole | None = None
+        self.tui_console: TuiConsole | None = None
         self.workspace = workspace
         self.tool_registry = tool_registry
         self.result_manager = result_manager
@@ -179,8 +149,8 @@ class REPL(App):
             yield Label(self.CONSOLE_TITLE, id="title-left")
             yield Label("工作区", id="title-right")
 
-        # 输出区域
-        yield RichLog(id="output", highlight=True, markup=True, wrap=True)
+        # 输出区域: 使用新的 TuiConsole 组件
+        yield TuiConsole()
 
         # 输入区域:水平布局,多行输入框 + 提交按钮
         with Horizontal(id="input-area"):
@@ -204,10 +174,8 @@ class REPL(App):
 
     def on_mount(self) -> None:
         """控件挂载后初始化 handler 并打印欢迎横幅"""
-        log = self.query_one("#output", RichLog)
-        tui_console = _TuiConsole(log)
-
-        self.rich_log = tui_console
+        tui_console = self.query_one(TuiConsole)
+        self.tui_console = tui_console
         self.result_manager.console = tui_console
 
         # 更新标题栏右侧显示实际工作区路径
@@ -252,7 +220,7 @@ class REPL(App):
         # 清空输入框
         text_area.clear()
 
-        self.rich_log.print(f"> {truncate_for_display(text)}")
+        self.tui_console.print(f"> {truncate_for_display(text)}")
 
         if not text.strip():
             return
@@ -285,6 +253,7 @@ class REPL(App):
         """解析并执行一条完整的用户输入"""
         assert self.command_handler is not None
         assert self.tool_handler is not None
+        assert self.tui_console is not None
 
         warns: list[str] = []
         parsed = parse_input(user_input, self.command_handler.registry, warns)
@@ -295,7 +264,7 @@ class REPL(App):
             elif parsed.is_func:
                 self.tool_handler.handle(parsed)
             else:
-                self.rich_log.print(
+                self.tui_console.print(
                     Panel(
                         f"输入内容既不是工具也不是函数: {truncate_for_display(user_input)}",
                         title="输入解析错误",
@@ -305,27 +274,22 @@ class REPL(App):
             warns.append(f"分发输入后在执行时出现错误: {e}")
 
         if len(warns) > 0:
-            self.rich_log.print(Panel(f"[yellow]{'\n'.join(warns)}[/yellow]", title="输入分发警告"))
-
-    def _update_prompt(self, label: str) -> None:
-        """更新提示符文本"""
-        prompt_widget = self.query_one("#prompt-label", Label)
-        prompt_widget.update(label)
+            self.tui_console.print(Panel(f"[yellow]{'\n'.join(warns)}[/yellow]", title="输入分发警告"))
 
     def action_quit_confirm(self) -> None:
         """退出应用"""
-        log = self.query_one("#output", RichLog)
-        log.write("[bold]再见![/bold]")
+        if self.tui_console:
+            self.tui_console.print("[bold]再见![/bold]")
         self.exit()
 
     def _print_welcome(self) -> None:
         """在输出区域打印欢迎横幅"""
-        log = self.query_one("#output", RichLog)
+        assert self.tui_console is not None
         assert self.command_handler is not None
 
-        log.write(f"[bold green]{self.CONSOLE_TITLE}[/bold green]")
-        log.write(f"[dim]工作区: {self.workspace.root_path}[/dim]")
-        log.write("")
-        log.write(generate_help_text(self.command_handler.registry.list_commands()))
-        log.write("[dim]输入 /help 查看命令,Ctrl+Q 退出[/dim]")
-        log.write("")
+        self.tui_console.print(f"[bold green]{self.CONSOLE_TITLE}[/bold green]")
+        self.tui_console.print(f"[dim]工作区: {self.workspace.root_path}[/dim]")
+        self.tui_console.print("")
+        self.tui_console.print(generate_help_text(self.command_handler.registry.list_commands()))
+        self.tui_console.print("[dim]输入 /help 查看命令,Ctrl+Q 退出[/dim]")
+        self.tui_console.print("")

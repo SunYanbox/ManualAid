@@ -2,12 +2,15 @@
 
 import json
 import os
+import time
 from typing import TYPE_CHECKING, Any
 
 from src.console.ui.interactive_viewer import add_to_viewer, run_viewer
+from src.console.ui.widgets.tools_result_widget import ToolsResultWidget
 from src.constants.files import EXTENSION_TO_LANGUAGE
 from src.models.commands import CommandParseResult
-from src.utils.string_snapshot import truncate_params_string, truncate_single_string
+from src.models.tools.tool_result_collection import ToolResultCollection
+from src.utils.string_snapshot import truncate_for_display, truncate_params_string, truncate_single_string
 
 if TYPE_CHECKING:
     from src.console.result_manager import ResultManager
@@ -92,14 +95,9 @@ class ToolHandler:
         if parsed_input.is_command:
             return False
 
-        all_func_names: list[str] = []
-        all_func_kwargs: list[dict[str, str]] = []
-        results: list[str] = []
+        collection: ToolResultCollection = ToolResultCollection()
 
         for func_name, func_kwargs in parsed_input.funcs:
-            all_func_names.append(func_name)
-            all_func_kwargs.append(func_kwargs)
-
             parms: str = f"{{{func_kwargs}"
 
             # 避免多参数工具的返回值过于占上下文
@@ -107,6 +105,8 @@ class ToolHandler:
                 parms = parms[:117] + "..."
 
             parms += "}"
+
+            start = time.perf_counter()
 
             # 执行
             try:
@@ -125,7 +125,7 @@ class ToolHandler:
                     "</func_result>",
                     "",
                 ]
-                results.append(str.join("\n", temp_result))
+                func_result = str.join("\n", temp_result)
             except Exception as e:
                 import traceback
 
@@ -134,25 +134,27 @@ class ToolHandler:
                     f"Error={e.__class__.__name__}({e}, {traceback.format_exc()})"
                 )
                 self.console.print(f"[red]{error}[/red]")
-                summary = "\n".join(["", "<ErrorExecute>", error, "/<ErrorExecute>", ""])
-                results.append(summary)
+                func_result = "\n".join(["", "<ErrorExecute>", error, "/<ErrorExecute>", ""])
                 self.console.print(f"[red]{error}[/red]")
-                continue
 
-        result = str.join("\n", results)
+            collection.add(func_name, time.perf_counter() - start, kwargs=func_kwargs, result=func_result)
 
-        if len(all_func_names) == 1:
-            # Add to result manager
-            entry = self.result_manager.add(all_func_names[0], result)
-            # Format and display result
-            self._display_result(entry, all_func_names[0], all_func_kwargs[0], result)
-        elif len(all_func_names) > 1:
-            names = str.join(", ", all_func_names)
-            entry = self.result_manager.add(names, result)
-            self._display_result(entry, names, {}, result)
+        result = ""
 
-        if len(all_func_names) >= 1:
-            _auto_view_if_enabled()
+        for results in collection.results.values():
+            for _result in results:
+                result += _result[1]
+
+        tool_names = truncate_for_display(",".join(collection.tools()))
+
+        self.result_manager.add(tool_names, result)
+
+        tool_result_widget = ToolsResultWidget()
+        tool_result_widget.set_collection(collection)
+
+        self.console.print_collapsible_with_widget(
+            truncate_single_string(f"调用工具结果 | {tool_names} | {time.ctime(time.time())}"), tool_result_widget
+        )
 
         return True
 
