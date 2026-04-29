@@ -95,7 +95,7 @@ class ToolRegistry:
             warnings.warn(f"工具名称 '{name}' 超过 {self.MAX_FUNC_NAME_LENGTH} 字符", UserWarning, stacklevel=3)
 
     def _set_tool_category(self, tool_name: str) -> None:
-        """根据工具名称设置分类。"""
+        """根据工具名称设置分类."""
         if tool_name in {"glob", "ls", "regex_search", "exact_search", "stat", "read", "read_lines", "symbol_ref"}:
             self._tool_categories[tool_name] = "query"
         elif tool_name in {"write", "edit", "confirm_edit"}:

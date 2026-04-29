@@ -12,8 +12,8 @@ from src.workspace.workspace import Workspace
 class EditTool(BaseTool):
     """安全的字符串替换编辑工具 — 两阶段提交 (预览 → 审核确认).
 
-    只计算 diff 并记录 PENDING_AUDIT 快照，不直接修改磁盘。
-    由审核提交模块 (AuditCommitter) 在批准后执行实际写入。
+    只计算 diff 并记录 PENDING_AUDIT 快照,不直接修改磁盘.
+    由审核提交模块 (AuditCommitter) 在批准后执行实际写入.
     """
 
     def __init__(self, workspace: Workspace):
@@ -31,19 +31,19 @@ class EditTool(BaseTool):
         context_after: str = "",
     ) -> str:
         """
-        在文件中进行安全的字符串替换（仅预览，不修改磁盘）
+        在文件中进行安全的字符串替换(仅预览,不修改磁盘)
 
-        执行 dry-run 替换，生成 diff，记录 PENDING_AUDIT 快照。
-        批准后由 AuditCommitter 执行实际写入。
+        执行 dry-run 替换,生成 diff,记录 PENDING_AUDIT 快照.
+        批准后由 AuditCommitter 执行实际写入.
 
         Parameters
         ----------
         file_path: 文件路径
-        old_string: 待替换的字符串（不能为空）
+        old_string: 待替换的字符串(不能为空)
         new_string: 替换后的字符串
-        max_replacements: 最大替换次数（默认 10，最大 100）
-        context_before: 匹配前的上下文文本（可选，用于校验）
-        context_after: 匹配后的上下文文本（可选，用于校验）
+        max_replacements: 最大替换次数(默认 10,最大 100)
+        context_before: 匹配前的上下文文本(可选,用于校验)
+        context_after: 匹配后的上下文文本(可选,用于校验)
         """
         try:
             # 1. 参数校验
@@ -95,7 +95,7 @@ class EditTool(BaseTool):
                     f"No changes made: old_string not found in file.\nFile: {file_path}\nSearching for: '{old_string}'"
                 )
 
-            # 6. 执行替换（生成新内容）
+            # 6. 执行替换(生成新内容)
             new_content = old_content.replace(old_string, new_string, count)
 
             # 7. 生成 diff
@@ -166,7 +166,7 @@ class EditTool(BaseTool):
         context_after: str,
         match_number: int,
     ) -> str | None:
-        """校验匹配处的上下文是否与预期一致。"""
+        """校验匹配处的上下文是否与预期一致."""
         if context_before:
             actual_start = max(0, match_start - len(context_before))
             actual_before = content[actual_start:match_start]

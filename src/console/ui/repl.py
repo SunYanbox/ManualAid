@@ -188,6 +188,12 @@ class REPL(App):
         audit_committer = AuditCommitter(self.workspace)
         tui_console.audit_tab.set_committer(audit_committer)
 
+        # 注入统计标签页
+        tui_console.stats_tab.set_database(
+            self.workspace.db,
+            getattr(self.tool_registry, "_current_session_id", None),
+        )
+
         # 创建 command handler
         self.command_handler = CommandHandler(
             self.workspace,

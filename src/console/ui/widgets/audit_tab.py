@@ -12,8 +12,8 @@ from textual.widgets import Button, Collapsible, Label, Static
 class AuditTab(Vertical):
     """审核标签页.
 
-    显示所有 PENDING_AUDIT 的文件快照，
-    每个文件作为一个可折叠块，含 diff 内容和批准/拒绝按钮。
+    显示所有 PENDING_AUDIT 的文件快照,
+    每个文件作为一个可折叠块,含 diff 内容和批准/拒绝按钮.
     """
 
     DEFAULT_CSS: ClassVar[str] = """
@@ -53,7 +53,6 @@ class AuditTab(Vertical):
         background: $surface;
         border: solid $primary;
         margin-bottom: 1;
-        font-family: monospace;
     }
 
     .audit-buttons {
@@ -90,7 +89,7 @@ class AuditTab(Vertical):
     def set_committer(self, committer) -> None:
         """设置审核提交模块并刷新列表."""
         self._committer = committer
-        self._refresh()
+        self.set_timer(0.0, self._refresh)
 
     def on_mount(self) -> None:
         """控件挂载后刷新."""
@@ -98,17 +97,17 @@ class AuditTab(Vertical):
             # 延迟一下让 UI 就绪
             self.set_timer(0.1, self._refresh)
 
-    def _refresh(self) -> None:
+    async def _refresh(self) -> None:
         """查询待审核列表并重建 UI."""
         if self._committer is None:
             return
 
-        self.remove_children()
+        await self.remove_children()
 
         pending = self._committer.workspace.db.get_snapshots_by_audit_status("PENDING_AUDIT")
 
         if not pending:
-            self.mount(Label("没有待审核的更改。", id="audit-empty"))
+            self.mount(Label("没有待审核的更改.", id="audit-empty"))
             return
 
         # Group by file_path
@@ -128,8 +127,8 @@ class AuditTab(Vertical):
 
         for file_path in sorted(grouped):
             snaps = grouped[file_path]
-            # Use first snapshot's id for the collapsible key
-            content_widgets = Vertical()
+            # Collect all children for all snaps of this file
+            all_snap_widgets: list[Static | Horizontal] = []
             for snap in snaps:
                 snap_id = snap[0]
                 diff_content = snap[4] or "(空 diff)"
@@ -140,8 +139,10 @@ class AuditTab(Vertical):
                     Button("拒绝", variant="error", id=f"reject-{snap_id}", classes="audit-reject"),
                     classes="audit-buttons",
                 )
-                content_widgets.mount(diff_static)
-                content_widgets.mount(btn_row)
+                all_snap_widgets.append(diff_static)
+                all_snap_widgets.append(btn_row)
+
+            content_widgets = Vertical(*all_snap_widgets)
 
             collapsible = Collapsible(
                 content_widgets,
@@ -153,7 +154,7 @@ class AuditTab(Vertical):
                 collapsible.collapsed = True
             self.mount(collapsible)
 
-    def on_button_pressed(self, event: Button.Pressed) -> None:
+    async def on_button_pressed(self, event: Button.Pressed) -> None:
         """处理批准/拒绝按钮点击."""
         if self._committer is None:
             return
@@ -187,4 +188,4 @@ class AuditTab(Vertical):
             pass
 
         # Refresh the list
-        self._refresh()
+        await self._refresh()

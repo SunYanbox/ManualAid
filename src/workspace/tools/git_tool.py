@@ -1,4 +1,4 @@
-"""统一的 Git 工具 — 白名单机制，安全封装."""
+"""统一的 Git 工具 — 白名单机制,安全封装."""
 
 import re
 import shlex
@@ -8,10 +8,10 @@ from src.models.tool_error_response import ToolErrorResponse
 from src.workspace.tools.base_tool import BaseTool
 from src.workspace.workspace import Workspace
 
-# 安全命令（只读，直接执行，不需要审核）
+# 安全命令(只读,直接执行,不需要审核)
 _SAFE_COMMANDS = frozenset({"status", "diff", "log", "show"})
 
-# 白名单（所有允许的命令）
+# 白名单(所有允许的命令)
 _ALLOWED_COMMANDS = frozenset(
     {
         "status",
@@ -45,8 +45,8 @@ _BLOCKED_PATTERNS = [
 class GitTool(BaseTool):
     """统一的 Git 工具 — 安全的子命令执行.
 
-    白名单机制：
-    - 安全命令 (status, diff, log, show): 直接执行，不触发审核
+    白名单机制:
+    - 安全命令 (status, diff, log, show): 直接执行,不触发审核
     - 修改命令 (add, commit, restore, branch): 执行并标记 PENDING_AUDIT
     - 禁止命令 (push, reset --hard, merge, rebase, ...): 拦截并返回错误
     """
@@ -58,11 +58,11 @@ class GitTool(BaseTool):
 
     def git(self, command_str: str) -> str:
         """
-        执行 Git 命令（白名单限制）
+        执行 Git 命令(白名单限制)
 
         Parameters
         ----------
-        command_str: Git 子命令及其参数，如 "status"、"diff --cached"、"log --oneline -5"
+        command_str: Git 子命令及其参数,如 "status"、"diff --cached"、"log --oneline -5"
         """
         if not command_str or not command_str.strip():
             return ToolErrorResponse(self.__class__.__name__, ValueError("command_str 不能为空")).to_str()
@@ -100,14 +100,14 @@ class GitTool(BaseTool):
             if not non_flag_args:
                 return ToolErrorResponse(
                     self.__class__.__name__,
-                    ValueError("restore 需要指定文件路径，不允许裸 restore"),
+                    ValueError("restore 需要指定文件路径,不允许裸 restore"),
                 ).to_str()
             for arg in non_flag_args:
                 stripped = arg.strip()
                 if stripped in (".", "*", "all") or stripped.startswith("*"):
                     return ToolErrorResponse(
                         self.__class__.__name__,
-                        ValueError("restore 需要指定具体文件路径，不允许使用通配符"),
+                        ValueError("restore 需要指定具体文件路径,不允许使用通配符"),
                     ).to_str()
 
         # 4. 执行命令
@@ -127,7 +127,7 @@ class GitTool(BaseTool):
         except subprocess.TimeoutExpired:
             return ToolErrorResponse(
                 self.__class__.__name__,
-                TimeoutError("Git 命令执行超时（30 秒）"),
+                TimeoutError("Git 命令执行超时(30 秒)"),
             ).to_str()
 
         # 5. 处理输出
@@ -148,13 +148,13 @@ class GitTool(BaseTool):
 
     @staticmethod
     def is_safe_command(command_str: str) -> bool:
-        """判断一个 git 命令是否安全（只读，不需要审核）。
+        """判断一个 git 命令是否安全(只读,不需要审核).
 
         Args:
             command_str: 完整的 git 命令字符串
 
         Returns:
-            如果是安全命令返回 True，否则返回 False
+            如果是安全命令返回 True,否则返回 False
         """
         if not command_str or not command_str.strip():
             return False

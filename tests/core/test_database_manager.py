@@ -320,3 +320,183 @@ class TestClose:
         db2 = DatabaseManager(workspace_root)
         rows = db2.fetchall("SELECT COUNT(*) FROM sessions")
         assert rows[0][0] == 1
+
+
+class TestSessionSummary:
+    def test_summary_returns_empty_for_nonexistent_session(self, db: DatabaseManager):
+        summary = db.get_session_summary(9999)
+        assert summary == {}
+
+    def test_summary_with_no_tool_calls(self, db: DatabaseManager):
+        session_id = db.create_session(name="empty_session")
+        summary = db.get_session_summary(session_id)
+        assert summary["name"] == "empty_session"
+        assert summary["total_calls"] == 0
+        assert summary["success_count"] == 0
+        assert summary["fail_count"] == 0
+        assert summary["success_rate"] == 0.0
+
+    def test_summary_with_tool_calls(self, db: DatabaseManager):
+        session_id = db.create_session(name="test")
+        db.log_tool_call(session_id, "read", "hash1", status="success")
+        db.log_tool_call(session_id, "write", "hash2", status="success")
+        db.log_tool_call(session_id, "edit", "hash3", status="error")
+
+        summary = db.get_session_summary(session_id)
+        assert summary["total_calls"] == 3
+        assert summary["success_count"] == 2
+        assert summary["fail_count"] == 1
+        assert summary["success_rate"] == pytest.approx(66.6667, rel=0.01)
+
+    def test_summary_duration(self, db: DatabaseManager):
+        session_id = db.create_session(name="dur_test")
+        time.sleep(0.05)
+        db.close_session(session_id)
+        summary = db.get_session_summary(session_id)
+        assert summary["duration"] > 0
+
+
+class TestAllSessions:
+    def test_get_all_sessions_empty(self, db: DatabaseManager):
+        sessions = db.get_all_sessions()
+        assert len(sessions) == 0
+
+    def test_get_all_sessions_ordering(self, db: DatabaseManager):
+        id1 = db.create_session(name="first")
+        id2 = db.create_session(name="second")
+        id3 = db.create_session(name="third")
+
+        sessions = db.get_all_sessions()
+        assert len(sessions) == 3
+        # Most recent first
+        assert sessions[0][0] == id3
+        assert sessions[1][0] == id2
+        assert sessions[2][0] == id1
+
+    def test_get_all_sessions_returns_columns(self, db: DatabaseManager):
+        db.create_session(name="check_columns")
+        sessions = db.get_all_sessions()
+        row = sessions[0]
+        assert len(row) == 4  # id, name, created_at, duration
+
+
+class TestRenameSession:
+    def test_rename_session(self, db: DatabaseManager):
+        session_id = db.create_session(name="original")
+        db.rename_session(session_id, "renamed")
+        row = db.fetchone("SELECT name FROM sessions WHERE id = ?", (session_id,))
+        assert row is not None
+        assert row[0] == "renamed"
+
+    def test_rename_nonexistent_session(self, db: DatabaseManager):
+        db.rename_session(9999, "ghost")  # Should not raise
+
+
+class TestDeleteSession:
+    def test_delete_session_removes_session(self, db: DatabaseManager):
+        session_id = db.create_session(name="to_delete")
+        db.delete_session(session_id)
+        row = db.fetchone("SELECT id FROM sessions WHERE id = ?", (session_id,))
+        assert row is None
+
+    def test_delete_session_removes_tool_calls(self, db: DatabaseManager):
+        session_id = db.create_session()
+        db.log_tool_call(session_id, "read", "hash1")
+        db.log_tool_call(session_id, "write", "hash2")
+
+        # Verify tool calls exist
+        rows = db.fetchall("SELECT COUNT(*) FROM tool_calls WHERE session_id = ?", (session_id,))
+        assert rows[0][0] == 2
+
+        db.delete_session(session_id)
+
+        rows = db.fetchall("SELECT COUNT(*) FROM tool_calls WHERE session_id = ?", (session_id,))
+        assert rows[0][0] == 0
+
+    def test_delete_session_removes_snapshots(self, db: DatabaseManager):
+        session_id = db.create_session()
+        db.record_file_snapshot("a.py", "old", "new", "diff", session_id=session_id)
+
+        rows = db.fetchall("SELECT COUNT(*) FROM file_snapshots WHERE session_id = ?", (session_id,))
+        assert rows[0][0] == 1
+
+        db.delete_session(session_id)
+
+        rows = db.fetchall("SELECT COUNT(*) FROM file_snapshots WHERE session_id = ?", (session_id,))
+        assert rows[0][0] == 0
+
+    def test_delete_nonexistent_session(self, db: DatabaseManager):
+        db.delete_session(9999)  # Should not raise
+
+    def test_delete_session_keeps_other_sessions(self, db: DatabaseManager):
+        sid1 = db.create_session()
+        sid2 = db.create_session()
+        db.log_tool_call(sid1, "read", "h1")
+        db.log_tool_call(sid2, "write", "h2")
+
+        db.delete_session(sid1)
+
+        remaining = db.fetchall("SELECT id FROM sessions")
+        assert len(remaining) == 1
+        assert remaining[0][0] == sid2
+
+
+class TestToolUsageRanking:
+    def test_ranking_empty(self, db: DatabaseManager):
+        ranking = db.get_tool_usage_ranking()
+        assert len(ranking) == 0
+
+    def test_ranking_global(self, db: DatabaseManager):
+        sid1 = db.create_session()
+        sid2 = db.create_session()
+
+        # Session 1: 3 reads, 2 writes
+        for _ in range(3):
+            db.log_tool_call(sid1, "read", "h", duration_ms=10.0)
+        for _ in range(2):
+            db.log_tool_call(sid1, "write", "h", duration_ms=20.0)
+
+        # Session 2: 1 read, 1 glob
+        db.log_tool_call(sid2, "read", "h", duration_ms=5.0)
+        db.log_tool_call(sid2, "glob", "h", duration_ms=15.0)
+
+        ranking = db.get_tool_usage_ranking(limit=10)
+        assert len(ranking) == 3
+        # read=4, write=2, glob=1
+        assert ranking[0][0] == "read"
+        assert ranking[0][1] == 4
+        assert ranking[1][0] == "write"
+        assert ranking[1][1] == 2
+        assert ranking[2][0] == "glob"
+        assert ranking[2][1] == 1
+
+    def test_ranking_per_session(self, db: DatabaseManager):
+        sid = db.create_session()
+        db.log_tool_call(sid, "read", "h", duration_ms=5.0)
+        db.log_tool_call(sid, "read", "h", duration_ms=10.0)
+        db.log_tool_call(sid, "glob", "h", duration_ms=15.0)
+
+        ranking = db.get_tool_usage_ranking(session_id=sid)
+        assert len(ranking) == 2
+        assert ranking[0][0] == "read"
+        assert ranking[0][1] == 2
+        assert ranking[1][0] == "glob"
+        assert ranking[1][1] == 1
+
+    def test_ranking_avg_duration(self, db: DatabaseManager):
+        sid = db.create_session()
+        db.log_tool_call(sid, "read", "h", duration_ms=10.0)
+        db.log_tool_call(sid, "read", "h", duration_ms=30.0)
+
+        ranking = db.get_tool_usage_ranking(session_id=sid)
+        assert len(ranking) == 1
+        assert ranking[0][0] == "read"
+        assert ranking[0][1] == 2
+        assert ranking[0][2] == pytest.approx(20.0)
+
+    def test_ranking_limit(self, db: DatabaseManager):
+        sid = db.create_session()
+        for tool in ["a", "b", "c", "d", "e"]:
+            db.log_tool_call(sid, tool, "h")
+        ranking = db.get_tool_usage_ranking(session_id=sid, limit=3)
+        assert len(ranking) == 3

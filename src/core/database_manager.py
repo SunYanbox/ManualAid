@@ -252,6 +252,64 @@ class DatabaseManager:
             (status,),
         )
 
+    # -- Session statistics and management --
+
+    def get_session_summary(self, session_id: int) -> dict:
+        """Aggregated stats for a single session."""
+        session = self.fetchone(
+            "SELECT id, name, created_at, duration FROM sessions WHERE id = ?",
+            (session_id,),
+        )
+        if not session:
+            return {}
+
+        total = self.fetchone(
+            "SELECT COUNT(*), SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END), "
+            "SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) "
+            "FROM tool_calls WHERE session_id = ?",
+            (session_id,),
+        )
+        total_calls, success_count, fail_count = total or (0, 0, 0)
+
+        return {
+            "id": session[0],
+            "name": session[1],
+            "created_at": session[2],
+            "duration": session[3],
+            "total_calls": total_calls or 0,
+            "success_count": success_count or 0,
+            "fail_count": fail_count or 0,
+            "success_rate": (success_count / total_calls * 100) if total_calls else 0.0,
+        }
+
+    def get_all_sessions(self) -> list[tuple]:
+        """All sessions ordered by created_at descending."""
+        return self.fetchall("SELECT id, name, created_at, duration FROM sessions ORDER BY created_at DESC")
+
+    def rename_session(self, session_id: int, name: str) -> None:
+        self.execute("UPDATE sessions SET name = ? WHERE id = ?", (name, session_id))
+
+    def delete_session(self, session_id: int) -> None:
+        self.execute("DELETE FROM tool_calls WHERE session_id = ?", (session_id,))
+        self.execute("DELETE FROM file_snapshots WHERE session_id = ?", (session_id,))
+        self.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+
+    def get_tool_usage_ranking(self, session_id: int | None = None, limit: int = 10) -> list[tuple]:
+        """Returns list of (func_name, call_count, avg_duration_ms) ordered by count DESC."""
+        if session_id is not None:
+            return self.fetchall(
+                "SELECT func_name, COUNT(*) as cnt, AVG(duration_ms) as avg_dur "
+                "FROM tool_calls WHERE session_id = ? "
+                "GROUP BY func_name ORDER BY cnt DESC LIMIT ?",
+                (session_id, limit),
+            )
+        return self.fetchall(
+            "SELECT func_name, COUNT(*) as cnt, AVG(duration_ms) as avg_dur "
+            "FROM tool_calls "
+            "GROUP BY func_name ORDER BY cnt DESC LIMIT ?",
+            (limit,),
+        )
+
     # -- Class-level cleanup for testing --
 
     @classmethod

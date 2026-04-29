@@ -6,16 +6,16 @@ from src.workspace.workspace import Workspace
 class AuditCommitter:
     """审核提交模块 — 处理待审核的写入/编辑操作.
 
-    不是 LLM 工具，供审核 UI 标签页调用。
-    新文件使用 create_file_with_parents() 创建并写入，
-    已有文件进行 mtime 校验后通过 write_text() 写入。
+    不是 LLM 工具,供审核 UI 标签页调用.
+    新文件使用 create_file_with_parents() 创建并写入,
+    已有文件进行 mtime 校验后通过 write_text() 写入.
     """
 
     def __init__(self, workspace: Workspace):
         self.workspace = workspace
 
     def commit(self, snapshot_id: int, approved: bool = True) -> str:
-        """执行审核结果。
+        """执行审核结果.
 
         Args:
             snapshot_id: 文件快照 ID
@@ -66,7 +66,7 @@ class AuditCommitter:
                     stored_mtime = record[2]
                     current_mtime = resolved.stat().st_mtime
                     if abs(current_mtime - stored_mtime) > 0.001:
-                        return f"ERROR: 文件已被外部修改，审核终止: {rel_path}。请重新读取后再批准。"
+                        return f"ERROR: 文件已被外部修改,审核终止: {rel_path}.请重新读取后再批准."
                 resolved.write_text(pending_content, encoding="utf-8")
 
             # 4. 更新 file_read_records

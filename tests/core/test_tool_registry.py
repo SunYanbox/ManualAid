@@ -136,7 +136,7 @@ def test_no_compress_short_results():
 
 
 class TestToolCategorization:
-    """测试工具分类逻辑（需要 workspace 注册工具）。"""
+    """测试工具分类逻辑(需要 workspace 注册工具)."""
 
     @pytest.fixture(autouse=True)
     def setup(self, tmp_path):

@@ -20,7 +20,7 @@ def reset_singletons():
 
 @pytest.fixture
 def git_repo(tmp_path: Path) -> Path:
-    """创建一个带有初始提交的 git 仓库。"""
+    """创建一个带有初始提交的 git 仓库."""
     repo = tmp_path / "repo"
     repo.mkdir(parents=True)
     subprocess.run(["git", "init"], cwd=repo, capture_output=True)
