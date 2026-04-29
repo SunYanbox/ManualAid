@@ -50,6 +50,8 @@ class AuditTab(Vertical):
 
     .audit-diff {
         height: auto;
+        max-height: 15;
+        overflow-y: auto;
         padding: 1;
         background: $surface;
         border: solid $primary;
@@ -134,13 +136,13 @@ class AuditTab(Vertical):
                 snap_id = snap[0]
                 diff_content = snap[4] or "(空 diff)"
 
-                diff_static = Static(diff_content, classes="audit-diff")
+                diff_container = Vertical(Static(diff_content), classes="audit-diff")
                 btn_row = Horizontal(
                     Button("批准", variant="primary", id=f"approve-{snap_id}", classes="audit-approve"),
                     Button("拒绝", variant="error", id=f"reject-{snap_id}", classes="audit-reject"),
                     classes="audit-buttons",
                 )
-                all_snap_widgets.append(diff_static)
+                all_snap_widgets.append(diff_container)
                 all_snap_widgets.append(btn_row)
 
             content_widgets = Vertical(*all_snap_widgets)
