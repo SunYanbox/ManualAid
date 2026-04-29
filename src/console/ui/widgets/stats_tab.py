@@ -207,6 +207,29 @@ class StatsTab(Vertical):
     def on_mount(self) -> None:
         if self._db is not None:
             self.set_timer(0.1, self._refresh)
+        self.set_interval(1.0, self._update_live_duration)
+
+    def _update_live_duration(self) -> None:
+        """Update current session duration display every second."""
+        if self._db is None or self._current_session_id is None:
+            return
+        try:
+            dt = self.query_one("#stats-current-session", DataTable)
+        except Exception:
+            return
+
+        row = self._db.fetchone(
+            "SELECT created_at FROM sessions WHERE id = ?",
+            (self._current_session_id,),
+        )
+        if not row:
+            return
+
+        import time
+
+        duration = time.time() - row[0]
+        duration_str = self._format_duration(duration)
+        dt.update_cell_at((0, 1), duration_str)
 
     def _format_duration(self, seconds: float) -> str:
         """Format seconds to human-readable string."""

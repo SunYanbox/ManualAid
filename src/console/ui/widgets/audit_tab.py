@@ -21,6 +21,7 @@ class AuditTab(Vertical):
         height: 1fr;
         width: 1fr;
         padding: 0 1;
+        overflow-y: auto;
     }
 
     #audit-placeholder {
@@ -107,7 +108,7 @@ class AuditTab(Vertical):
         pending = self._committer.workspace.db.get_snapshots_by_audit_status("PENDING_AUDIT")
 
         if not pending:
-            self.mount(Label("没有待审核的更改.", id="audit-empty"))
+            await self.mount(Label("没有待审核的更改.", id="audit-empty"))
             return
 
         # Group by file_path
@@ -117,13 +118,13 @@ class AuditTab(Vertical):
 
         # Result area for showing commit results
         result_log = Vertical(id="audit-result-log")
-        self.mount(result_log)
+        await self.mount(result_log)
 
         header = Label(
             f"待审核更改 ({sum(len(snaps) for snaps in grouped.values())} 项)",
             id="audit-header",
         )
-        self.mount(header)
+        await self.mount(header)
 
         for file_path in sorted(grouped):
             snaps = grouped[file_path]
@@ -152,7 +153,7 @@ class AuditTab(Vertical):
             # Collapse excess items initially — keep first 3 expanded
             if len(self.children) > 6:  # header + result_log + 3 expanded
                 collapsible.collapsed = True
-            self.mount(collapsible)
+            await self.mount(collapsible)
 
     async def on_button_pressed(self, event: Button.Pressed) -> None:
         """处理批准/拒绝按钮点击."""
@@ -183,7 +184,7 @@ class AuditTab(Vertical):
             log = self.query_one("#audit-result-log", Vertical)
 
             color = "green" if "已批准" in result or "已拒绝" in result else "red"
-            log.mount(Static(f"[{color}]{result}[/{color}]"))
+            await log.mount(Static(f"[{color}]{result}[/{color}]"))
         except Exception:
             pass
 

@@ -243,10 +243,10 @@ class ToolRegistry:
         sorted_json = json.dumps(kwargs, sort_keys=True, default=str)
         return hashlib.blake2b(sorted_json.encode("utf-8")).hexdigest()
 
-    def _log_tool_call(self, func_name: str, kwargs: dict, duration_ms: float, status: str) -> None:
+    def _log_tool_call(self, func_name: str, kwargs: dict, duration_ms: float, status: str) -> str | None:
         session_id = getattr(self, "_current_session_id", None)
         if session_id is None:
-            return
+            return None
         try:
             args_hash = self._compute_args_hash(kwargs)
             workspace = getattr(self, "_workspace", None)

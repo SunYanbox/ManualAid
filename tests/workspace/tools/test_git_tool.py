@@ -9,6 +9,7 @@ from src.core.database_manager import DatabaseManager
 from src.workspace.workspace import Workspace
 
 
+# noinspection PyTypeChecker
 @pytest.fixture(autouse=True)
 def reset_singletons():
     Workspace._instance = None
@@ -87,14 +88,14 @@ class TestGitBlockedCommands:
         assert "blocked" in result.lower() or "ERROR" in result
 
     def test_remote_blocked(self, git_tool):
-        result = git_tool.git("remote add origin http://example.com/repo.git")
+        result = git_tool.git("remote add origin https://example.com/repo.git")
         assert "blocked" in result.lower() or "ERROR" in result
 
     def test_reset_hard_blocked(self, git_tool):
         result = git_tool.git("reset --hard HEAD")
         assert "blocked" in result.lower() or "ERROR" in result
 
-    def test_branch_D_blocked(self, git_tool):
+    def test_branch_d_blocked(self, git_tool):
         result = git_tool.git("branch -D test")
         assert "blocked" in result.lower() or "ERROR" in result
 
