@@ -36,15 +36,28 @@ class Workspace:
     def __new__(cls, path: str):
         if not cls._instance:
             cls._instance = super().__new__(cls)
-            cls._instance.__init__(path)
+            cls._instance._initialized = False
         return cls._instance
 
     def __init__(self, path: str):
+        if self._initialized:
+            return
         self.root_path = Path(path).resolve()
         self.path_validator: PathValidator = PathValidator(self.root_path)
         self.is_git_repo: bool = (self.root_path / ".git").is_dir()
         self.platform: str = sys.platform
         self.date: str = date.today().strftime("%y-%m-%d")
+        self._db = None
+        self._current_session_id: int | None = None
+        self._initialized = True
+
+    @property
+    def db(self):
+        if self._db is None:
+            from src.core.database_manager import DatabaseManager
+
+            self._db = DatabaseManager(str(self.root_path))
+        return self._db
 
     def search_content(
         self,

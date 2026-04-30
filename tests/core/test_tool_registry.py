@@ -135,5 +135,76 @@ def test_no_compress_short_results():
     assert registry._compress_result(short_dict) == short_dict
 
 
+class TestToolCategorization:
+    """测试工具分类逻辑(需要 workspace 注册工具)."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self, tmp_path):
+        from src.core.database_manager import DatabaseManager
+        from src.workspace.workspace import Workspace
+
+        Workspace._instance = None
+        DatabaseManager.reset_instances()
+        ws = Workspace(str(tmp_path))
+        registry = ToolRegistry()
+        registry.register(ws)
+
+    def test_query_tools_category(self):
+        registry = ToolRegistry()
+        for name in ("glob", "ls", "regex_search", "stat", "read", "read_lines", "symbol_ref"):
+            assert registry._tool_categories.get(name) == "query", f"{name} should be query"
+
+    def test_edit_tools_category(self):
+        registry = ToolRegistry()
+        for name in ("write", "edit"):
+            assert registry._tool_categories.get(name) == "edit", f"{name} should be edit"
+
+    def test_git_tool_category(self):
+        registry = ToolRegistry()
+        assert registry._tool_categories.get("git") == "dangerous"
+
+    def test_all_tools_have_category(self):
+        registry = ToolRegistry()
+        for name in registry._tools:
+            assert name in registry._tool_categories, f"{name} missing category"
+
+    def test_git_dangerous_commands_get_pending_audit(self, tmp_path):
+        from src.core.database_manager import DatabaseManager
+        from src.workspace.workspace import Workspace
+
+        Workspace._instance = None
+        DatabaseManager.reset_instances()
+        ws = Workspace(str(tmp_path))
+        registry = ToolRegistry()
+        registry.register(ws)
+        session_id = ws.db.create_session()
+        registry.set_session_id(session_id)
+
+        # Simulate a dangerous git call
+        registry._log_tool_call("git", {"command_str": "add file.txt"}, 10.0, "success")
+
+        rows = ws.db.fetchall("SELECT func_name, audit_status FROM tool_calls")
+        assert len(rows) == 1
+        assert rows[0][1] == "PENDING_AUDIT"
+
+    def test_git_safe_commands_no_audit(self, tmp_path):
+        from src.core.database_manager import DatabaseManager
+        from src.workspace.workspace import Workspace
+
+        Workspace._instance = None
+        DatabaseManager.reset_instances()
+        ws = Workspace(str(tmp_path))
+        registry = ToolRegistry()
+        registry.register(ws)
+        session_id = ws.db.create_session()
+        registry.set_session_id(session_id)
+
+        registry._log_tool_call("git", {"command_str": "status"}, 10.0, "success")
+
+        rows = ws.db.fetchall("SELECT func_name, audit_status FROM tool_calls")
+        assert len(rows) == 1
+        assert rows[0][1] == "none"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

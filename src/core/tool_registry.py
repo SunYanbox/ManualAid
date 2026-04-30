@@ -1,7 +1,10 @@
 import asyncio
+import hashlib
 import inspect
+import json
 import os
 import threading
+import time
 import warnings
 from collections.abc import Awaitable, Callable
 from typing import Any, ClassVar, ParamSpec, Self, TypeVar
@@ -42,6 +45,9 @@ class ToolRegistry:
             return
 
         self._tools: dict[str, BaseTool] = {}
+        self._current_session_id: int | None = None
+        self._workspace: Workspace | None = None
+        self._tool_categories: dict[str, str] = {}
         self._initialized = True
 
         # 配置常量 - 从环境变量读取,带默认值
@@ -88,9 +94,22 @@ class ToolRegistry:
         if len(name) > self.MAX_FUNC_NAME_LENGTH:
             warnings.warn(f"工具名称 '{name}' 超过 {self.MAX_FUNC_NAME_LENGTH} 字符", UserWarning, stacklevel=3)
 
+    def _set_tool_category(self, tool_name: str) -> None:
+        """根据工具名称设置分类."""
+        if tool_name in {"glob", "ls", "regex_search", "exact_search", "stat", "read", "read_lines", "symbol_ref"}:
+            self._tool_categories[tool_name] = "query"
+        elif tool_name in {"write", "edit", "confirm_edit"}:
+            self._tool_categories[tool_name] = "edit"
+        elif tool_name == "git":
+            self._tool_categories[tool_name] = "dangerous"
+        else:
+            self._tool_categories[tool_name] = "query"
+
     def register(self, workspace: Workspace) -> None:
         """为工作区注册工具"""
+        from src.workspace.tools.edit_tool import EditTool
         from src.workspace.tools.exact_search_tool import ExactSearchTool
+        from src.workspace.tools.git_tool import GitTool
         from src.workspace.tools.glob_tool import GlobTool
         from src.workspace.tools.ls_tool import LsTool
         from src.workspace.tools.read_lines_tool import ReadLinesTool
@@ -99,6 +118,8 @@ class ToolRegistry:
         from src.workspace.tools.stat_tool import StatTool
         from src.workspace.tools.symbol_ref_tool import SymbolRefTool
         from src.workspace.tools.write_tool import WriteTool
+
+        self._workspace = workspace
 
         for cls in (
             ExactSearchTool,
@@ -110,6 +131,8 @@ class ToolRegistry:
             WriteTool,
             StatTool,
             SymbolRefTool,
+            EditTool,
+            GitTool,
         ):
             try:
                 tool = cls(workspace)
@@ -117,6 +140,7 @@ class ToolRegistry:
                     warnings.warn(f"工具{tool.name}没有注册功能回调和参数", stacklevel=2)
                     continue
                 self._tools[tool.name] = tool
+                self._set_tool_category(tool.name)
             except ValueError:
                 pass
 
@@ -158,6 +182,8 @@ class ToolRegistry:
             tool = self._tools[func_name]
             kwargs = tool.convert_args(kwargs)
 
+            start_time = time.perf_counter()
+            status = "success"
             try:
                 if inspect.iscoroutinefunction(tool.func):
                     coro = tool.func(*args, **kwargs)
@@ -173,7 +199,11 @@ class ToolRegistry:
                     # 同步函数
                     result = tool.func(*args, **kwargs)
             except Exception as e:
+                status = "error"
                 result = f'<func_name="{tool.name}", errors={e.__class__.__name__}({e})>'
+
+            duration_ms = (time.perf_counter() - start_time) * 1000
+            self._log_tool_call(func_name, kwargs, duration_ms, status)
 
             return self._compress_result(result)
         else:
@@ -204,5 +234,45 @@ class ToolRegistry:
         """获取工具信息"""
         return self._tools.get(name)
 
-    def __repr__(self) -> str:
+    def set_session_id(self, session_id: int) -> None:
+        """设置当前会话 ID"""
+        self._current_session_id = session_id
+
+    @staticmethod
+    def _compute_args_hash(kwargs: dict) -> str:
+        sorted_json = json.dumps(kwargs, sort_keys=True, default=str)
+        return hashlib.blake2b(sorted_json.encode("utf-8")).hexdigest()
+
+    def _log_tool_call(self, func_name: str, kwargs: dict, duration_ms: float, status: str) -> str | None:
+        session_id = getattr(self, "_current_session_id", None)
+        if session_id is None:
+            return None
+        try:
+            args_hash = self._compute_args_hash(kwargs)
+            workspace = getattr(self, "_workspace", None)
+            if workspace is not None:
+                # Determine audit_status based on tool category
+                category = self._tool_categories.get(func_name, "query")
+                audit_status = "none"
+
+                if category == "dangerous" and func_name == "git":
+                    # Git: check if the specific command is safe
+                    from src.workspace.tools.git_tool import GitTool
+
+                    command_str = kwargs.get("command_str", "")
+                    if not GitTool.is_safe_command(command_str):
+                        audit_status = "PENDING_AUDIT"
+                elif category == "edit":
+                    audit_status = "none"  # Snapshot has its own PENDING_AUDIT
+
+                workspace.db.log_tool_call(
+                    session_id,
+                    func_name,
+                    args_hash,
+                    duration_ms=duration_ms,
+                    status=status,
+                    audit_status=audit_status,
+                )
+        except Exception:
+            pass
         return f"ToolRegistry(sync_tools={len(self._tools)})"

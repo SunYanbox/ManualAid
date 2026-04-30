@@ -99,7 +99,7 @@ class ToolsResultWidget(Vertical):
             return
 
         try:
-            container = self.query_one("#tools-result-collapsibles", Vertical)
+            container = self.query_one("#tools-result-collapsible", Vertical)
         except Exception:
             return
 

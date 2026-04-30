@@ -182,6 +182,18 @@ class REPL(App):
         title_right = self.query_one("#title-right", Label)
         title_right.update(f"工作区: {self.workspace.root_path}")
 
+        # 创建审核提交模块并注入审核标签页
+        from src.core.audit_committer import AuditCommitter
+
+        audit_committer = AuditCommitter(self.workspace)
+        tui_console.audit_tab.set_committer(audit_committer)
+
+        # 注入统计标签页
+        tui_console.stats_tab.set_database(
+            self.workspace.db,
+            getattr(self.tool_registry, "_current_session_id", None),
+        )
+
         # 创建 command handler
         self.command_handler = CommandHandler(
             self.workspace,
@@ -278,6 +290,9 @@ class REPL(App):
 
     def action_quit_confirm(self) -> None:
         """退出应用"""
+        session_id = getattr(self.tool_registry, "_current_session_id", None)
+        if session_id is not None and hasattr(self.workspace, "db"):
+            self.workspace.db.close_session(session_id)
         if self.tui_console:
             self.tui_console.print("[bold]再见![/bold]")
         self.exit()

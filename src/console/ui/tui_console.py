@@ -8,6 +8,9 @@ from rich.markdown import Markdown
 from textual.containers import Vertical, Widget
 from textual.widgets import Collapsible, RichLog, Static, TabbedContent, TabPane
 
+from src.console.ui.widgets.audit_tab import AuditTab
+from src.console.ui.widgets.stats_tab import StatsTab
+
 
 class TuiConsole(Vertical):
     """功能完备的 TUI 控制台组件.
@@ -15,6 +18,8 @@ class TuiConsole(Vertical):
     包含:
     - Tab 1 (RichLog): 用于普通富文本日志.
     - Tab 2 (Tool Calls): 用于显示工具调用情况.
+    - Tab 3 (Audit): 用于审核待处理的写入/编辑操作.
+    - Tab 4 (Statistics): 用于查看会话统计与工具使用排名.
     """
 
     DEFAULT_CSS = """
@@ -53,6 +58,10 @@ class TuiConsole(Vertical):
                 yield RichLog(id="tui-console-main-log", highlight=True, markup=True, wrap=True)
             with TabPane("Tool Calls", id="tab-tool-calls"):
                 yield Vertical(id="tui-console-tool-calls")
+            with TabPane("Audit", id="tab-audit"):
+                yield AuditTab()
+            with TabPane("Statistics", id="tab-stats"):
+                yield StatsTab()
 
     @property
     def main_log(self) -> RichLog:
@@ -61,6 +70,21 @@ class TuiConsole(Vertical):
     @property
     def tool_calls_container(self) -> Vertical:
         return self.query_one("#tui-console-tool-calls", Vertical)
+
+    @property
+    def audit_tab(self) -> AuditTab:
+        return self.query_one(AuditTab)
+
+    @property
+    def stats_tab(self) -> StatsTab:
+        return self.query_one(StatsTab)
+
+    async def on_tabbed_content_tab_activated(self, event: TabbedContent.TabActivated) -> None:
+        """切换标签页时刷新内容."""
+        if event.pane.id == "tab-audit":
+            await self.audit_tab._refresh()
+        elif event.pane.id == "tab-stats":
+            await self.stats_tab._refresh()
 
     def print(self, *args) -> None:
         """将内容写入主日志区"""
