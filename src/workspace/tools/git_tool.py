@@ -112,12 +112,14 @@ class GitTool(BaseTool):
 
         # 4. 执行命令
         try:
+            env = {**__import__("os").environ, "GIT_PAGER": "cat", "GIT_TERMINAL_PROMPT": "0"}
             result = subprocess.run(
                 ["git", *tokens],
                 capture_output=True,
                 text=True,
                 timeout=30,
                 cwd=str(self.workspace.root_path),
+                env=env,
             )
         except FileNotFoundError:
             return ToolErrorResponse(
@@ -132,7 +134,7 @@ class GitTool(BaseTool):
 
         # 5. 处理输出
         if result.returncode != 0:
-            stderr = result.stderr.strip()
+            stderr = (result.stderr or "").strip()
             if stderr:
                 return f"Git command failed (exit code {result.returncode}):\n{stderr}"
             return f"Git command failed (exit code {result.returncode})"
@@ -143,6 +145,28 @@ class GitTool(BaseTool):
             output_parts.append(result.stdout.rstrip("\n"))
         if result.stderr:
             output_parts.append(result.stderr.rstrip("\n"))
+        if result.stdout is None and not result.stderr:
+            # HACK: subprocess.run with capture_output=True returns None for stdout
+            # on this platform. Fallback: re-run with explicit PIPE (bytes mode).
+            # 这是Ruff的`UP022`规则报的lint警告:建议用`capture_output=True`替代显式设置`stdout=PIPE, stderr=PIPE`
+            # 但这里的场景特殊——正是`capture_output=True, text=True`导致stdout为`None`,
+            #   才需要回退到bytes模式的手动PIPE, 所以这是一个**有意为之的例外**,不应遵循该建议.
+            _result2 = subprocess.run(  # noqa: UP022
+                ["git", *tokens],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=30,
+                cwd=str(self.workspace.root_path),
+                env={**__import__("os").environ, "GIT_PAGER": "cat", "GIT_TERMINAL_PROMPT": "0"},
+            )
+            out = _result2.stdout.decode("utf-8", errors="replace") if _result2.stdout else ""
+            err = _result2.stderr.decode("utf-8", errors="replace") if _result2.stderr else ""
+            if out:
+                output_parts.append(out.rstrip("\n"))
+            if err:
+                output_parts.append(err.rstrip("\n"))
+            if not output_parts and _result2.returncode != 0:
+                return f"Git command failed (exit code {_result2.returncode})"
 
         return "\n".join(output_parts) if output_parts else "(no output)"
 
