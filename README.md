@@ -9,7 +9,7 @@ LLM chat interfaces. Paste LLM-generated tool calls (in XML format), review and
 audit dangerous operations, and manage sessions with full history tracking --
 all running locally on your machine.
 
-> **Version**: 0.2.0 | **Python**: >=3.12
+> **Version**: 0.3.0 | **Python**: >=3.14
 
 ---
 
@@ -41,7 +41,7 @@ all running locally on your machine.
 
 ### Prerequisites
 
-- Python >= 3.12
+- Python >= 3.14
 - Node.js (for dev tooling: Prettier, markdownlint)
 
 ### Installation
@@ -226,7 +226,7 @@ ManualAid/
 
 ### Tech Stack
 
-- **Python 3.12+** with [Textual](https://textual.textualize.io/) for TUI
+- **Python 3.14+** with [Textual](https://textual.textualize.io/) for TUI
 - **SQLite3** (WAL mode) for session and tool call persistence
 - **Rich** for terminal formatting
 - **Ruff** for Python linting, **Prettier** + **markdownlint** for formatting
