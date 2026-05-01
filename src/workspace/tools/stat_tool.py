@@ -61,7 +61,7 @@ class StatTool(BaseTool):
                     with open(target_path, encoding="utf-8") as f:
                         line_count = sum(1 for _ in f)
                     output.append(f"行数: {line_count}")
-                except (UnicodeDecodeError, PermissionError, OSError):
+                except UnicodeDecodeError, PermissionError, OSError:
                     output.append("行数: 无法读取(二进制文件或编码错误)")
 
             # 时间信息

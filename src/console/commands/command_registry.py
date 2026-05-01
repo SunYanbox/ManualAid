@@ -36,7 +36,7 @@ class CommandRegistry:
         return self._commands
 
     @classmethod
-    def create_default(cls) -> "CommandRegistry":
+    def create_default(cls) -> CommandRegistry:
         """Create and populate a registry with default commands"""
         from src.console.commands.launch_commands import (
             NewWindowCommand,

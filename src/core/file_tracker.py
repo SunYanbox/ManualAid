@@ -11,7 +11,7 @@ class FileTracker:
         try:
             content = file_path.read_bytes()
             return hashlib.blake2b(content).hexdigest()
-        except (OSError, PermissionError):
+        except OSError, PermissionError:
             return ""
 
     @staticmethod
@@ -29,5 +29,5 @@ class FileTracker:
                 "size": stat.st_size,
                 "checksum": FileTracker.compute_checksum(file_path),
             }
-        except (OSError, PermissionError):
+        except OSError, PermissionError:
             return {}

@@ -2,13 +2,12 @@ import threading
 import tkinter as tk
 from collections.abc import Callable
 from tkinter import scrolledtext
-from typing import Optional
 
 
 class PasteWindow:
     """超大文本粘贴窗口,单例模式,每次关闭后完全销毁线程和Tk实例"""
 
-    _instance: Optional["PasteWindow"] = None
+    _instance: PasteWindow | None = None
     _current_thread: threading.Thread | None = None
     _current_root: tk.Tk | None = None
 
@@ -19,7 +18,7 @@ class PasteWindow:
         self._stats_label: tk.Label | None = None
 
     @classmethod
-    def get_instance(cls) -> "PasteWindow":
+    def get_instance(cls) -> PasteWindow:
         """获取单例实例"""
         if cls._instance is None:
             cls._instance = cls()
