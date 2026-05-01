@@ -349,6 +349,7 @@ class SymbolRefTool(BaseTool):
         self.func = self.symbol_ref
         self.params = BaseTool.extract_params(self.symbol_ref)
 
+    @BaseTool.handle_tool_exceptions
     def symbol_ref(
         self,
         symbol_name: str,
@@ -381,43 +382,35 @@ class SymbolRefTool(BaseTool):
         Returns:
             格式化的符号引用搜索结果
         """
-        try:
-            # 验证搜索路径
-            search_path: Path = self.workspace.path_validator.validate(path)
-            if not search_path.exists():
-                return ToolErrorResponse(self.__class__.__name__, f"路径不存在: {path}").to_str()
+        # 验证搜索路径
+        search_path: Path = self.workspace.path_validator.validate(path)
+        if not search_path.exists():
+            return ToolErrorResponse(self.__class__.__name__, f"路径不存在: {path}").to_str()
 
-            # 自动检测语言
-            detected_lang = _detect_language(search_path, language)
+        # 自动检测语言
+        detected_lang = _detect_language(search_path, language)
 
-            # 确定文件匹配模式
-            if file_pattern is None:
-                file_pattern = _get_file_pattern_by_language(detected_lang)
+        # 确定文件匹配模式
+        if file_pattern is None:
+            file_pattern = _get_file_pattern_by_language(detected_lang)
 
-            # 生成搜索模式
-            patterns = _generate_patterns(symbol_name, detected_lang, include_definitions, include_references)
+        # 生成搜索模式
+        patterns = _generate_patterns(symbol_name, detected_lang, include_definitions, include_references)
 
-            if not patterns:
-                return f"无法为符号 '{symbol_name}' 生成有效的搜索模式(语言: {detected_lang})"
+        if not patterns:
+            return f"无法为符号 '{symbol_name}' 生成有效的搜索模式(语言: {detected_lang})"
 
-            # 使用并发搜索执行所有模式
-            all_results = _search_patterns_concurrent(
-                self.workspace,
-                patterns,
-                path,
-                symbol_name,
-                context_lines,
-                limit,
-                file_pattern,
-                ignore,
-            )
+        # 使用并发搜索执行所有模式
+        all_results = _search_patterns_concurrent(
+            self.workspace,
+            patterns,
+            path,
+            symbol_name,
+            context_lines,
+            limit,
+            file_pattern,
+            ignore,
+        )
 
-            # 格式化输出
-            return _format_results(all_results, symbol_name, detected_lang, limit)
-
-        except PathNotFoundError as err1:
-            return ToolErrorResponse(self.__class__.__name__, err1).to_str()
-        except WorkspaceBoundaryError as err2:
-            return ToolErrorResponse(self.__class__.__name__, err2).to_str()
-        except Exception as err:
-            return ToolErrorResponse(self.__class__.__name__, err).to_str()
+        # 格式化输出
+        return _format_results(all_results, symbol_name, detected_lang, limit)

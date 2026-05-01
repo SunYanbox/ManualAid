@@ -105,6 +105,7 @@ class RegexSearchTool(BaseTool):
         self.func = self.regex_search
         self.params = BaseTool.extract_params(self.regex_search)
 
+    @BaseTool.handle_tool_exceptions
     def regex_search(
         self,
         pattern: str,
@@ -126,67 +127,59 @@ class RegexSearchTool(BaseTool):
         limit: 最大匹配数量限制,默认为256
         ignore: 忽略匹配正则的文件或文件夹列表
         """
+        # 验证搜索路径
+        search_path: Path = self.workspace.path_validator.validate(path)
+
+        # 编译正则表达式
         try:
-            # 验证搜索路径
-            search_path: Path = self.workspace.path_validator.validate(path)
+            regex = re.compile(pattern)
+        except re.error as e:
+            return ToolErrorResponse(self.__class__.__name__, f"无效的正则表达式: {e}").to_str()
 
-            # 编译正则表达式
-            try:
-                regex = re.compile(pattern)
-            except re.error as e:
-                return ToolErrorResponse(self.__class__.__name__, f"无效的正则表达式: {e}").to_str()
+        # 收集忽略模式
+        ignore_patterns = []
+        if ignore:
+            for ignore_pattern in ignore:
+                with contextlib.suppress(re.error):
+                    ignore_patterns.append(re.compile(ignore_pattern))
 
-            # 收集忽略模式
-            ignore_patterns = []
-            if ignore:
-                for ignore_pattern in ignore:
-                    with contextlib.suppress(re.error):
-                        ignore_patterns.append(re.compile(ignore_pattern))
+        # 搜索结果
+        results = []
+        file_count = 0
 
-            # 搜索结果
-            results = []
-            file_count = 0
+        # 遍历文件
+        for file_path in search_path.rglob(file_pattern):
+            # 检查是否达到限制
+            if len(results) >= limit:
+                break
 
-            # 遍历文件
-            for file_path in search_path.rglob(file_pattern):
-                # 检查是否达到限制
-                if len(results) >= limit:
+            # 检查是否应该忽略该文件或文件夹
+            should_ignore = False
+            relative_path = file_path.relative_to(search_path)
+
+            for ignore_pattern in ignore_patterns:
+                # 检查是否匹配忽略模式
+                if ignore_pattern.search(str(relative_path)):
+                    should_ignore = True
                     break
 
-                # 检查是否应该忽略该文件或文件夹
-                should_ignore = False
-                relative_path = file_path.relative_to(search_path)
+            if should_ignore:
+                continue
 
-                for ignore_pattern in ignore_patterns:
-                    # 检查是否匹配忽略模式
-                    if ignore_pattern.search(str(relative_path)):
-                        should_ignore = True
-                        break
+            try:
+                # 读取文件内容
+                with open(file_path, encoding="utf-8") as f:
+                    lines = f.readlines()
 
-                if should_ignore:
-                    continue
+                # 搜索匹配行
+                file_results = _search_in_file(lines, regex, context)
 
-                try:
-                    # 读取文件内容
-                    with open(file_path, encoding="utf-8") as f:
-                        lines = f.readlines()
+                if file_results:
+                    results.append({"file": str(file_path), "matches": file_results})
+                    file_count += 1
 
-                    # 搜索匹配行
-                    file_results = _search_in_file(lines, regex, context)
+            except OSError, UnicodeDecodeError, PermissionError:
+                continue  # 跳过无法读取的文件
 
-                    if file_results:
-                        results.append({"file": str(file_path), "matches": file_results})
-                        file_count += 1
-
-                except OSError, UnicodeDecodeError, PermissionError:
-                    continue  # 跳过无法读取的文件
-
-            # 格式化输出
-            return _format_regex_results(results, pattern, limit, file_count)
-
-        except PathNotFoundError as err1:
-            return ToolErrorResponse(self.__class__.__name__, err1).to_str()
-        except WorkspaceBoundaryError as err2:
-            return ToolErrorResponse(self.__class__.__name__, err2).to_str()
-        except Exception as err:
-            return ToolErrorResponse(self.__class__.__name__, err).to_str()
+        # 格式化输出
+        return _format_regex_results(results, pattern, limit, file_count)
