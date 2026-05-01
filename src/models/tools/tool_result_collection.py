@@ -12,7 +12,8 @@ class ToolResultCollection:
         self.results[name].append((kwargs, result))
 
     def get_avg_consume(self, name: str) -> float:
-        return mean(self.consumes.get(name, []))
+        records = self.consumes.get(name, [])
+        return mean(records) if records else 0.0
 
     def tools(self) -> list[str]:
         return list(self.consumes.keys())
