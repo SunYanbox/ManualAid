@@ -2,6 +2,7 @@ from pathlib import Path
 
 from src.core.file_tracker import FileTracker
 from src.models.tool_error_response import ToolErrorResponse
+from src.utils.binary_detector import is_binary_file
 from src.workspace.tools.base_tool import BaseTool
 from src.workspace.workspace import Workspace
 
@@ -28,6 +29,12 @@ class WriteTool(BaseTool):
         if file_path.exists() and file_path.is_dir():
             return ToolErrorResponse(
                 self.__class__.__name__, ValueError(f"路径 {file_path} 是一个目录,无法写入")
+            ).to_str()
+
+        if is_binary_file(file_path):
+            return ToolErrorResponse(
+                self.__class__.__name__,
+                ValueError(f"禁止写入二进制文件: {file_path}"),
             ).to_str()
 
         mtime_error = self._validate_mtime(file_path)

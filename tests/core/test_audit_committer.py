@@ -142,3 +142,39 @@ class TestCommitEdgeCases:
 
         result = committer.commit(snapshot_id, approved=False)
         assert "已处理" in result
+
+
+class TestCommitBinaryProtection:
+    """测试审计提交器的二进制文件安全网."""
+
+    def test_commit_binary_ext_blocked(self, committer: AuditCommitter, workspace: Workspace):
+        """批准写入 .png 文件应被安全网拦截."""
+        snapshot_id = _create_pending_snapshot(workspace, "image.png", "fake png")
+        result = committer.commit(snapshot_id, approved=True)
+
+        assert "二进制文件" in result
+        assert not (workspace.root_path / "image.png").is_file()
+        # 状态应被标记为 REJECTED
+        snap = workspace.db.get_snapshot_by_id(snapshot_id)
+        assert snap[7] == "REJECTED"
+
+    def test_commit_binary_content_blocked(self, committer: AuditCommitter, workspace: Workspace):
+        """批准写入内容为二进制的文件应被安全网拦截."""
+        # 先在磁盘上创建一个二进制文件
+        target = workspace.root_path / "data.unknown"
+        target.write_bytes(b"\x00\xff\xfe")
+
+        snapshot_id = _create_pending_snapshot(workspace, "data.unknown", "overwrite")
+        result = committer.commit(snapshot_id, approved=True)
+
+        assert "二进制文件" in result
+        # 文件内容不应被改变
+        assert target.read_bytes() == b"\x00\xff\xfe"
+
+    def test_commit_text_file_not_blocked(self, committer: AuditCommitter, workspace: Workspace):
+        """批准写入文本文件应正常通过."""
+        snapshot_id = _create_pending_snapshot(workspace, "notes.txt", "hello")
+        result = committer.commit(snapshot_id, approved=True)
+
+        assert "已批准" in result
+        assert (workspace.root_path / "notes.txt").read_text(encoding="utf-8") == "hello"
