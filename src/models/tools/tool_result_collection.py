@@ -8,10 +8,6 @@ class ToolResultCollection:
         self.results: dict[str, list[tuple[dict, str]]] = defaultdict(list)
 
     def add(self, name: str, seconds: float, kwargs: dict, result: str):
-        if name not in self.consumes:
-            self.consumes[name] = []
-        if name not in self.results:
-            self.results[name] = []
         self.consumes[name].append(seconds)
         self.results[name].append((kwargs, result))
 
