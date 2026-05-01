@@ -86,7 +86,7 @@ def test_to_doc_new_format():
     assert "<description>测试工具</description>" in doc
     assert "<params>" in doc
     assert "</params>" in doc
-    assert doc.endswith("</tool>")
+    assert doc.endswith("</func_name>")
 
     # 验证参数格式
     assert 'type="string"' in doc
