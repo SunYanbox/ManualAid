@@ -286,7 +286,8 @@ class REPL(App):
             warns.append(f"分发输入后在执行时出现错误: {e}")
 
         if len(warns) > 0:
-            self.tui_console.print(Panel(f"[yellow]{'\n'.join(warns)}[/yellow]", title="输入分发警告"))
+            joined_warns = "\n".join(warns)
+            self.tui_console.print(Panel(f"[yellow]{joined_warns}[/yellow]", title="输入分发警告"))
 
     def action_quit_confirm(self) -> None:
         """退出应用"""
