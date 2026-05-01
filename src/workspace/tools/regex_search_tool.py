@@ -180,7 +180,7 @@ class RegexSearchTool(BaseTool):
                         results.append({"file": str(file_path), "matches": file_results})
                         file_count += 1
 
-                except (OSError, UnicodeDecodeError, PermissionError):
+                except OSError, UnicodeDecodeError, PermissionError:
                     continue  # 跳过无法读取的文件
 
             # 格式化输出

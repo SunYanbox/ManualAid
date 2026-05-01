@@ -30,7 +30,7 @@ class ToolRegistry:
     _instance: ClassVar[Self | None] = None
     _instance_lock: ClassVar[threading.Lock] = threading.Lock()
 
-    def __new__(cls) -> "ToolRegistry":
+    def __new__(cls) -> ToolRegistry:
         """确保每个名字只有一个实例(线程安全)"""
         with cls._instance_lock:
             if cls._instance is None:
