@@ -1,7 +1,9 @@
 import inspect
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
+from src.core.file_tracker import FileTracker
 from src.workspace.workspace import Workspace
 
 
@@ -174,3 +176,12 @@ class BaseTool:
                 converted[param_name] = param_value
 
         return converted
+
+    def _record_read_meta(self, resolved_path: Path) -> None:
+        try:
+            meta = FileTracker.get_file_meta(resolved_path)
+            if meta:
+                rel_path = str(resolved_path.relative_to(self.workspace.root_path))
+                self.workspace.db.record_file_read(rel_path, meta["mtime"], meta["size"], meta["checksum"])
+        except Exception:
+            pass
