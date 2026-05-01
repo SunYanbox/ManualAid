@@ -10,10 +10,10 @@ from src.constants.manual_aid import DB_FILE, MANUALAID_DIR
 class DatabaseManager:
     """Thread-safe SQLite3 database manager (singleton per workspace path)."""
 
-    _instances: ClassVar[dict[str, "DatabaseManager"]] = {}
+    _instances: ClassVar[dict[str, DatabaseManager]] = {}
     _instance_lock: ClassVar[threading.Lock] = threading.Lock()
 
-    def __new__(cls, workspace_root: str) -> "DatabaseManager":
+    def __new__(cls, workspace_root: str) -> DatabaseManager:
         with cls._instance_lock:
             if workspace_root not in cls._instances:
                 instance = super().__new__(cls)

@@ -2,8 +2,6 @@ import contextlib
 import re
 from pathlib import Path
 
-from src.models.tool_error_response import ToolErrorResponse
-from src.workspace.path_validator import PathNotFoundError, WorkspaceBoundaryError
 from src.workspace.tools.base_tool import BaseTool
 from src.workspace.workspace import Workspace
 
@@ -79,6 +77,7 @@ class ExactSearchTool(BaseTool):
         self.func = self.exact_search
         self.params = BaseTool.extract_params(self.exact_search)
 
+    @BaseTool.handle_tool_exceptions
     def exact_search(
         self,
         pattern: str,
@@ -102,66 +101,56 @@ class ExactSearchTool(BaseTool):
         Returns:
             格式化的搜索结果字符串
         """
-        try:
-            # 验证搜索路径
-            search_path: Path = self.workspace.path_validator.validate(path)
-            if not search_path.exists():
-                return ToolErrorResponse(self.__class__.__name__, f"路径不存在: {path}").to_str()
+        # 验证搜索路径
+        search_path: Path = self.workspace.path_validator.validate(path)
 
-            # 准备搜索字符串
-            search_string = pattern if case_sensitive else pattern.lower()
+        # 准备搜索字符串
+        search_string = pattern if case_sensitive else pattern.lower()
 
-            # 收集忽略模式
-            ignore_patterns = []
-            if ignore:
-                for ignore_pattern in ignore:
-                    with contextlib.suppress(re.error):
-                        ignore_patterns.append(re.compile(ignore_pattern))
+        # 收集忽略模式
+        ignore_patterns = []
+        if ignore:
+            for ignore_pattern in ignore:
+                with contextlib.suppress(re.error):
+                    ignore_patterns.append(re.compile(ignore_pattern))
 
-            # 搜索结果
-            results = []
-            file_count = 0
+        # 搜索结果
+        results = []
+        file_count = 0
 
-            # 遍历所有文件(递归)
-            for file_path in search_path.rglob("*"):
-                if file_path.is_file():
-                    # 检查是否达到限制
-                    if len(results) >= limit:
+        # 遍历所有文件(递归)
+        for file_path in search_path.rglob("*"):
+            if file_path.is_file():
+                # 检查是否达到限制
+                if len(results) >= limit:
+                    break
+
+                # 检查是否应该忽略
+                should_ignore = False
+                relative_path = file_path.relative_to(search_path)
+
+                for ignore_pattern in ignore_patterns:
+                    if ignore_pattern.search(str(relative_path)):
+                        should_ignore = True
                         break
 
-                    # 检查是否应该忽略
-                    should_ignore = False
-                    relative_path = file_path.relative_to(search_path)
+                if should_ignore:
+                    continue
 
-                    for ignore_pattern in ignore_patterns:
-                        if ignore_pattern.search(str(relative_path)):
-                            should_ignore = True
-                            break
+                try:
+                    # 读取文件内容
+                    with open(file_path, encoding="utf-8") as f:
+                        lines = f.readlines()
 
-                    if should_ignore:
-                        continue
+                    # 搜索匹配行
+                    file_matches = _search_exact_in_file(lines, search_string, case_sensitive, whole_word)
 
-                    try:
-                        # 读取文件内容
-                        with open(file_path, encoding="utf-8") as f:
-                            lines = f.readlines()
+                    if file_matches:
+                        results.append({"file": str(file_path), "matches": file_matches})
+                        file_count += 1
 
-                        # 搜索匹配行
-                        file_matches = _search_exact_in_file(lines, search_string, case_sensitive, whole_word)
+                except OSError, UnicodeDecodeError, PermissionError:
+                    continue  # 跳过无法读取的文件
 
-                        if file_matches:
-                            results.append({"file": str(file_path), "matches": file_matches})
-                            file_count += 1
-
-                    except (OSError, UnicodeDecodeError, PermissionError):
-                        continue  # 跳过无法读取的文件
-
-            # 格式化输出
-            return _format_exact_results(results, pattern, limit, file_count, case_sensitive, whole_word)
-
-        except PathNotFoundError as err1:
-            return ToolErrorResponse(self.__class__.__name__, err1).to_str()
-        except WorkspaceBoundaryError as err2:
-            return ToolErrorResponse(self.__class__.__name__, err2).to_str()
-        except Exception as err:
-            return ToolErrorResponse(self.__class__.__name__, err).to_str()
+        # 格式化输出
+        return _format_exact_results(results, pattern, limit, file_count, case_sensitive, whole_word)

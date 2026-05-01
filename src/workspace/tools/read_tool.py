@@ -1,8 +1,7 @@
 from pathlib import Path
 
-from src.core.file_tracker import FileTracker
 from src.models.tool_error_response import ToolErrorResponse
-from src.workspace.path_validator import PathNotFoundError, WorkspaceBoundaryError
+from src.utils.binary_detector import is_binary_file
 from src.workspace.tools.base_tool import BaseTool
 from src.workspace.workspace import Workspace
 
@@ -13,6 +12,7 @@ class ReadTool(BaseTool):
         self.func = self.read
         self.params = BaseTool.extract_params(self.read)
 
+    @BaseTool.handle_tool_exceptions
     def read(self, file_path: str, max_lines: int = 0, encoding: str = "utf-8") -> str:
         """
         读取文件内容,可限制最大行数,返回文件内容字符串(带行号)
@@ -23,47 +23,33 @@ class ReadTool(BaseTool):
         max_lines: 最大行数(0表示不限制)
         encoding: 编码
         """
-        try:
-            path: Path = self.workspace.path_validator.validate(file_path)
+        path: Path = self.workspace.path_validator.validate(file_path)
 
-            if not path.is_file():
-                return ToolErrorResponse(
-                    self.__class__.__name__, ValueError(f"读取文件{path}时未读取到完整文件")
-                ).to_str()
+        if not path.is_file():
+            return ToolErrorResponse(self.__class__.__name__, ValueError(f"读取文件{path}时未读取到完整文件")).to_str()
 
-            with open(path, encoding=encoding) as f:
-                lines = f.readlines()
+        if is_binary_file(path, encoding=encoding):
+            return ToolErrorResponse(
+                self.__class__.__name__,
+                ValueError(f"无法读取二进制文件: {path}. 请使用二进制安全工具或转换为 base64."),
+            ).to_str()
 
-            total_lines = len(lines)
+        with open(path, encoding=encoding) as f:
+            lines = f.readlines()
 
-            if max_lines > 0:
-                lines = lines[:max_lines]
+        total_lines = len(lines)
 
-            result_lines = []
-            for i, line in enumerate(lines, 1):
-                content = line.rstrip("\n\r")
-                result_lines.append(f"{i:6d} | {content}")
+        if max_lines > 0:
+            lines = lines[:max_lines]
 
-            header = f"\n[文件: {path}]\n[行 1-{len(lines)} / 共 {total_lines} 行]\n"
-            separator = "-" * 80 + "\n"
+        result_lines = []
+        for i, line in enumerate(lines, 1):
+            content = line.rstrip("\n\r")
+            result_lines.append(f"{i:6d} | {content}")
 
-            self._record_read_meta(path)
+        header = f"\n[文件: {path}]\n[行 1-{len(lines)} / 共 {total_lines} 行]\n"
+        separator = "-" * 80 + "\n"
 
-            return header + separator + "\n".join(result_lines)
-        except PathNotFoundError as err1:
-            return ToolErrorResponse(self.__class__.__name__, err1).to_str()
-        except WorkspaceBoundaryError as err2:
-            return ToolErrorResponse(self.__class__.__name__, err2).to_str()
-        except PermissionError as err3:
-            return ToolErrorResponse(self.__class__.__name__, err3).to_str()
-        except Exception as err:
-            return ToolErrorResponse(self.__class__.__name__, err).to_str()
+        self._record_read_meta(path)
 
-    def _record_read_meta(self, resolved_path: Path) -> None:
-        try:
-            meta = FileTracker.get_file_meta(resolved_path)
-            if meta:
-                rel_path = str(resolved_path.relative_to(self.workspace.root_path))
-                self.workspace.db.record_file_read(rel_path, meta["mtime"], meta["size"], meta["checksum"])
-        except Exception:
-            pass
+        return header + separator + "\n".join(result_lines)

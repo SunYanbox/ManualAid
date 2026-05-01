@@ -1,6 +1,7 @@
 """交互式结果查看器 - 通用可折叠控件"""
 
 from dataclasses import dataclass
+from warnings import deprecated
 
 import keyboard
 from rich.align import Align
@@ -10,7 +11,6 @@ from rich.live import Live
 from rich.panel import Panel
 from rich.syntax import Syntax
 from rich.text import Text
-from typing_extensions import deprecated
 
 console = Console()
 

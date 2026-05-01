@@ -134,7 +134,7 @@ class REPL(App):
         self.command_handler: CommandHandler | None = None
         self.tool_handler: ToolHandler | None = None
 
-        self.paste_refence: PasteReference = PasteReference()
+        self.paste_reference: PasteReference = PasteReference()
 
         # 多行输入缓冲区(用于 func_call 跨行输入)
         self._multiline_buffer: list[str] = []
@@ -237,8 +237,8 @@ class REPL(App):
         if not text.strip():
             return
 
-        text = self.paste_refence.expand(text).replace("&quot;", '"')
-        self.paste_refence.clear()
+        text = self.paste_reference.expand(text).replace("&quot;", '"')
+        self.paste_reference.clear()
 
         # 单行模式下直接分发
         self._dispatch(text)
@@ -253,8 +253,8 @@ class REPL(App):
     def _insert_paste_text(self, text: str) -> None:
         """在主线程中插入粘贴的文本"""
         text_area = self.query_one("#input-field", TextArea)
-        if self.paste_refence.should_collapse(text):
-            text = self.paste_refence.collapsed(text)
+        if self.paste_reference.should_collapse(text):
+            text = self.paste_reference.collapsed(text)
         text_area.insert(text)
 
     def action_submit_text(self) -> None:
@@ -286,7 +286,8 @@ class REPL(App):
             warns.append(f"分发输入后在执行时出现错误: {e}")
 
         if len(warns) > 0:
-            self.tui_console.print(Panel(f"[yellow]{'\n'.join(warns)}[/yellow]", title="输入分发警告"))
+            joined_warns = "\n".join(warns)
+            self.tui_console.print(Panel(f"[yellow]{joined_warns}[/yellow]", title="输入分发警告"))
 
     def action_quit_confirm(self) -> None:
         """退出应用"""

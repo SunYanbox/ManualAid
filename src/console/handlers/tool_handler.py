@@ -134,7 +134,7 @@ class ToolHandler:
                     f"Error={e.__class__.__name__}({e}, {traceback.format_exc()})"
                 )
                 self.console.print(f"[red]{error}[/red]")
-                func_result = "\n".join(["", "<ErrorExecute>", error, "/<ErrorExecute>", ""])
+                func_result = "\n".join(["", "<ErrorExecute>", error, "</ErrorExecute>", ""])
                 self.console.print(f"[red]{error}[/red]")
 
             collection.add(func_name, time.perf_counter() - start, kwargs=func_kwargs, result=func_result)

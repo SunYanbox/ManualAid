@@ -31,7 +31,7 @@ def _highlight_matches(line: str, regex: re.Pattern) -> str:
 
 
 class Workspace:
-    _instance: "Workspace" = None
+    _instance: Workspace = None
 
     def __new__(cls, path: str):
         if not cls._instance:
@@ -171,7 +171,7 @@ class Workspace:
                 for line_num, line in enumerate(f, 1):
                     if regex.search(line):
                         results.append((relative_path, line_num, line.rstrip("\n\r")))
-        except (UnicodeDecodeError, PermissionError):
+        except UnicodeDecodeError, PermissionError:
             # 跳过无法读取的二进制文件或无权限的文件
             pass
         except Exception:
