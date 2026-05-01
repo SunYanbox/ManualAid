@@ -129,8 +129,6 @@ class RegexSearchTool(BaseTool):
         try:
             # 验证搜索路径
             search_path: Path = self.workspace.path_validator.validate(path)
-            if not search_path.exists():
-                return ToolErrorResponse(self.__class__.__name__, f"路径不存在: {path}").to_str()
 
             # 编译正则表达式
             try:

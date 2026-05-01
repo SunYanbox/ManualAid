@@ -29,8 +29,6 @@ class StatTool(BaseTool):
         try:
             # 验证路径
             target_path: Path = self.workspace.path_validator.validate(path)
-            if not target_path.exists():
-                return ToolErrorResponse(self.__class__.__name__, f"路径不存在: {path}").to_str()
 
             # 获取基本 stat 信息
             path_stat = target_path.stat()

@@ -105,8 +105,6 @@ class ExactSearchTool(BaseTool):
         try:
             # 验证搜索路径
             search_path: Path = self.workspace.path_validator.validate(path)
-            if not search_path.exists():
-                return ToolErrorResponse(self.__class__.__name__, f"路径不存在: {path}").to_str()
 
             # 准备搜索字符串
             search_string = pattern if case_sensitive else pattern.lower()
