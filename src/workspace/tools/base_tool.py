@@ -185,3 +185,56 @@ class BaseTool:
                 self.workspace.db.record_file_read(rel_path, meta["mtime"], meta["size"], meta["checksum"])
         except Exception:
             pass
+
+    def _validate_mtime(self, resolved_path: Path) -> str | None:
+        """校验文件自上次读取后是否被外部修改."""
+        if not resolved_path.exists():
+            return None
+
+        rel_path = str(resolved_path.relative_to(self.workspace.root_path))
+        record = self.workspace.db.get_file_read_record(rel_path)
+        if record is None:
+            return None
+
+        stored_mtime = record[2]
+        current_mtime = resolved_path.stat().st_mtime
+
+        if abs(current_mtime - stored_mtime) > 0.001:
+            return (
+                f"ERROR: FILE_MODIFIED_EXTERNALLY - "
+                f'The file "{rel_path}" was modified externally since last read. '
+                f'Please re-read the file with the "read" tool before editing it.'
+            )
+        return None
+
+    @staticmethod
+    def _generate_diff(old_content: str, new_content: str, file_path: str) -> str:
+        import difflib
+
+        old_lines = old_content.splitlines(keepends=True)
+        new_lines = new_content.splitlines(keepends=True)
+        diff = difflib.unified_diff(old_lines, new_lines, fromfile=f"a/{file_path}", tofile=f"b/{file_path}")
+        return "".join(diff)
+
+    @staticmethod
+    def handle_tool_exceptions(func):
+        """工具方法异常处理装饰器."""
+        from functools import wraps
+
+        from src.models.tool_error_response import ToolErrorResponse
+        from src.workspace.path_validator import PathNotFoundError, WorkspaceBoundaryError
+
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):
+            try:
+                return func(self, *args, **kwargs)
+            except PathNotFoundError as err1:
+                return ToolErrorResponse(self.__class__.__name__, err1).to_str()
+            except WorkspaceBoundaryError as err2:
+                return ToolErrorResponse(self.__class__.__name__, err2).to_str()
+            except PermissionError as err3:
+                return ToolErrorResponse(self.__class__.__name__, err3).to_str()
+            except Exception as err:
+                return ToolErrorResponse(self.__class__.__name__, err).to_str()
+
+        return wrapper
