@@ -2,8 +2,6 @@ import contextlib
 import re
 from pathlib import Path
 
-from src.models.tool_error_response import ToolErrorResponse
-from src.workspace.path_validator import PathNotFoundError, WorkspaceBoundaryError
 from src.workspace.tools.base_tool import BaseTool
 from src.workspace.workspace import Workspace
 

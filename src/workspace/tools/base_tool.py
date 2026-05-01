@@ -187,7 +187,7 @@ class BaseTool:
             pass
 
     def _validate_mtime(self, resolved_path: Path) -> str | None:
-        """校验文件自上次读取后是否被外部修改。"""
+        """校验文件自上次读取后是否被外部修改."""
         if not resolved_path.exists():
             return None
 
@@ -218,7 +218,7 @@ class BaseTool:
 
     @staticmethod
     def handle_tool_exceptions(func):
-        """工具方法异常处理装饰器。"""
+        """工具方法异常处理装饰器."""
         from functools import wraps
 
         from src.models.tool_error_response import ToolErrorResponse
