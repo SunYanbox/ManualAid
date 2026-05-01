@@ -207,6 +207,8 @@ ManualAid/
   tests/              # 测试套件
   scripts/            # 辅助脚本(如 fix_fullwidth.py)
   docs/               # 文档和提示词模板
+    CHANGELOG.md      # Version history and changelog
+    CHANGELOG_ZH.md   # Chinese version of changelog
 ```
 
 ### 技术栈

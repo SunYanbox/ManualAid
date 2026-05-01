@@ -222,6 +222,8 @@ ManualAid/
   tests/              # Test suite
   scripts/            # Helper scripts (e.g. fix_fullwidth.py)
   docs/               # Documentation and prompt templates
+    CHANGELOG.md      # Version history and changelog
+    CHANGELOG_ZH.md   # Chinese version of changelog
 ```
 
 ### Tech Stack
