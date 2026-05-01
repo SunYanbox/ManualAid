@@ -121,7 +121,7 @@ class BaseTool:
             lines.append("    </params>")
         else:
             lines.append("    <params><!-- 此工具不需要参数 --></params>")
-        lines.append("</tool>")
+        lines.append("</func_name>")
         return "\n".join(lines)
 
     def to_func_call(self) -> str:
