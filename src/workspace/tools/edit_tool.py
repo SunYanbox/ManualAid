@@ -1,8 +1,9 @@
-"""安全的字符串替换编辑工具 — 只发布待审核更改."""
+"""安全的字符串替换编辑工具 -- 只发布待审核更改."""
 
 from pathlib import Path
 
 from src.models.tool_error_response import ToolErrorResponse
+from src.utils.binary_detector import is_binary_file
 from src.workspace.tools.base_tool import BaseTool
 from src.workspace.workspace import Workspace
 
@@ -61,6 +62,12 @@ class EditTool(BaseTool):
             return ToolErrorResponse(
                 self.__class__.__name__,
                 FileNotFoundError(f"文件不存在: {resolved_path}"),
+            ).to_str()
+
+        if is_binary_file(resolved_path):
+            return ToolErrorResponse(
+                self.__class__.__name__,
+                ValueError(f"禁止编辑二进制文件: {resolved_path}"),
             ).to_str()
 
         # 3. mtime 校验

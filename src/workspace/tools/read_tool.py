@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from src.models.tool_error_response import ToolErrorResponse
+from src.utils.binary_detector import is_binary_file
 from src.workspace.tools.base_tool import BaseTool
 from src.workspace.workspace import Workspace
 
@@ -26,6 +27,12 @@ class ReadTool(BaseTool):
 
         if not path.is_file():
             return ToolErrorResponse(self.__class__.__name__, ValueError(f"读取文件{path}时未读取到完整文件")).to_str()
+
+        if is_binary_file(path, encoding=encoding):
+            return ToolErrorResponse(
+                self.__class__.__name__,
+                ValueError(f"无法读取二进制文件: {path}. 请使用二进制安全工具或转换为 base64."),
+            ).to_str()
 
         with open(path, encoding=encoding) as f:
             lines = f.readlines()

@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from src.utils.binary_detector import is_binary_file
 from src.workspace.workspace import Workspace
 
 
@@ -51,9 +52,14 @@ class AuditCommitter:
             db.update_snapshot_audit(snapshot_id, "REJECTED")
             return f"已拒绝 (snapshot_id={snapshot_id})"
 
-        # 3. 批准 — 执行写入
+        # 3. 批准 -- 执行写入
         try:
             resolved = self.workspace.path_validator.resolve_path(Path(file_path))
+
+            # 最后安全网:阻止写入二进制文件
+            if is_binary_file(resolved):
+                db.update_snapshot_audit(snapshot_id, "REJECTED")
+                return f"安全拦截: 禁止写入二进制文件 {file_path} (snapshot_id={snapshot_id})"
 
             if not resolved.exists():
                 # 全新文件 — 使用 create_file_with_parents
