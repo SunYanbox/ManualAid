@@ -62,10 +62,9 @@ def parse_func_call(content: str, warns: list[str]) -> tuple[str, dict]:
     inner = re.sub(r"^<func_call\b", "", content)
     inner = re.sub(r"</func_call>$", "", inner).strip()
 
-    # 检查是否是非标准 func_call 格式(带 name 属性)
+    # 提取函数名 — 优先使用 name 属性格式 (标准格式)
     func_call_attr_match = re.match(r'<func_call\s+name="([^"]*)"\s*>', content)
     if func_call_attr_match:
-        warns.append("检测到非标准格式:func_call 标签包含 name 属性,尝试从属性中提取函数名")
         func_name = func_call_attr_match.group(1).strip()
     else:
         # 尝试标准 func_name 标签
