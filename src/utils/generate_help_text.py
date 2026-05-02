@@ -16,8 +16,7 @@ def generate_help_text(cmds: list[Command]) -> str:
     lines.append("[dim]使用 XML 标签调用工具,格式如下:[/dim]")
     lines.append(
         """[yellow bold]
-<func_call>
-    <func_name>工具名称</func_name>
+<func_call name="工具名称">
     <param name="参数名称">参数值</param>
 </func_call>
         [/yellow bold]

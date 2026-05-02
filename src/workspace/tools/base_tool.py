@@ -128,7 +128,7 @@ class BaseTool:
 
     def to_func_call(self) -> str:
         """将工具转换为标准格式"""
-        func_call: str = f"<func_call>\n    <func_name>{self.name}</func_name>\n"
+        func_call: str = f'<func_call name="{self.name}">\n'
         for name, params in self.params.items():
             func_call += (
                 f'    <param name="{name}">'
