@@ -30,7 +30,7 @@ class ReadLinesTool(BaseTool):
         if not path.is_file():
             return ToolErrorResponse(self.__class__.__name__, ValueError(f"读取文件{path}时未读取到完整文件")).to_str()
 
-        if is_binary_file(path, encoding=encoding):
+        if is_binary_file(path):
             return ToolErrorResponse(
                 self.__class__.__name__,
                 ValueError(f"无法读取二进制文件: {path}. 请使用二进制安全工具或转换为 base64."),

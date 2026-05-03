@@ -1,14 +1,93 @@
 """二进制文件检测工具模块.
 
-提供统一的二进制文件判断逻辑:
-1. 常见二进制后缀名直接判定为二进制文件
-2. 否则尝试以指定编码解码前 512 字节,解码失败则认为是二进制文件或编码错误
+基于文件后缀名和 MIME 类型判断文件是否为二进制文件
+不读取文件内容,避免误判和性能问题
 """
 
+import mimetypes
 from pathlib import Path
 
-# 常见二进制文件扩展名(小写)
-BINARY_EXTENSIONS: frozenset[str] = frozenset(
+# 初始化 mimetypes
+mimetypes.init()
+
+# 明确的文本文件扩展名
+_TEXT_EXTENSIONS: frozenset[str] = frozenset(
+    {
+        # 源代码
+        ".py",
+        ".js",
+        ".ts",
+        ".jsx",
+        ".tsx",
+        ".go",
+        ".rs",
+        ".java",
+        ".c",
+        ".cpp",
+        ".h",
+        ".hpp",
+        ".cs",
+        ".rb",
+        ".php",
+        ".swift",
+        ".kt",
+        ".scala",
+        ".lua",
+        ".pl",
+        ".pm",
+        ".r",
+        ".sql",
+        # 配置文件
+        ".json",
+        ".jsonc",
+        ".jsonl",
+        ".yaml",
+        ".yml",
+        ".toml",
+        ".ini",
+        ".cfg",
+        ".conf",
+        ".xml",
+        ".properties",
+        ".env",
+        ".env.example",
+        ".gitignore",
+        ".dockerignore",
+        # 脚本
+        ".sh",
+        ".bash",
+        ".zsh",
+        ".fish",
+        ".ps1",
+        ".cmd",
+        # 文档标记语言
+        ".md",
+        ".markdown",
+        ".rst",
+        ".txt",
+        ".log",
+        ".csv",
+        ".tsv",
+        ".tex",
+        # Web 相关
+        ".html",
+        ".htm",
+        ".css",
+        ".scss",
+        ".sass",
+        ".less",
+        ".vue",
+        ".svelte",
+        # 其他文本格式
+        ".bat",  # Windows 批处理
+        ".vbs",  # VBScript
+        ".reg",  # Windows Registry
+        ".desktop",
+    }
+)
+
+# 明确的二进制文件扩展名
+_BINARY_EXTENSIONS: frozenset[str] = frozenset(
     {
         # 可执行文件
         ".exe",
@@ -18,7 +97,6 @@ BINARY_EXTENSIONS: frozenset[str] = frozenset(
         ".bin",
         ".com",
         ".msi",
-        ".bat",
         # 压缩文件
         ".zip",
         ".tar",
@@ -41,7 +119,6 @@ BINARY_EXTENSIONS: frozenset[str] = frozenset(
         ".webp",
         ".tiff",
         ".tif",
-        ".svg",
         ".psd",
         ".raw",
         ".heic",
@@ -61,7 +138,7 @@ BINARY_EXTENSIONS: frozenset[str] = frozenset(
         ".m4a",
         ".m4v",
         ".webm",
-        # 文档/电子书
+        # 文档
         ".pdf",
         ".doc",
         ".docx",
@@ -83,7 +160,7 @@ BINARY_EXTENSIONS: frozenset[str] = frozenset(
         ".feather",
         ".h5",
         ".hdf5",
-        # 其他
+        # 其他二进制
         ".pyc",
         ".pyo",
         ".whl",
@@ -106,54 +183,51 @@ BINARY_EXTENSIONS: frozenset[str] = frozenset(
         ".db",
         ".sqlite",
         ".sqlite3",
-        ".env",
     }
 )
 
-# 解码检测时读取的最大字节数
-_DETECTION_CHUNK_SIZE = 512
 
-
-def is_binary_file(path: str | Path, encoding: str = "utf-8") -> bool:
-    """判断给定路径是否为二进制文件.
+def is_binary_file(path: str | Path) -> bool:
+    """判断给定路径是否为二进制文件(仅基于后缀名和 MIME 类型,不读取文件内容).
 
     判定策略:
-    1. 如果文件不存在,仅通过扩展名判断(适用于写入前的预检查)
-    2. 如果扩展名在已知二进制列表中,直接返回 True
-    3. 否则读取文件前 512 字节,尝试以指定编码解码;解码失败则认为是二进制文件
+    1. 如果文件扩展名在 _TEXT_EXTENSIONS 中 → 返回 False(文本文件)
+    2. 如果文件扩展名在 _BINARY_EXTENSIONS 中 → 返回 True(二进制文件)
+    3. 否则使用 mimetypes.guess_type() 判断 MIME 类型:
+       - 如果 MIME 类型以 text/ 开头 → 返回 False
+       - 如果 MIME 类型是 application/json、application/xml 等文本格式 → 返回 False
+       - 其他情况(image/、video/、audio/、application/zip 等)→ 返回 True
+    4. 无法判断时,默认返回 False(假定为文本文件)
+
+    注意:此函数完全不读取文件内容,仅基于文件扩展名和 MIME 类型判断.
+    这意味着如果文件扩展名与实际内容不符(如二进制文件使用 .txt 扩展名),
+    可能会产生误判.但根据用户需求,这种边缘情况不予考虑.
 
     Args:
         path: 文件路径
-        encoding: 尝试解码时使用的编码,默认 "utf-8"
 
     Returns:
-        True 表示是二进制文件, False 表示可能是文本文件
+        True 表示是二进制文件,False 表示是文本文件
     """
     p = Path(path)
     suffix = p.suffix.lower()
 
-    # 策略1: 扩展名匹配
-    if suffix in BINARY_EXTENSIONS:
-        return True
-
-    # 策略2: 文件不存在时,无法通过内容判断,返回 False(允许创建)
-    if not p.exists():
+    # 策略1: 明确的文本扩展名
+    if suffix in _TEXT_EXTENSIONS:
         return False
 
-    # 策略3: 尝试以指定编码解码文件头部
-    try:
-        with open(p, "rb") as f:
-            chunk = f.read(_DETECTION_CHUNK_SIZE)
-        if not chunk:
-            # 空文件视为文本文件
+    # 策略2: 明确的二进制扩展名
+    if suffix in _BINARY_EXTENSIONS:
+        return True
+
+    # 策略3: 使用 mimetypes 兜底判断
+    mime_type, _ = mimetypes.guess_type(str(p))
+    if mime_type:
+        # 文本类型 MIME
+        if mime_type.startswith("text/"):
             return False
-        # 即使解码成功,null 字节也几乎不可能出现在合法文本文件中
-        if b"\x00" in chunk:
-            return True
-        chunk.decode(encoding)
-        return False
-    except UnicodeDecodeError, ValueError:
-        return True
-    except OSError:
-        # 文件无法读取(权限等),保守返回 False
-        return False
+        # 文本格式 MIME 返回 False, 其他类型返回 True
+        return mime_type not in ("application/json", "application/xml", "application/javascript", "application/x-yaml")
+
+    # 策略4: 无法判断时,默认假定为文本文件
+    return False

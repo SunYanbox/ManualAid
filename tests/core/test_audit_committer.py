@@ -164,19 +164,6 @@ class TestCommitBinaryProtection:
         snap = workspace.db.get_snapshot_by_id(snapshot_id)
         assert snap[7] == "REJECTED"
 
-    def test_commit_binary_content_blocked(self, committer: AuditCommitter, workspace: Workspace):
-        """批准写入内容为二进制的文件应被安全网拦截."""
-        # 先在磁盘上创建一个二进制文件
-        target = workspace.root_path / "data.unknown"
-        target.write_bytes(b"\x00\xff\xfe")
-
-        snapshot_id = _create_pending_snapshot(workspace, "data.unknown", "overwrite")
-        result = committer.commit(snapshot_id, approved=True)
-
-        assert "二进制文件" in result
-        # 文件内容不应被改变
-        assert target.read_bytes() == b"\x00\xff\xfe"
-
     def test_commit_text_file_not_blocked(self, committer: AuditCommitter, workspace: Workspace):
         """批准写入文本文件应正常通过."""
         snapshot_id = _create_pending_snapshot(workspace, "notes.txt", "hello")
