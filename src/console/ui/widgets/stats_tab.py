@@ -327,10 +327,11 @@ class StatsTab(Vertical):
         if ranking:
             self.mount(Label("Top Tools", classes="stats-header"))
             dt = DataTable(id="stats-tool-ranking")
-            dt.add_columns("#", "Tool", "Calls", "Avg Time")
-            for i, (func_name, count, avg_dur) in enumerate(ranking, 1):
-                avg_str = f"{avg_dur:.1f}ms" if avg_dur else "N/A"
-                dt.add_row(str(i), func_name, str(count), avg_str)
+            dt.add_columns("#", "Tool", "Calls", "Avg Time", "Total Time")
+            for i, (func_name, count, avg_dur, total_dur) in enumerate(ranking, 1):
+                avg_str = f"{avg_dur:.1f}ms" if avg_dur is not None else "N/A"
+                total_str = f"{total_dur:.1f}ms" if total_dur is not None else "N/A"
+                dt.add_row(str(i), func_name, str(count), avg_str, total_str)
             self.mount(dt)
         else:
             self.mount(Label("No tool calls recorded yet.", id="stats-empty"))

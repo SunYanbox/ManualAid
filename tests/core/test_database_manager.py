@@ -498,6 +498,7 @@ class TestToolUsageRanking:
         assert ranking[0][0] == "read"
         assert ranking[0][1] == 2
         assert ranking[0][2] == pytest.approx(20.0)
+        assert ranking[0][3] == pytest.approx(40.0)
 
     def test_ranking_limit(self, db: DatabaseManager):
         sid = db.create_session()
