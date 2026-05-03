@@ -2,7 +2,10 @@
 
 import argparse
 import atexit
+import contextlib
+import os
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -15,6 +18,22 @@ from src.core.tool_registry import ToolRegistry
 from src.workspace.workspace import Workspace
 
 tool_registry = ToolRegistry()
+
+# Session heartbeat: periodically persists session duration so that abnormal
+# termination (window close, Ctrl+C, SIGKILL) loses minimal data.
+_session_heartbeat_stop: threading.Event | None = None
+
+
+def _session_heartbeat(
+    db,
+    session_id: int,
+    stop_event: threading.Event,
+    interval: float,
+) -> None:
+    """Periodically persist session duration during normal operation."""
+    while not stop_event.wait(interval):
+        with contextlib.suppress(Exception):
+            db.update_session_duration(session_id)
 
 
 def init_workspace(start_path: str | None = None) -> Workspace | None:
@@ -42,12 +61,26 @@ def init_workspace(start_path: str | None = None) -> Workspace | None:
     tool_registry.set_session_id(session_id)
     workspace._current_session_id = session_id
 
+    # Start a daemon heartbeat thread to periodically persist session duration
+    global _session_heartbeat_stop
+    _session_heartbeat_stop = threading.Event()
+    interval = int(os.getenv("SESSION_UPDATE_INTERVAL", "30"))
+    thread = threading.Thread(
+        target=_session_heartbeat,
+        args=(workspace.db, session_id, _session_heartbeat_stop, interval),
+        daemon=True,
+    )
+    thread.start()
+
     atexit.register(_cleanup, workspace, session_id)
 
     return workspace
 
 
 def _cleanup(workspace: Workspace, session_id: int) -> None:
+    global _session_heartbeat_stop
+    if _session_heartbeat_stop is not None:
+        _session_heartbeat_stop.set()
     if session_id and hasattr(workspace, "db"):
         workspace.db.close_session(session_id)
         workspace.db.close()
