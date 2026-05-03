@@ -101,7 +101,6 @@ class DatabaseManager:
 
             CREATE INDEX IF NOT EXISTS idx_tool_calls_session ON tool_calls(session_id);
             CREATE INDEX IF NOT EXISTS idx_tool_calls_func ON tool_calls(func_name);
-            CREATE INDEX IF NOT EXISTS idx_file_read_records_session_path ON file_read_records(session_id, file_path);
             CREATE INDEX IF NOT EXISTS idx_file_snapshots_audit ON file_snapshots(audit_status);
             """
         )
@@ -117,6 +116,14 @@ class DatabaseManager:
         # Phase 4 migration: add session_id to file_read_records
         if not any(row[1] == "session_id" for row in conn.execute("PRAGMA table_info(file_read_records)")):
             self._migrate_file_read_records_add_session(conn)
+
+        # Ensure file_read_records index exists (for fresh databases or after migration).
+        # Must run after migrations since the column may only exist after Phase 4.
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_file_read_records_session_path "
+            "ON file_read_records(session_id, file_path)"
+        )
+        conn.commit()
 
     @staticmethod
     def _migrate_add_pending_content(conn: sqlite3.Connection) -> None:
@@ -151,7 +158,7 @@ class DatabaseManager:
                 UNIQUE(session_id, file_path)
             );
 
-            CREATE INDEX IF NOT EXISTS idx_file_read_records_path ON file_read_records(session_id, file_path);
+            CREATE INDEX IF NOT EXISTS idx_file_read_records_session_path ON file_read_records(session_id, file_path);
             """
         )
         conn.commit()
