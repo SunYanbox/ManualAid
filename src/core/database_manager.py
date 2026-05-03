@@ -59,7 +59,8 @@ class DatabaseManager:
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
                 name        TEXT NOT NULL DEFAULT '',
                 created_at  REAL NOT NULL,
-                duration    REAL NOT NULL DEFAULT 0.0
+                duration    REAL NOT NULL DEFAULT 0.0,
+                deleted     INTEGER NOT NULL DEFAULT 0
             );
 
             CREATE TABLE IF NOT EXISTS tool_calls (
@@ -99,10 +100,6 @@ class DatabaseManager:
                 FOREIGN KEY (session_id) REFERENCES sessions(id)
             );
 
-            CREATE INDEX IF NOT EXISTS idx_tool_calls_session ON tool_calls(session_id);
-            CREATE INDEX IF NOT EXISTS idx_tool_calls_func ON tool_calls(func_name);
-            CREATE INDEX IF NOT EXISTS idx_file_snapshots_audit ON file_snapshots(audit_status);
-
             CREATE TABLE IF NOT EXISTS tool_call_summaries (
                 session_id   INTEGER NOT NULL,
                 func_name    TEXT NOT NULL,
@@ -112,8 +109,6 @@ class DatabaseManager:
                 PRIMARY KEY (session_id, func_name, kwargs_json),
                 FOREIGN KEY (session_id) REFERENCES sessions(id)
             );
-
-            CREATE INDEX IF NOT EXISTS idx_tool_call_summaries_session ON tool_call_summaries(session_id);
             """
         )
         conn.commit()
@@ -129,11 +124,20 @@ class DatabaseManager:
         if not any(row[1] == "session_id" for row in conn.execute("PRAGMA table_info(file_read_records)")):
             self._migrate_file_read_records_add_session(conn)
 
-        # Ensure file_read_records index exists (for fresh databases or after migration).
-        # Must run after migrations since the column may only exist after Phase 4.
+        # Phase 5 migration: add deleted column to sessions
+        if not any(row[1] == "deleted" for row in conn.execute("PRAGMA table_info(sessions)")):
+            conn.execute("ALTER TABLE sessions ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0")
+            conn.commit()
+
+        # Create all indexes after migrations so they apply to both
+        # fresh databases and those upgraded from older schemas.
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_tool_calls_session ON tool_calls(session_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_tool_calls_func ON tool_calls(func_name)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_file_snapshots_audit ON file_snapshots(audit_status)")
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_file_read_records_session_path ON file_read_records(session_id, file_path)"
         )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_tool_call_summaries_session ON tool_call_summaries(session_id)")
         conn.commit()
 
     @staticmethod
@@ -215,6 +219,9 @@ class DatabaseManager:
                 "UPDATE sessions SET duration = ? WHERE id = ?",
                 (duration, session_id),
             )
+            # Mark empty sessions as deleted so they can be cleaned up later
+            if self.is_session_orphaned(session_id):
+                self.mark_session_deleted(session_id)
 
     def update_session_duration(self, session_id: int) -> None:
         """Persist current elapsed duration without closing the session.
@@ -230,6 +237,64 @@ class DatabaseManager:
                 "UPDATE sessions SET duration = ? WHERE id = ?",
                 (duration, session_id),
             )
+
+    def mark_session_deleted(self, session_id: int) -> None:
+        """Set the deleted flag on a session.
+
+        设置会话上的删除标志"""
+        self.execute("UPDATE sessions SET deleted = 1 WHERE id = ?", (session_id,))
+
+    def restore_session_deleted_flag(self, session_id: int) -> None:
+        """Restore the deleted flag (set it back to 0) for an active session.
+
+        恢复删除标志(将其设回 0)为一个活跃会话
+        """
+        self.execute("UPDATE sessions SET deleted = 0 WHERE id = ?", (session_id,))
+
+    def get_sessions_with_deleted_flag(self) -> list[int]:
+        """Return IDs of all sessions with the deleted flag set.
+
+        返回所有设置了删除标志的会话的 ID
+        """
+        rows = self.fetchall("SELECT id FROM sessions WHERE deleted = 1")
+        return [r[0] for r in rows]
+
+    def is_session_orphaned(self, session_id: int) -> bool:
+        """Check if a session has no associated data in any related table.
+
+        检查一个会话是否在任何相关表中都没有关联数据
+        """
+        tables = ["tool_calls", "file_read_records", "file_snapshots", "tool_call_summaries"]
+        for table in tables:
+            row = self.fetchone(
+                f"SELECT COUNT(*) FROM {table} WHERE session_id = ?",
+                (session_id,),
+            )
+            if row and row[0] > 0:
+                return False
+        return True
+
+    def delete_session_async(self, session_id: int) -> None:
+        """异步轮询删除会话
+
+        设置删除标志,然后每 10 秒轮询一次(共重试 3 次)
+        如果标志被心跳恢复,则取消删除操作
+        否则在第三次轮询后执行实际删除
+        """
+        self.mark_session_deleted(session_id)
+
+        def _poll() -> None:
+            for _ in range(3):
+                time.sleep(10)
+                row = self.fetchone("SELECT deleted FROM sessions WHERE id = ?", (session_id,))
+                if row and row[0] == 0:
+                    return  # Flag was restored, cancel deletion / 标志已恢复,取消删除
+            # 三次轮询已过,标志仍被设置——执行删除
+            # Three polls passed, flag still set -- execute deletion
+            self.delete_session(session_id)
+
+        thread = threading.Thread(target=_poll, daemon=True)
+        thread.start()
 
     # -- Tool call logging --
 
