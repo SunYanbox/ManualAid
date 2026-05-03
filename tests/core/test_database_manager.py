@@ -128,27 +128,30 @@ class TestToolCallLogging:
 
 class TestFileReadRecords:
     def test_record_file_read(self, db: DatabaseManager):
-        db.record_file_read("src/main.py", 1234567890.5, 1024, "abc123hash")
+        session_id = db.create_session()
+        db.record_file_read(session_id, "src/main.py", 1234567890.5, 1024, "abc123hash")
 
-        row = db.get_file_read_record("src/main.py")
+        row = db.get_file_read_record(session_id, "src/main.py")
         assert row is not None
-        assert row[2] == 1234567890.5
-        assert row[3] == 1024
-        assert row[4] == "abc123hash"
+        assert row[3] == 1234567890.5
+        assert row[4] == 1024
+        assert row[5] == "abc123hash"
 
     def test_record_file_read_upsert(self, db: DatabaseManager):
-        db.record_file_read("src/main.py", 1000.0, 100, "hash1")
-        db.record_file_read("src/main.py", 2000.0, 200, "hash2")
+        session_id = db.create_session()
+        db.record_file_read(session_id, "src/main.py", 1000.0, 100, "hash1")
+        db.record_file_read(session_id, "src/main.py", 2000.0, 200, "hash2")
 
-        row = db.get_file_read_record("src/main.py")
+        row = db.get_file_read_record(session_id, "src/main.py")
         assert row is not None
-        assert row[2] == 2000.0
-        assert row[3] == 200
-        assert row[4] == "hash2"
-        assert row[6] == 2
+        assert row[3] == 2000.0
+        assert row[4] == 200
+        assert row[5] == "hash2"
+        assert row[7] == 2
 
     def test_get_nonexistent_read_record(self, db: DatabaseManager):
-        row = db.get_file_read_record("nonexistent.py")
+        session_id = db.create_session()
+        row = db.get_file_read_record(session_id, "nonexistent.py")
         assert row is None
 
 

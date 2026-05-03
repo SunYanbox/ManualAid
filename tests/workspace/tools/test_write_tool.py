@@ -19,6 +19,7 @@ def reset_singletons():
 @pytest.fixture
 def workspace(tmp_path: Path) -> Workspace:
     ws = Workspace(str(tmp_path))
+    ws._current_session_id = ws.db.create_session(name="test_session")
     return ws
 
 
@@ -102,8 +103,8 @@ class TestWriteModifiedExternally:
         time.sleep(0.1)
 
         new_mtime = file.stat().st_mtime
-        read_record = read_tool.workspace.db.get_file_read_record("test.txt")
-        stored_mtime = read_record[2] if read_record else None
+        read_record = read_tool.workspace.db.get_file_read_record(read_tool.workspace._current_session_id, "test.txt")
+        stored_mtime = read_record[3] if read_record else None
 
         if stored_mtime and abs(new_mtime - stored_mtime) < 0.001:
             file.write_text("modified externally again", encoding="utf-8")
