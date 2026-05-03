@@ -297,6 +297,8 @@ class TestThreadSafety:
                 db.create_session(name=name)
             except Exception as e:
                 errors.append(e)
+            finally:
+                db.close()  # 确保每个线程关闭自己的连接,避免 ResourceWarning
 
         threads = [threading.Thread(target=write_session, args=(f"thread_{i}",)) for i in range(5)]
         for t in threads:

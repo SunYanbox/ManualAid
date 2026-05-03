@@ -16,6 +16,8 @@ DICT_TRUNCATE_THRESHOLD = int(os.getenv("TOOL_DICT_TRUNCATE_THRESHOLD", "100"))
 @pytest.fixture(autouse=True)
 def isolate_tool_registry():
     """自动在每个测试前后隔离 ToolRegistry 单例"""
+    from src.core.database_manager import DatabaseManager
+
     # 保存原始实例
     original_instance = ToolRegistry._instance
 
@@ -26,6 +28,9 @@ def isolate_tool_registry():
 
     # 测试后恢复
     ToolRegistry._instance = original_instance
+
+    # 清理数据库连接,避免 ResourceWarning
+    DatabaseManager.reset_instances()
 
 
 def test_validate_config():
