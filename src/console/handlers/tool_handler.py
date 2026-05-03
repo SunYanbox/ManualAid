@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import json
-import os
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-from src.console.ui.interactive_viewer import add_to_viewer, run_viewer
 from src.console.ui.widgets.tools_result_widget import ToolsResultWidget
 from src.constants.files import EXTENSION_TO_LANGUAGE
 from src.models.commands import CommandParseResult
@@ -15,13 +13,6 @@ from src.utils.string_snapshot import truncate_for_display, truncate_params_stri
 if TYPE_CHECKING:
     from src.console.result_manager import ResultManager
     from src.core.tool_registry import ToolRegistry
-
-
-def _auto_view_if_enabled() -> None:
-    """Auto-run viewer if enabled"""
-    auto_view = os.getenv("MANUALAID_AUTO_VIEW", "").lower() in ("true", "1", "yes", "on")
-    if auto_view:
-        run_viewer()
 
 
 def _detect_language(func_name: str, func_kwargs: dict) -> str | None:
@@ -157,26 +148,3 @@ class ToolHandler:
         )
 
         return True
-
-    def _display_result(
-        self,
-        entry,
-        func_name: str,
-        func_kwargs: dict,
-        result: Any,
-    ) -> None:
-        """Display tool execution result"""
-        result_str = str(result)
-        lines_count = result_str.count("\n") + 1
-
-        # Create title
-        title = _create_result_title(entry.index, func_name, func_kwargs, lines_count)
-
-        # Detect language
-        language = _detect_language(func_name, func_kwargs)
-
-        # Add to viewer
-        add_to_viewer(str(entry.index), title, result_str, language)
-
-        # Show brief message
-        self.console.print(f"[dim]✓ Result ##{entry.index} added to viewer.[/dim]")

@@ -158,7 +158,6 @@ ManualAid 注册了 12 个工具供 LLM 通过 XML 函数调用使用:
 | `TOOL_LIST_TRUNCATE_THRESHOLD` | 100    | 列表结果的最大条目数       |
 | `TOOL_DICT_TRUNCATE_THRESHOLD` | 100    | 字典结果的最大键值对数     |
 | `MANUALAID_AUTO_COPY`          | true   | 自动将结果复制到剪贴板     |
-| `MANUALAID_AUTO_VIEW`          | true   | 自动在查看器中显示结果     |
 | `RESULT_EXPIRE_MINUTES`        | 5      | 结果缓存过期时间(分钟)     |
 | `SESSION_UPDATE_INTERVAL`      | 30     | 会话持续时间持久化间隔(秒) |
 | `SESSION_FLAG_CHECK_INTERVAL`  | 5      | 删除标志检查与守护间隔(秒) |

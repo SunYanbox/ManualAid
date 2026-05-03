@@ -173,7 +173,6 @@ Copy `.env.example` to `.env` and adjust as needed:
 | `TOOL_LIST_TRUNCATE_THRESHOLD` | 100     | Max items in list results                 |
 | `TOOL_DICT_TRUNCATE_THRESHOLD` | 100     | Max key-value pairs in dict results       |
 | `MANUALAID_AUTO_COPY`          | true    | Auto-copy results to clipboard            |
-| `MANUALAID_AUTO_VIEW`          | true    | Auto-view results in viewer               |
 | `RESULT_EXPIRE_MINUTES`        | 5       | Result cache expiration (minutes)         |
 | `SESSION_UPDATE_INTERVAL`      | 30      | Session duration persistence interval (s) |
 | `SESSION_FLAG_CHECK_INTERVAL`  | 5       | Deletion flag check & guard interval (s)  |
