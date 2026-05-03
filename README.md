@@ -9,7 +9,7 @@ LLM chat interfaces. Paste LLM-generated tool calls (in XML format), review and
 audit dangerous operations, and manage sessions with full history tracking --
 all running locally on your machine.
 
-> **Version**: 0.3.0 | **Python**: >=3.14
+> **Version**: 0.4.0 | **Python**: >=3.14
 
 ---
 
@@ -167,14 +167,15 @@ also require audit approval before execution.
 
 Copy `.env.example` to `.env` and adjust as needed:
 
-| Variable                       | Default | Description                         |
-| ------------------------------ | ------- | ----------------------------------- |
-| `TOOL_MAX_RESULT_LENGTH`       | 30000   | Max characters in tool output       |
-| `TOOL_LIST_TRUNCATE_THRESHOLD` | 100     | Max items in list results           |
-| `TOOL_DICT_TRUNCATE_THRESHOLD` | 100     | Max key-value pairs in dict results |
-| `MANUALAID_AUTO_COPY`          | true    | Auto-copy results to clipboard      |
-| `MANUALAID_AUTO_VIEW`          | true    | Auto-view results in viewer         |
-| `RESULT_EXPIRE_MINUTES`        | 5       | Result cache expiration (minutes)   |
+| Variable                       | Default | Description                               |
+| ------------------------------ | ------- | ----------------------------------------- |
+| `TOOL_MAX_RESULT_LENGTH`       | 30000   | Max characters in tool output             |
+| `TOOL_LIST_TRUNCATE_THRESHOLD` | 100     | Max items in list results                 |
+| `TOOL_DICT_TRUNCATE_THRESHOLD` | 100     | Max key-value pairs in dict results       |
+| `MANUALAID_AUTO_COPY`          | true    | Auto-copy results to clipboard            |
+| `RESULT_EXPIRE_MINUTES`        | 5       | Result cache expiration (minutes)         |
+| `SESSION_UPDATE_INTERVAL`      | 30      | Session duration persistence interval (s) |
+| `SESSION_FLAG_CHECK_INTERVAL`  | 5       | Deletion flag check & guard interval (s)  |
 
 ---
 

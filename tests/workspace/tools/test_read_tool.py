@@ -19,6 +19,7 @@ def reset_singletons():
 @pytest.fixture
 def workspace(tmp_path: Path) -> Workspace:
     ws = Workspace(str(tmp_path))
+    ws._current_session_id = ws.db.create_session(name="test_session")
     return ws
 
 
@@ -33,9 +34,9 @@ class TestReadToolMtimeRecording:
         result = tool.read("test.txt")
 
         assert "hello" in result
-        record = workspace.db.get_file_read_record("test.txt")
+        record = workspace.db.get_file_read_record(workspace._current_session_id, "test.txt")
         assert record is not None
-        assert record[2] == pytest.approx(file.stat().st_mtime, abs=0.01)
+        assert record[3] == pytest.approx(file.stat().st_mtime, abs=0.01)
 
     def test_read_records_checksum(self, workspace: Workspace, tmp_path: Path):
         file = tmp_path / "test.txt"
@@ -47,10 +48,10 @@ class TestReadToolMtimeRecording:
         tool = ReadTool(workspace)
         tool.read("test.txt")
 
-        record = workspace.db.get_file_read_record("test.txt")
+        record = workspace.db.get_file_read_record(workspace._current_session_id, "test.txt")
         assert record is not None
         expected_checksum = hashlib.blake2b(content.encode("utf-8")).hexdigest()
-        assert record[4] == expected_checksum
+        assert record[5] == expected_checksum
 
     def test_read_nonexistent_file_no_db_record(self, workspace: Workspace):
         from src.workspace.tools.read_tool import ReadTool
@@ -59,7 +60,7 @@ class TestReadToolMtimeRecording:
         result = tool.read("nonexistent.txt")
 
         assert "error" in result.lower() or "Error" in result
-        record = workspace.db.get_file_read_record("nonexistent.txt")
+        record = workspace.db.get_file_read_record(workspace._current_session_id, "nonexistent.txt")
         assert record is None
 
     def test_read_updates_read_count(self, workspace: Workspace, tmp_path: Path):
@@ -72,9 +73,9 @@ class TestReadToolMtimeRecording:
         tool.read("test.txt")
         tool.read("test.txt")
 
-        record = workspace.db.get_file_read_record("test.txt")
+        record = workspace.db.get_file_read_record(workspace._current_session_id, "test.txt")
         assert record is not None
-        assert record[6] == 2
+        assert record[7] == 2
 
 
 class TestReadLinesToolMtimeRecording:
@@ -88,5 +89,5 @@ class TestReadLinesToolMtimeRecording:
         result = tool.read_lines("test.txt", 1, 2)
 
         assert "line1" in result
-        record = workspace.db.get_file_read_record("test.txt")
+        record = workspace.db.get_file_read_record(workspace._current_session_id, "test.txt")
         assert record is not None

@@ -1,3 +1,4 @@
+import contextlib
 import sqlite3
 import threading
 import time
@@ -28,8 +29,8 @@ class DatabaseManager:
         self._workspace_root = workspace_root
         self._db_dir = Path(workspace_root) / MANUALAID_DIR
         self._db_path = self._db_dir / DB_FILE
-        self._write_lock = threading.Lock()
-        self._thread_local = threading.local()
+        self._lock = threading.RLock()
+        self._conn: sqlite3.Connection | None = None
 
         self._ensure_directory()
         self._init_tables()
@@ -43,13 +44,17 @@ class DatabaseManager:
         self._db_dir.mkdir(parents=True, exist_ok=True)
 
     def _get_connection(self) -> sqlite3.Connection:
-        if not hasattr(self._thread_local, "connection") or self._thread_local.connection is None:
-            conn = sqlite3.connect(str(self._db_path))
+        if self._conn is None:
+            conn = sqlite3.connect(
+                str(self._db_path),
+                isolation_level=None,
+                check_same_thread=False,
+            )
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA foreign_keys=ON")
             conn.execute("PRAGMA busy_timeout=5000")
-            self._thread_local.connection = conn
-        return self._thread_local.connection
+            self._conn = conn
+        return self._conn
 
     def _init_tables(self) -> None:
         conn = self._get_connection()
@@ -59,14 +64,15 @@ class DatabaseManager:
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
                 name        TEXT NOT NULL DEFAULT '',
                 created_at  REAL NOT NULL,
-                duration    REAL NOT NULL DEFAULT 0.0
+                duration    REAL NOT NULL DEFAULT 0.0,
+                deleted     INTEGER NOT NULL DEFAULT 0
             );
 
             CREATE TABLE IF NOT EXISTS tool_calls (
                 id           INTEGER PRIMARY KEY AUTOINCREMENT,
                 session_id   INTEGER NOT NULL,
                 func_name    TEXT NOT NULL,
-                args_hash    TEXT NOT NULL DEFAULT '',
+                kwargs       TEXT NOT NULL DEFAULT '',
                 timestamp    REAL NOT NULL,
                 duration_ms  REAL NOT NULL DEFAULT 0.0,
                 status       TEXT NOT NULL DEFAULT 'success',
@@ -76,12 +82,15 @@ class DatabaseManager:
 
             CREATE TABLE IF NOT EXISTS file_read_records (
                 id           INTEGER PRIMARY KEY AUTOINCREMENT,
-                file_path    TEXT NOT NULL UNIQUE,
+                session_id   INTEGER NOT NULL,
+                file_path    TEXT NOT NULL,
                 mtime        REAL NOT NULL,
                 size         INTEGER NOT NULL DEFAULT 0,
                 checksum     TEXT NOT NULL DEFAULT '',
                 last_read_at REAL NOT NULL,
-                read_count   INTEGER NOT NULL DEFAULT 1
+                read_count   INTEGER NOT NULL DEFAULT 1,
+                FOREIGN KEY (session_id) REFERENCES sessions(id),
+                UNIQUE(session_id, file_path)
             );
 
             CREATE TABLE IF NOT EXISTS file_snapshots (
@@ -96,48 +105,95 @@ class DatabaseManager:
                 FOREIGN KEY (session_id) REFERENCES sessions(id)
             );
 
-            CREATE INDEX IF NOT EXISTS idx_tool_calls_session ON tool_calls(session_id);
-            CREATE INDEX IF NOT EXISTS idx_tool_calls_func ON tool_calls(func_name);
-            CREATE INDEX IF NOT EXISTS idx_file_read_records_path ON file_read_records(file_path);
-            CREATE INDEX IF NOT EXISTS idx_file_snapshots_audit ON file_snapshots(audit_status);
+            CREATE TABLE IF NOT EXISTS tool_call_summaries (
+                session_id   INTEGER NOT NULL,
+                func_name    TEXT NOT NULL,
+                kwargs_json  TEXT NOT NULL,
+                result       TEXT NOT NULL,
+                timestamp    REAL NOT NULL,
+                PRIMARY KEY (session_id, func_name, kwargs_json),
+                FOREIGN KEY (session_id) REFERENCES sessions(id)
+            );
             """
         )
-        conn.commit()
 
         # Phase 2 migration: add pending_content column to file_snapshots
         self._migrate_add_pending_content(conn)
 
+        # Phase 3 migration: rename args_hash to kwargs and truncate old data
+        if any(row[1] == "args_hash" for row in conn.execute("PRAGMA table_info(tool_calls)")):
+            self._migrate_args_hash_to_kwargs(conn)
+
+        # Phase 4 migration: add session_id to file_read_records
+        if not any(row[1] == "session_id" for row in conn.execute("PRAGMA table_info(file_read_records)")):
+            self._migrate_file_read_records_add_session(conn)
+
+        # Phase 5 migration: add deleted column to sessions
+        if not any(row[1] == "deleted" for row in conn.execute("PRAGMA table_info(sessions)")):
+            conn.execute("ALTER TABLE sessions ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0")
+
+        # Create all indexes after migrations so they apply to both
+        # fresh databases and those upgraded from older schemas.
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_tool_calls_session ON tool_calls(session_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_tool_calls_func ON tool_calls(func_name)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_file_snapshots_audit ON file_snapshots(audit_status)")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_file_read_records_session_path ON file_read_records(session_id, file_path)"
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_tool_call_summaries_session ON tool_call_summaries(session_id)")
+
     @staticmethod
     def _migrate_add_pending_content(conn: sqlite3.Connection) -> None:
-        try:
+        with contextlib.suppress(sqlite3.OperationalError):
             conn.execute("ALTER TABLE file_snapshots ADD COLUMN pending_content TEXT NOT NULL DEFAULT ''")
-            conn.commit()
-        except sqlite3.OperationalError:
-            pass  # Column already exists
+
+    @staticmethod
+    def _migrate_args_hash_to_kwargs(conn: sqlite3.Connection) -> None:
+        conn.execute("DELETE FROM tool_calls")
+        conn.execute("ALTER TABLE tool_calls RENAME COLUMN args_hash TO kwargs")
+
+    @staticmethod
+    def _migrate_file_read_records_add_session(conn: sqlite3.Connection) -> None:
+        conn.executescript(
+            """
+            DROP TABLE IF EXISTS file_read_records;
+
+            CREATE TABLE file_read_records (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id   INTEGER NOT NULL,
+                file_path    TEXT NOT NULL,
+                mtime        REAL NOT NULL,
+                size         INTEGER NOT NULL DEFAULT 0,
+                checksum     TEXT NOT NULL DEFAULT '',
+                last_read_at REAL NOT NULL,
+                read_count   INTEGER NOT NULL DEFAULT 1,
+                FOREIGN KEY (session_id) REFERENCES sessions(id),
+                UNIQUE(session_id, file_path)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_file_read_records_session_path ON file_read_records(session_id, file_path);
+            """
+        )
 
     def close(self) -> None:
-        if hasattr(self._thread_local, "connection") and self._thread_local.connection is not None:
-            self._thread_local.connection.close()
-            self._thread_local.connection = None
+        with self._lock:
+            if self._conn is not None:
+                self._conn.close()
+                self._conn = None
 
     # -- Unified query interface --
 
     def execute(self, sql: str, params: tuple = ()) -> sqlite3.Cursor:
-        with self._write_lock:
-            conn = self._get_connection()
-            cursor = conn.execute(sql, params)
-            conn.commit()
-            return cursor
+        with self._lock:
+            return self._get_connection().execute(sql, params)
 
     def fetchone(self, sql: str, params: tuple = ()) -> tuple | None:
-        conn = self._get_connection()
-        cursor = conn.execute(sql, params)
-        return cursor.fetchone()
+        with self._lock:
+            return self._get_connection().execute(sql, params).fetchone()
 
     def fetchall(self, sql: str, params: tuple = ()) -> list[tuple]:
-        conn = self._get_connection()
-        cursor = conn.execute(sql, params)
-        return cursor.fetchall()
+        with self._lock:
+            return self._get_connection().execute(sql, params).fetchall()
 
     # -- Session lifecycle --
 
@@ -156,6 +212,82 @@ class DatabaseManager:
                 "UPDATE sessions SET duration = ? WHERE id = ?",
                 (duration, session_id),
             )
+            # Mark empty sessions as deleted so they can be cleaned up later
+            if self.is_session_orphaned(session_id):
+                self.mark_session_deleted(session_id)
+
+    def update_session_duration(self, session_id: int) -> None:
+        """Persist current elapsed duration without closing the session.
+
+        Used by the periodic heartbeat so that abnormal termination (window
+        close, Ctrl+C, SIGKILL) loses at most the heartbeat interval's worth
+        of session duration data.
+        """
+        row = self.fetchone("SELECT created_at FROM sessions WHERE id = ?", (session_id,))
+        if row:
+            duration = time.time() - row[0]
+            self.execute(
+                "UPDATE sessions SET duration = ? WHERE id = ?",
+                (duration, session_id),
+            )
+
+    def mark_session_deleted(self, session_id: int) -> None:
+        """Set the deleted flag on a session.
+
+        设置会话上的删除标志"""
+        self.execute("UPDATE sessions SET deleted = 1 WHERE id = ?", (session_id,))
+
+    def restore_session_deleted_flag(self, session_id: int) -> None:
+        """Restore the deleted flag (set it back to 0) for an active session.
+
+        恢复删除标志(将其设回 0)为一个活跃会话
+        """
+        self.execute("UPDATE sessions SET deleted = 0 WHERE id = ?", (session_id,))
+
+    def get_sessions_with_deleted_flag(self) -> list[int]:
+        """Return IDs of all sessions with the deleted flag set.
+
+        返回所有设置了删除标志的会话的 ID
+        """
+        rows = self.fetchall("SELECT id FROM sessions WHERE deleted = 1")
+        return [r[0] for r in rows]
+
+    def is_session_orphaned(self, session_id: int) -> bool:
+        """Check if a session has no associated data in any related table.
+
+        检查一个会话是否在任何相关表中都没有关联数据
+        """
+        tables = ["tool_calls", "file_read_records", "file_snapshots", "tool_call_summaries"]
+        for table in tables:
+            row = self.fetchone(
+                f"SELECT COUNT(*) FROM {table} WHERE session_id = ?",
+                (session_id,),
+            )
+            if row and row[0] > 0:
+                return False
+        return True
+
+    def delete_session_async(self, session_id: int) -> None:
+        """异步轮询删除会话
+
+        设置删除标志,然后每 10 秒轮询一次(共重试 3 次)
+        如果标志被心跳恢复,则取消删除操作
+        否则在第三次轮询后执行实际删除
+        """
+        self.mark_session_deleted(session_id)
+
+        def _poll() -> None:
+            for _ in range(3):
+                time.sleep(10)
+                row = self.fetchone("SELECT deleted FROM sessions WHERE id = ?", (session_id,))
+                if row and row[0] == 0:
+                    return  # Flag was restored, cancel deletion / 标志已恢复,取消删除
+            # 三次轮询已过,标志仍被设置——执行删除
+            # Three polls passed, flag still set -- execute deletion
+            self.delete_session(session_id)
+
+        thread = threading.Thread(target=_poll, daemon=True)
+        thread.start()
 
     # -- Tool call logging --
 
@@ -163,15 +295,15 @@ class DatabaseManager:
         self,
         session_id: int,
         func_name: str,
-        args_hash: str,
+        kwargs: str,
         duration_ms: float = 0.0,
         status: str = "success",
         audit_status: str = "none",
     ) -> int:
         cursor = self.execute(
-            "INSERT INTO tool_calls (session_id, func_name, args_hash, timestamp, duration_ms, status, audit_status) "
+            "INSERT INTO tool_calls (session_id, func_name, kwargs, timestamp, duration_ms, status, audit_status) "
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (session_id, func_name, args_hash, time.time(), duration_ms, status, audit_status),
+            (session_id, func_name, kwargs, time.time(), duration_ms, status, audit_status),
         )
         return cursor.lastrowid
 
@@ -183,27 +315,26 @@ class DatabaseManager:
 
     # -- File read records --
 
-    def record_file_read(self, file_path: str, mtime: float, size: int, checksum: str) -> None:
-        with self._write_lock:
-            conn = self._get_connection()
-            conn.execute(
-                "INSERT INTO file_read_records (file_path, mtime, size, checksum, last_read_at, read_count) "
-                "VALUES (?, ?, ?, ?, ?, 1) "
-                "ON CONFLICT(file_path) DO UPDATE SET "
+    def record_file_read(self, session_id: int, file_path: str, mtime: float, size: int, checksum: str) -> None:
+        with self._lock:
+            self._get_connection().execute(
+                "INSERT INTO file_read_records "
+                "(session_id, file_path, mtime, size, checksum, last_read_at, read_count) "
+                "VALUES (?, ?, ?, ?, ?, ?, 1) "
+                "ON CONFLICT(session_id, file_path) DO UPDATE SET "
                 "mtime = excluded.mtime, "
                 "size = excluded.size, "
                 "checksum = excluded.checksum, "
                 "last_read_at = excluded.last_read_at, "
                 "read_count = read_count + 1",
-                (file_path, mtime, size, checksum, time.time()),
+                (session_id, file_path, mtime, size, checksum, time.time()),
             )
-            conn.commit()
 
-    def get_file_read_record(self, file_path: str) -> tuple | None:
+    def get_file_read_record(self, session_id: int, file_path: str) -> tuple | None:
         return self.fetchone(
-            "SELECT id, file_path, mtime, size, checksum, last_read_at, read_count "
-            "FROM file_read_records WHERE file_path = ?",
-            (file_path,),
+            "SELECT id, session_id, file_path, mtime, size, checksum, last_read_at, read_count "
+            "FROM file_read_records WHERE session_id = ? AND file_path = ?",
+            (session_id, file_path),
         )
 
     # -- File snapshots --
@@ -290,21 +421,30 @@ class DatabaseManager:
         self.execute("UPDATE sessions SET name = ? WHERE id = ?", (name, session_id))
 
     def delete_session(self, session_id: int) -> None:
-        self.execute("DELETE FROM tool_calls WHERE session_id = ?", (session_id,))
-        self.execute("DELETE FROM file_snapshots WHERE session_id = ?", (session_id,))
-        self.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+        with self._lock:
+            conn = self._get_connection()
+            conn.execute("BEGIN IMMEDIATE")
+            try:
+                conn.execute("DELETE FROM tool_calls WHERE session_id = ?", (session_id,))
+                conn.execute("DELETE FROM file_snapshots WHERE session_id = ?", (session_id,))
+                conn.execute("DELETE FROM file_read_records WHERE session_id = ?", (session_id,))
+                conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+                conn.execute("COMMIT")
+            except Exception:
+                conn.execute("ROLLBACK")
+                raise
 
     def get_tool_usage_ranking(self, session_id: int | None = None, limit: int = 10) -> list[tuple]:
-        """Returns list of (func_name, call_count, avg_duration_ms) ordered by count DESC."""
+        """Returns list of (func_name, call_count, avg_duration_ms, total_duration_ms) ordered by count DESC."""
         if session_id is not None:
             return self.fetchall(
-                "SELECT func_name, COUNT(*) as cnt, AVG(duration_ms) as avg_dur "
+                "SELECT func_name, COUNT(*) as cnt, AVG(duration_ms) as avg_dur, SUM(duration_ms) as total_dur "
                 "FROM tool_calls WHERE session_id = ? "
                 "GROUP BY func_name ORDER BY cnt DESC LIMIT ?",
                 (session_id, limit),
             )
         return self.fetchall(
-            "SELECT func_name, COUNT(*) as cnt, AVG(duration_ms) as avg_dur "
+            "SELECT func_name, COUNT(*) as cnt, AVG(duration_ms) as avg_dur, SUM(duration_ms) as total_dur "
             "FROM tool_calls "
             "GROUP BY func_name ORDER BY cnt DESC LIMIT ?",
             (limit,),
@@ -318,3 +458,31 @@ class DatabaseManager:
             for instance in cls._instances.values():
                 instance.close()
             cls._instances.clear()
+
+    # -- Tool call summaries --
+
+    def record_tool_call_summary(
+        self,
+        session_id: int,
+        func_name: str,
+        kwargs_json: str,
+        result: str,
+    ) -> None:
+        with self._lock:
+            self._get_connection().execute(
+                "INSERT INTO tool_call_summaries "
+                "(session_id, func_name, kwargs_json, result, timestamp) "
+                "VALUES (?, ?, ?, ?, ?) "
+                "ON CONFLICT(session_id, func_name, kwargs_json) DO UPDATE SET "
+                "result = excluded.result, "
+                "timestamp = excluded.timestamp",
+                (session_id, func_name, kwargs_json, result, time.time()),
+            )
+
+    def get_tool_call_summaries(self, session_id: int) -> list[tuple]:
+        """Get all tool call summaries for a session ordered by timestamp DESC."""
+        return self.fetchall(
+            "SELECT session_id, func_name, kwargs_json, result, timestamp "
+            "FROM tool_call_summaries WHERE session_id = ? ORDER BY timestamp DESC",
+            (session_id,),
+        )

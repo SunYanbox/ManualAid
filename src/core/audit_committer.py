@@ -67,9 +67,9 @@ class AuditCommitter:
             else:
                 # 已有文件 — mtime 校验后 write_text
                 rel_path = str(resolved.relative_to(self.workspace.root_path))
-                record = db.get_file_read_record(rel_path)
+                record = db.get_file_read_record(_session_id, rel_path)
                 if record is not None:
-                    stored_mtime = record[2]
+                    stored_mtime = record[3]
                     current_mtime = resolved.stat().st_mtime
                     if abs(current_mtime - stored_mtime) > 0.001:
                         return f"ERROR: 文件已被外部修改,审核终止: {rel_path}.请重新读取后再批准."
@@ -81,7 +81,7 @@ class AuditCommitter:
             rel_path = str(resolved.relative_to(self.workspace.root_path))
             new_meta = FileTracker.get_file_meta(resolved)
             if new_meta:
-                db.record_file_read(rel_path, new_meta["mtime"], new_meta["size"], new_meta["checksum"])
+                db.record_file_read(_session_id, rel_path, new_meta["mtime"], new_meta["size"], new_meta["checksum"])
 
             # 5. 更新审计状态
             db.update_snapshot_audit(snapshot_id, "APPROVED")

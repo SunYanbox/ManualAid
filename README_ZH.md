@@ -8,7 +8,7 @@
 
 ManualAid 提供了一个基于 Textual 的 TUI 控制台,在剪贴板和 LLM 聊天界面之间架起桥梁. 粘贴 LLM 生成的工具调用(XML 格式),审查和审计危险操作,并通过完整的历史追踪管理会话 -- 一切都在本地运行.
 
-> **版本**: 0.3.0 | **Python**: >=3.14
+> **版本**: 0.4.0 | **Python**: >=3.14
 
 ---
 
@@ -152,14 +152,15 @@ ManualAid 注册了 12 个工具供 LLM 通过 XML 函数调用使用:
 
 复制 `.env.example` 为 `.env` 并根据需要调整:
 
-| 变量                           | 默认值 | 描述                   |
-| ------------------------------ | ------ | ---------------------- |
-| `TOOL_MAX_RESULT_LENGTH`       | 30000  | 工具输出的最大字符数   |
-| `TOOL_LIST_TRUNCATE_THRESHOLD` | 100    | 列表结果的最大条目数   |
-| `TOOL_DICT_TRUNCATE_THRESHOLD` | 100    | 字典结果的最大键值对数 |
-| `MANUALAID_AUTO_COPY`          | true   | 自动将结果复制到剪贴板 |
-| `MANUALAID_AUTO_VIEW`          | true   | 自动在查看器中显示结果 |
-| `RESULT_EXPIRE_MINUTES`        | 5      | 结果缓存过期时间(分钟) |
+| 变量                           | 默认值 | 描述                       |
+| ------------------------------ | ------ | -------------------------- |
+| `TOOL_MAX_RESULT_LENGTH`       | 30000  | 工具输出的最大字符数       |
+| `TOOL_LIST_TRUNCATE_THRESHOLD` | 100    | 列表结果的最大条目数       |
+| `TOOL_DICT_TRUNCATE_THRESHOLD` | 100    | 字典结果的最大键值对数     |
+| `MANUALAID_AUTO_COPY`          | true   | 自动将结果复制到剪贴板     |
+| `RESULT_EXPIRE_MINUTES`        | 5      | 结果缓存过期时间(分钟)     |
+| `SESSION_UPDATE_INTERVAL`      | 30     | 会话持续时间持久化间隔(秒) |
+| `SESSION_FLAG_CHECK_INTERVAL`  | 5      | 删除标志检查与守护间隔(秒) |
 
 ---
 

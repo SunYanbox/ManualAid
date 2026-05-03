@@ -21,6 +21,7 @@ def reset_singletons():
 @pytest.fixture
 def workspace(tmp_path: Path) -> Workspace:
     ws = Workspace(str(tmp_path))
+    ws._current_session_id = ws.db.create_session(name="test_session")
     return ws
 
 

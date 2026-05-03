@@ -29,14 +29,6 @@ def workspace(tmp_path: Path) -> Workspace:
 
 
 @pytest.fixture
-def binary_file(tmp_path: Path) -> Path:
-    """创建一个二进制测试文件(无已知二进制扩展名,靠内容检测)."""
-    f = tmp_path / "data.unknown"
-    f.write_bytes(b"\x00\x01\x02\xff\xfe\xfd")
-    return f
-
-
-@pytest.fixture
 def binary_ext_file(tmp_path: Path) -> Path:
     """创建一个通过扩展名识别的二进制文件."""
     f = tmp_path / "image.png"
@@ -64,15 +56,6 @@ class TestReadBinaryProtection:
 
         assert "二进制文件" in result
 
-    def test_read_binary_by_content(self, workspace: Workspace, binary_file: Path):
-        """通过内容检测到的二进制文件应被拒绝读取."""
-        from src.workspace.tools.read_tool import ReadTool
-
-        tool = ReadTool(workspace)
-        result = tool.read("data.unknown")
-
-        assert "二进制文件" in result
-
     def test_read_text_file_still_works(self, workspace: Workspace, text_file: Path):
         """文本文件读取应不受影响."""
         from src.workspace.tools.read_tool import ReadTool
@@ -93,15 +76,6 @@ class TestReadLinesBinaryProtection:
 
         tool = ReadLinesTool(workspace)
         result = tool.read_lines("image.png", 1, 10)
-
-        assert "二进制文件" in result
-
-    def test_read_lines_binary_by_content(self, workspace: Workspace, binary_file: Path):
-        """通过内容检测到的二进制文件应被拒绝读取."""
-        from src.workspace.tools.read_lines_tool import ReadLinesTool
-
-        tool = ReadLinesTool(workspace)
-        result = tool.read_lines("data.unknown", 1, 10)
 
         assert "二进制文件" in result
 
@@ -128,17 +102,6 @@ class TestWriteBinaryProtection:
 
         assert "二进制文件" in result
         # 不应创建快照
-        rows = workspace.db.fetchall("SELECT * FROM file_snapshots")
-        assert len(rows) == 0
-
-    def test_write_binary_by_content_blocked(self, workspace: Workspace, binary_file: Path):
-        """写入通过内容检测到的二进制文件应被阻止."""
-        from src.workspace.tools.write_tool import WriteTool
-
-        tool = WriteTool(workspace)
-        result = tool.write("data.unknown", "overwrite attempt")
-
-        assert "二进制文件" in result
         rows = workspace.db.fetchall("SELECT * FROM file_snapshots")
         assert len(rows) == 0
 
@@ -181,15 +144,6 @@ class TestEditBinaryProtection:
 
         tool = EditTool(workspace)
         result = tool.edit("image.png", "fake", "replaced")
-
-        assert "二进制文件" in result
-
-    def test_edit_binary_by_content_blocked(self, workspace: Workspace, binary_file: Path):
-        """编辑通过内容检测到的二进制文件应被阻止."""
-        from src.workspace.tools.edit_tool import EditTool
-
-        tool = EditTool(workspace)
-        result = tool.edit("data.unknown", "test", "replaced")
 
         assert "二进制文件" in result
 

@@ -44,41 +44,10 @@ your modifications do not facilitate or enable automated abuse.
 - PR titles should be bilingual (Chinese/English) or Chinese only.
 - Ensure the local `npm run ci` check passes.
 - Link related issues (e.g., `Closes #42`).
+- PRs must target the **develop** branch.
 - Before contributing complex features, you must create an Issue to clarify the
   objective and avoid development directions that differ from the project's
   actual direction.
-
----
-
-## Environment Setup
-
-### Prerequisites
-
-- **Python >= 3.14** (specified in `pyproject.toml`)
-- **Node.js** (for development tools: Prettier, markdownlint)
-- **Git**
-
-### Clone the Repository
-
-```bash
-git clone https://github.com/SunYanbox/ManualAid.git
-cd ManualAid
-```
-
-### Install Dependencies
-
-> It is recommended to create a dedicated virtual environment.
-
-```bash
-pip install -r requirements.txt   # Python dependencies (including dev dependencies)
-npm install                        # Node.js dev tools (for format checking)
-```
-
-### Environment Variables (Optional)
-
-```bash
-cp .env.example .env   # Modify the configuration as needed
-```
 
 ---
 
@@ -97,29 +66,6 @@ npm run test
 
 # 4. Full pre-commit check (format fix -> test -> format check)
 npm run ci
-```
-
-### NPM Script Quick Reference
-
-| Command                | Description                                                          |
-| :--------------------- | :------------------------------------------------------------------- |
-| `npm run format:fix`   | Auto-fix all formatting issues (Python + Markdown + fullwidth chars) |
-| `npm run format:check` | Check all formatting issues                                          |
-| `npm run test`         | Run pytest with coverage report                                      |
-| `npm run ci`           | Full CI pipeline: format fix -> test -> format check                 |
-
-#### Running the Application
-
-```bash
-python main.py           # Launch with folder selection dialog
-python main.py -p /path  # Launch with specified workspace path
-```
-
-#### Running the Application (After Packaging)
-
-```bash
-manualaid           # Launch with folder selection dialog
-manualaid -p /path  # Launch with specified workspace path
 ```
 
 ---

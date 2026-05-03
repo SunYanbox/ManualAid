@@ -1,4 +1,6 @@
-# 更新日志 (Changelog)
+<!-- markdownlint-disable MD024 -->
+
+# 更新日志
 
 本项目的所有重大变更都将记录在此文件中.
 
@@ -6,15 +8,66 @@
 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/). 并采用
 [语义化版本](https://semver.org/lang/Chinese/).
 
+## [0.4.0] - 2026-05-03
+
+### 新增
+
+- **按会话隔离的文件读取缓存**: 通过 `file_read_records` 表中的 `session_id`
+  外键将文件读取记录按会话隔离,防止跨会话数据污染 ([#95, #106](https://github.com/SunYanbox/ManualAid/issues/95)).
+- **工具调用摘要表**: 新增 `tool_call_summaries`
+  表持久化每个会话的工具调用结果,支持 upsert 语义. 只读工具调用自动记录以便后续检索 ([#97, #107](https://github.com/SunYanbox/ManualAid/issues/97)).
+- **会话心跳机制**: 后台守护线程定期持久化会话持续时间,防止异常退出时数据丢失. 通过
+  `SESSION_UPDATE_INTERVAL` 环境变量配置(默认 30 秒)
+  ([#87, #108](https://github.com/SunYanbox/ManualAid/issues/87)).
+- **异步会话删除**: 会话使用 `deleted`
+  标志标记,由后台轮询机制执行物理删除, 防止并发访问导致的数据意外丢失. 工作区初始化时自动清理孤立会话 ([#91, #111](https://github.com/SunYanbox/ManualAid/issues/91)).
+- **会话列表分页**: 统计标签页现已支持分页会话列表(每页 15 条),包含上一页/下一页导航及每个会话的调用次数显示 ([#92, #112](https://github.com/SunYanbox/ManualAid/issues/92)).
+- **总耗时列**: 工具使用排名表现在包含"Total
+  Time"列,展示每个工具的累计耗时 ([#86, #114](https://github.com/SunYanbox/ManualAid/issues/86)).
+- **版本显示**: 控制台标题栏现已展示应用版本号(格式为 `v{__version__}`)
+  ([#90, #115](https://github.com/SunYanbox/ManualAid/issues/90)).
+
+### 更改
+
+- **参数存储迁移**: 工具调用参数现存储为截断后的 JSON
+  (`kwargs`)而非 SHA256哈希字符串. `tool_calls` 表的 `args_hash` 列已重命名为
+  `kwargs`;旧数据已清空 ([#96, #105](https://github.com/SunYanbox/ManualAid/issues/96)).
+- **数据库连接重构**: 用实例级 `_conn` 替换 `threading.local()`,使用
+  `check_same_thread=False` 和自动提交模式. 锁从 `threading.Lock` 切换为 `RLock`
+  以支持重入安全. 会话删除现使用 `BEGIN IMMEDIATE`
+  并在失败时显式回滚 ([#113, #117](https://github.com/SunYanbox/ManualAid/issues/113)).
+- **移除已弃用的查看器**: 删除已弃用的 `InteractiveViewer`
+  模块及所有相关代码 (`ViewerItem`、全局查看器函数、`MANUALAID_AUTO_VIEW`
+  环境变量) ([#82, #121](https://github.com/SunYanbox/ManualAid/issues/82)).
+- **心跳配置重命名**: `SESSION_UPDATE_INTERVAL` 环境变量在异步删除系统中重命名为
+  `SESSION_FLAG_CHECK_INTERVAL`(默认 5 秒)
+  ([#111](https://github.com/SunYanbox/ManualAid/issues/111)).
+
+### 修复
+
+- **XML 标签格式**: 统一 `<func_call>` 标签格式为使用 `name` 属性 (如
+  `<func_call name="read">`)而非嵌套的 `<func_name>`
+  元素,降低 LLM 幻觉风险 ([#99, #103](https://github.com/SunYanbox/ManualAid/issues/99)).
+- **二进制文件检测**: 重写二进制文件检测逻辑,使用扩展名和 MIME 类型替代内容嗅探. 修复了
+  `.bat`、`.svg`、`.env`、`.vue`、`.svelte`
+  被错误分类为二进制文件的问题 ([#94, #109](https://github.com/SunYanbox/ManualAid/issues/94)).
+- **测试资源泄漏**: 通过添加适当的 `close()` 调用和 `reset_instances()`
+  清理逻辑,修复了多线程测试中的数据库连接泄漏问题 ([#104, #105](https://github.com/SunYanbox/ManualAid/issues/104)).
+
+### 移除
+
+- `MANUALAID_AUTO_VIEW` 环境变量(随已弃用的交互式查看器一起移除)
+  ([#82, #121](https://github.com/SunYanbox/ManualAid/issues/82)).
+
 ## [0.3.0] - 2026-05-01
 
-### 新增 (Added)
+### 新增
 
 - **CI/CD**: GitHub Actions 现已支持在 `develop` 分支上触发工作流程,包括 `push`
   和 `pull_request`
   事件 ([#66, #67](https://github.com/SunYanbox/ManualAid/issues/66)).
 
-### 更改 (Changed)
+### 更改
 
 - **Python 版本**: 将目标 Python 版本从 3.12 升级到 **3.14**,涵盖
   `pyproject.toml`、`ruff.toml` 和 GitHub
@@ -40,7 +93,7 @@
   `WorkspaceBoundaryError`, `ToolErrorResponse`)
   ([#76](https://github.com/SunYanbox/ManualAid/issues/76)).
 
-### 修复 (Fixed)
+### 修复
 
 - **XML 格式**:
   - 修复了 `tool_handler.py` 中不匹配的 XML 闭合标签 (`<ErrorExecute>` vs
@@ -61,7 +114,7 @@
   `exact_search_tool.py`
   ([#65](https://github.com/SunYanbox/ManualAid/issues/65)).
 
-### 测试 (Testing)
+### 测试
 
 - 更新了 `test_base_tool.py` 中的断言,以匹配 `to_doc`
   方法中更正后的 XML 标签结构 ([#68](https://github.com/SunYanbox/ManualAid/issues/68)).

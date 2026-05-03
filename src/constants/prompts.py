@@ -18,8 +18,7 @@ SYSTEM_IDENTITY: str = """<system_identity>
 TOOL_RULES: str = """<tool_rules>
 <call_format>
 工具调用格式:
-<func_call>
-    <func_name>工具名称</func_name>
+<func_call name="工具名称">
     <param name="参数名称">参数值</param>
 </func_call>
 注意:完全按照所示使用 <func_call> 包装器,不多也不少
@@ -29,8 +28,7 @@ TOOL_RULES: str = """<tool_rules>
 你可以在一个响应中多次调用工具. 完全按顺序生成所有所需的 <func_call> 块,
 然后**停止**. 它们之间使用空行分隔:
 
-<func_call>
-    <func_name>regex_search</func_name>
+<func_call name="regex_search">
     <param name="pattern">func_call</param>
     <param name="path">src</param>
     <param name="context">3</param>
@@ -38,8 +36,7 @@ TOOL_RULES: str = """<tool_rules>
     <param name="limit">256</param>
 </func_call>
 
-<func_call>
-    <func_name>stat</func_name>
+<func_call name="stat">
     <param name="path">README.md</param>
 </func_call>
 

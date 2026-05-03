@@ -128,7 +128,7 @@ class BaseTool:
 
     def to_func_call(self) -> str:
         """将工具转换为标准格式"""
-        func_call: str = f"<func_call>\n    <func_name>{self.name}</func_name>\n"
+        func_call: str = f'<func_call name="{self.name}">\n'
         for name, params in self.params.items():
             func_call += (
                 f'    <param name="{name}">'
@@ -181,8 +181,12 @@ class BaseTool:
         try:
             meta = FileTracker.get_file_meta(resolved_path)
             if meta:
-                rel_path = str(resolved_path.relative_to(self.workspace.root_path))
-                self.workspace.db.record_file_read(rel_path, meta["mtime"], meta["size"], meta["checksum"])
+                session_id = self.workspace._current_session_id
+                if session_id is not None:
+                    rel_path = str(resolved_path.relative_to(self.workspace.root_path))
+                    self.workspace.db.record_file_read(
+                        session_id, rel_path, meta["mtime"], meta["size"], meta["checksum"]
+                    )
         except Exception:
             pass
 
@@ -191,12 +195,16 @@ class BaseTool:
         if not resolved_path.exists():
             return None
 
+        session_id = self.workspace._current_session_id
+        if session_id is None:
+            return None
+
         rel_path = str(resolved_path.relative_to(self.workspace.root_path))
-        record = self.workspace.db.get_file_read_record(rel_path)
+        record = self.workspace.db.get_file_read_record(session_id, rel_path)
         if record is None:
             return None
 
-        stored_mtime = record[2]
+        stored_mtime = record[3]
         current_mtime = resolved_path.stat().st_mtime
 
         if abs(current_mtime - stored_mtime) > 0.001:

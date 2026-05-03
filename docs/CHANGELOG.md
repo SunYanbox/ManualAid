@@ -1,3 +1,5 @@
+<!-- markdownlint-disable MD024 -->
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
@@ -5,6 +7,76 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.4.0] - 2026-05-03
+
+### Added
+
+- **Session-Isolated File Read Cache**: File read records are now scoped by
+  session via a `session_id` foreign key in `file_read_records`, preventing
+  cross-session data pollution
+  ([#95, #106](https://github.com/SunYanbox/ManualAid/issues/95)).
+- **Tool Call Summary Table**: New `tool_call_summaries` table persists tool
+  call results per session with upsert semantics. Read-only tool calls are
+  automatically recorded for later retrieval
+  ([#97, #107](https://github.com/SunYanbox/ManualAid/issues/97)).
+- **Session Heartbeat**: A background daemon thread periodically persists
+  session duration to prevent data loss on abnormal exit. Configurable via
+  `SESSION_UPDATE_INTERVAL` env var (default: 30s)
+  ([#87, #108](https://github.com/SunYanbox/ManualAid/issues/87)).
+- **Async Session Deletion**: Sessions are marked with a `deleted` flag and
+  physically removed by a background polling mechanism, preventing accidental
+  data loss from concurrent access. Orphaned sessions are auto-cleaned on
+  workspace initialization
+  ([#91, #111](https://github.com/SunYanbox/ManualAid/issues/91)).
+- **Session List Pagination**: The Statistics tab now supports paginated session
+  lists (15 per page) with Prev/Next navigation and per-session call count
+  display ([#92, #112](https://github.com/SunYanbox/ManualAid/issues/92)).
+- **Total Duration Column**: The tool usage ranking table now includes a "Total
+  Time" column showing cumulative duration per tool
+  ([#86, #114](https://github.com/SunYanbox/ManualAid/issues/86)).
+- **Version Display**: The application version is now shown in the console title
+  bar (formatted as `v{__version__}`)
+  ([#90, #115](https://github.com/SunYanbox/ManualAid/issues/90)).
+
+### Changed
+
+- **Args Storage Migration**: Tool call arguments are now stored as truncated
+  JSON (`kwargs`) instead of SHA256 hash strings. The `args_hash` column in
+  `tool_calls` has been renamed to `kwargs`; old data is dropped
+  ([#96, #105](https://github.com/SunYanbox/ManualAid/issues/96)).
+- **Database Connection Refactor**: Replaced `threading.local()` with
+  instance-level `_conn` using `check_same_thread=False` and autocommit mode.
+  Switched from `threading.Lock` to `RLock` for reentrant safety. Session
+  deletion now uses `BEGIN IMMEDIATE` with explicit rollback on failure
+  ([#113, #117](https://github.com/SunYanbox/ManualAid/issues/113)).
+- **Deprecated Viewer Removal**: Removed the deprecated `InteractiveViewer`
+  module and all related code (`ViewerItem`, global viewer functions,
+  `MANUALAID_AUTO_VIEW` env var)
+  ([#82, #121](https://github.com/SunYanbox/ManualAid/issues/82)).
+- **Heartbeat Config Rename**: `SESSION_UPDATE_INTERVAL` env var renamed to
+  `SESSION_FLAG_CHECK_INTERVAL` (default: 5s) in the async deletion system
+  ([#111](https://github.com/SunYanbox/ManualAid/issues/111)).
+
+### Fixed
+
+- **XML Tag Format**: Unified `<func_call>` tag format to use `name` attribute
+  (e.g. `<func_call name="read">`) instead of nested `<func_name>` elements,
+  reducing LLM hallucination risk
+  ([#99, #103](https://github.com/SunYanbox/ManualAid/issues/99)).
+- **Binary Detection**: Rewrote binary file detection to use extension and MIME
+  type instead of content sniffing. Fixed `.bat`, `.svg`, `.env`, `.vue`,
+  `.svelte` being incorrectly classified as binary
+  ([#94, #109](https://github.com/SunYanbox/ManualAid/issues/94)).
+- **Test Resource Leaks**: Fixed database connection leaks in multi-threaded
+  tests by adding proper `close()` calls and `reset_instances()` cleanup
+  ([#104, #105](https://github.com/SunYanbox/ManualAid/issues/104)).
+
+### Removed
+
+- `MANUALAID_AUTO_VIEW` environment variable (along with the deprecated
+  interactive viewer)
+  ([#82, #121](https://github.com/SunYanbox/ManualAid/issues/82)).
 
 ## [0.3.0] - 2026-05-01
 

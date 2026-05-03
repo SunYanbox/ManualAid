@@ -105,7 +105,7 @@ class TestToolCallLogging:
         db.log_tool_call(session_id, "write", "def456", duration_ms=120.0, status="error", audit_status="none")
 
         row = db.fetchone(
-            "SELECT func_name, args_hash, duration_ms, status FROM tool_calls WHERE session_id = ?",
+            "SELECT func_name, kwargs, duration_ms, status FROM tool_calls WHERE session_id = ?",
             (session_id,),
         )
         assert row is not None
@@ -128,27 +128,30 @@ class TestToolCallLogging:
 
 class TestFileReadRecords:
     def test_record_file_read(self, db: DatabaseManager):
-        db.record_file_read("src/main.py", 1234567890.5, 1024, "abc123hash")
+        session_id = db.create_session()
+        db.record_file_read(session_id, "src/main.py", 1234567890.5, 1024, "abc123hash")
 
-        row = db.get_file_read_record("src/main.py")
+        row = db.get_file_read_record(session_id, "src/main.py")
         assert row is not None
-        assert row[2] == 1234567890.5
-        assert row[3] == 1024
-        assert row[4] == "abc123hash"
+        assert row[3] == 1234567890.5
+        assert row[4] == 1024
+        assert row[5] == "abc123hash"
 
     def test_record_file_read_upsert(self, db: DatabaseManager):
-        db.record_file_read("src/main.py", 1000.0, 100, "hash1")
-        db.record_file_read("src/main.py", 2000.0, 200, "hash2")
+        session_id = db.create_session()
+        db.record_file_read(session_id, "src/main.py", 1000.0, 100, "hash1")
+        db.record_file_read(session_id, "src/main.py", 2000.0, 200, "hash2")
 
-        row = db.get_file_read_record("src/main.py")
+        row = db.get_file_read_record(session_id, "src/main.py")
         assert row is not None
-        assert row[2] == 2000.0
-        assert row[3] == 200
-        assert row[4] == "hash2"
-        assert row[6] == 2
+        assert row[3] == 2000.0
+        assert row[4] == 200
+        assert row[5] == "hash2"
+        assert row[7] == 2
 
     def test_get_nonexistent_read_record(self, db: DatabaseManager):
-        row = db.get_file_read_record("nonexistent.py")
+        session_id = db.create_session()
+        row = db.get_file_read_record(session_id, "nonexistent.py")
         assert row is None
 
 
@@ -297,6 +300,8 @@ class TestThreadSafety:
                 db.create_session(name=name)
             except Exception as e:
                 errors.append(e)
+            finally:
+                db.close()  # 确保每个线程关闭自己的连接,避免 ResourceWarning
 
         threads = [threading.Thread(target=write_session, args=(f"thread_{i}",)) for i in range(5)]
         for t in threads:
@@ -493,6 +498,7 @@ class TestToolUsageRanking:
         assert ranking[0][0] == "read"
         assert ranking[0][1] == 2
         assert ranking[0][2] == pytest.approx(20.0)
+        assert ranking[0][3] == pytest.approx(40.0)
 
     def test_ranking_limit(self, db: DatabaseManager):
         sid = db.create_session()

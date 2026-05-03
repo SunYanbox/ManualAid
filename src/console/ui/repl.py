@@ -48,10 +48,20 @@ class REPL(App):
     }
 
     #title-left {
-        width: 40%;
-        content-align: center middle;
+        width: 20%;
+        content-align: right middle;
         text-style: bold;
         color: $success;
+        margin-right: 1;
+    }
+
+    #title-version {
+        width: 20%;
+        content-align: left middle;
+        color: $text-muted;
+        text-style: italic;
+        text-opacity: 60%;
+        margin-left: 1;
     }
 
     #title-right {
@@ -144,9 +154,12 @@ class REPL(App):
     def compose(self) -> ComposeResult:
         """构建控件树"""
 
-        # 标题栏:左侧 app 名称 + 右侧工作区路径,整体垂直居中
+        # 标题栏:左侧名称 + 中间工作区路径 + 右侧版本号
         with Horizontal(id="title-bar"), Horizontal():
             yield Label(self.CONSOLE_TITLE, id="title-left")
+            from src.constants import __version__
+
+            yield Label(f"v{__version__}", id="title-version")
             yield Label("工作区", id="title-right")
 
         # 输出区域: 使用新的 TuiConsole 组件
