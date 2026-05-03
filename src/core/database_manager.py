@@ -66,7 +66,7 @@ class DatabaseManager:
                 id           INTEGER PRIMARY KEY AUTOINCREMENT,
                 session_id   INTEGER NOT NULL,
                 func_name    TEXT NOT NULL,
-                args_hash    TEXT NOT NULL DEFAULT '',
+                kwargs       TEXT NOT NULL DEFAULT '',
                 timestamp    REAL NOT NULL,
                 duration_ms  REAL NOT NULL DEFAULT 0.0,
                 status       TEXT NOT NULL DEFAULT 'success',
@@ -107,6 +107,10 @@ class DatabaseManager:
         # Phase 2 migration: add pending_content column to file_snapshots
         self._migrate_add_pending_content(conn)
 
+        # Phase 3 migration: rename args_hash to kwargs and truncate old data
+        if any(row[1] == "args_hash" for row in conn.execute("PRAGMA table_info(tool_calls)")):
+            self._migrate_args_hash_to_kwargs(conn)
+
     @staticmethod
     def _migrate_add_pending_content(conn: sqlite3.Connection) -> None:
         try:
@@ -114,6 +118,12 @@ class DatabaseManager:
             conn.commit()
         except sqlite3.OperationalError:
             pass  # Column already exists
+
+    @staticmethod
+    def _migrate_args_hash_to_kwargs(conn: sqlite3.Connection) -> None:
+        conn.execute("DELETE FROM tool_calls")
+        conn.execute("ALTER TABLE tool_calls RENAME COLUMN args_hash TO kwargs")
+        conn.commit()
 
     def close(self) -> None:
         if hasattr(self._thread_local, "connection") and self._thread_local.connection is not None:
@@ -163,15 +173,15 @@ class DatabaseManager:
         self,
         session_id: int,
         func_name: str,
-        args_hash: str,
+        kwargs: str,
         duration_ms: float = 0.0,
         status: str = "success",
         audit_status: str = "none",
     ) -> int:
         cursor = self.execute(
-            "INSERT INTO tool_calls (session_id, func_name, args_hash, timestamp, duration_ms, status, audit_status) "
+            "INSERT INTO tool_calls (session_id, func_name, kwargs, timestamp, duration_ms, status, audit_status) "
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (session_id, func_name, args_hash, time.time(), duration_ms, status, audit_status),
+            (session_id, func_name, kwargs, time.time(), duration_ms, status, audit_status),
         )
         return cursor.lastrowid
 
