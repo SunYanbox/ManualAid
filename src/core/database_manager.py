@@ -436,16 +436,16 @@ class DatabaseManager:
         self.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
 
     def get_tool_usage_ranking(self, session_id: int | None = None, limit: int = 10) -> list[tuple]:
-        """Returns list of (func_name, call_count, avg_duration_ms) ordered by count DESC."""
+        """Returns list of (func_name, call_count, avg_duration_ms, total_duration_ms) ordered by count DESC."""
         if session_id is not None:
             return self.fetchall(
-                "SELECT func_name, COUNT(*) as cnt, AVG(duration_ms) as avg_dur "
+                "SELECT func_name, COUNT(*) as cnt, AVG(duration_ms) as avg_dur, SUM(duration_ms) as total_dur "
                 "FROM tool_calls WHERE session_id = ? "
                 "GROUP BY func_name ORDER BY cnt DESC LIMIT ?",
                 (session_id, limit),
             )
         return self.fetchall(
-            "SELECT func_name, COUNT(*) as cnt, AVG(duration_ms) as avg_dur "
+            "SELECT func_name, COUNT(*) as cnt, AVG(duration_ms) as avg_dur, SUM(duration_ms) as total_dur "
             "FROM tool_calls "
             "GROUP BY func_name ORDER BY cnt DESC LIMIT ?",
             (limit,),
