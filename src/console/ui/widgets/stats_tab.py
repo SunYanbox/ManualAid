@@ -188,12 +188,29 @@ class StatsTab(Vertical):
     .stats-session-row Button {
         margin-left: 1;
     }
+
+    #stats-pagination {
+        height: auto;
+        padding: 0 0;
+        margin-bottom: 1;
+        align: center middle;
+    }
+
+    #stats-pagination Label {
+        margin: 0 1;
+    }
+
+    #stats-pagination Button {
+        margin: 0 0;
+    }
     """
 
     def __init__(self) -> None:
         super().__init__()
         self._db = None
         self._current_session_id: int | None = None
+        self._session_page: int = 0
+        self._sessions_per_page: int = 15
 
     def compose(self):
         yield Label("Loading statistics...", id="stats-placeholder")
@@ -320,8 +337,31 @@ class StatsTab(Vertical):
 
         # --- Section 4: Session list ---
         if sessions:
+            total_pages = (len(sessions) + self._sessions_per_page - 1) // self._sessions_per_page
+            if self._session_page >= total_pages:
+                self._session_page = total_pages - 1
+            if self._session_page < 0:
+                self._session_page = 0
+
+            start_idx = self._session_page * self._sessions_per_page
+            end_idx = start_idx + self._sessions_per_page
+            page_sessions = sessions[start_idx:end_idx]
+
             self.mount(Label("Sessions", classes="stats-header"))
-            for s in sessions:
+
+            if total_pages > 1:
+                nav = Horizontal(
+                    Button("<< Prev", id="page-prev", variant="default", disabled=(self._session_page == 0)),
+                    Label(f" Page {self._session_page + 1}/{total_pages} "),
+                    Button(
+                        "Next >>", id="page-next", variant="default", disabled=(self._session_page >= total_pages - 1)
+                    ),
+                    id="stats-pagination",
+                    classes="stats-pagination",
+                )
+                self.mount(nav)
+
+            for s in page_sessions:
                 sid, name, _created_at, duration = s
                 is_active = sid == self._current_session_id
                 name_display = name or "Unnamed"
@@ -330,8 +370,14 @@ class StatsTab(Vertical):
 
                 duration_str = self._format_duration(duration) if duration else "in progress"
 
+                # Get tool call count for this session
+                summary = self._db.get_session_summary(sid)
+                total_calls = summary.get("total_calls", 0) if summary else 0
+
+                text = f"{name_display}  [{duration_str}]  ({total_calls} calls)"
+
                 row = Horizontal(
-                    Static(f"{name_display}  [{duration_str}]", classes="stats-session-name"),
+                    Static(text, classes="stats-session-name"),
                     Button("Rename", id=f"rename-{sid}", variant="default"),
                     Button("Delete", id=f"delete-{sid}", variant="error"),
                     classes="stats-session-row",
@@ -346,6 +392,16 @@ class StatsTab(Vertical):
             return
 
         button_id = event.button.id or ""
+
+        # Pagination buttons
+        if button_id == "page-prev":
+            self._session_page -= 1
+            await self._refresh()
+            return
+        elif button_id == "page-next":
+            self._session_page += 1
+            await self._refresh()
+            return
 
         parts = button_id.split("-", 1)
         if len(parts) != 2:
