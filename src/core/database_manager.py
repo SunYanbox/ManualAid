@@ -216,6 +216,21 @@ class DatabaseManager:
                 (duration, session_id),
             )
 
+    def update_session_duration(self, session_id: int) -> None:
+        """Persist current elapsed duration without closing the session.
+
+        Used by the periodic heartbeat so that abnormal termination (window
+        close, Ctrl+C, SIGKILL) loses at most the heartbeat interval's worth
+        of session duration data.
+        """
+        row = self.fetchone("SELECT created_at FROM sessions WHERE id = ?", (session_id,))
+        if row:
+            duration = time.time() - row[0]
+            self.execute(
+                "UPDATE sessions SET duration = ? WHERE id = ?",
+                (duration, session_id),
+            )
+
     # -- Tool call logging --
 
     def log_tool_call(
