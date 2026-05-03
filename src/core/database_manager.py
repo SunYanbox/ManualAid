@@ -1,3 +1,4 @@
+import contextlib
 import sqlite3
 import threading
 import time
@@ -28,8 +29,8 @@ class DatabaseManager:
         self._workspace_root = workspace_root
         self._db_dir = Path(workspace_root) / MANUALAID_DIR
         self._db_path = self._db_dir / DB_FILE
-        self._write_lock = threading.Lock()
-        self._thread_local = threading.local()
+        self._lock = threading.RLock()
+        self._conn: sqlite3.Connection | None = None
 
         self._ensure_directory()
         self._init_tables()
@@ -43,13 +44,17 @@ class DatabaseManager:
         self._db_dir.mkdir(parents=True, exist_ok=True)
 
     def _get_connection(self) -> sqlite3.Connection:
-        if not hasattr(self._thread_local, "connection") or self._thread_local.connection is None:
-            conn = sqlite3.connect(str(self._db_path))
+        if self._conn is None:
+            conn = sqlite3.connect(
+                str(self._db_path),
+                isolation_level=None,
+                check_same_thread=False,
+            )
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA foreign_keys=ON")
             conn.execute("PRAGMA busy_timeout=5000")
-            self._thread_local.connection = conn
-        return self._thread_local.connection
+            self._conn = conn
+        return self._conn
 
     def _init_tables(self) -> None:
         conn = self._get_connection()
@@ -111,7 +116,6 @@ class DatabaseManager:
             );
             """
         )
-        conn.commit()
 
         # Phase 2 migration: add pending_content column to file_snapshots
         self._migrate_add_pending_content(conn)
@@ -127,7 +131,6 @@ class DatabaseManager:
         # Phase 5 migration: add deleted column to sessions
         if not any(row[1] == "deleted" for row in conn.execute("PRAGMA table_info(sessions)")):
             conn.execute("ALTER TABLE sessions ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0")
-            conn.commit()
 
         # Create all indexes after migrations so they apply to both
         # fresh databases and those upgraded from older schemas.
@@ -138,21 +141,16 @@ class DatabaseManager:
             "CREATE INDEX IF NOT EXISTS idx_file_read_records_session_path ON file_read_records(session_id, file_path)"
         )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_tool_call_summaries_session ON tool_call_summaries(session_id)")
-        conn.commit()
 
     @staticmethod
     def _migrate_add_pending_content(conn: sqlite3.Connection) -> None:
-        try:
+        with contextlib.suppress(sqlite3.OperationalError):
             conn.execute("ALTER TABLE file_snapshots ADD COLUMN pending_content TEXT NOT NULL DEFAULT ''")
-            conn.commit()
-        except sqlite3.OperationalError:
-            pass  # Column already exists
 
     @staticmethod
     def _migrate_args_hash_to_kwargs(conn: sqlite3.Connection) -> None:
         conn.execute("DELETE FROM tool_calls")
         conn.execute("ALTER TABLE tool_calls RENAME COLUMN args_hash TO kwargs")
-        conn.commit()
 
     @staticmethod
     def _migrate_file_read_records_add_session(conn: sqlite3.Connection) -> None:
@@ -176,31 +174,26 @@ class DatabaseManager:
             CREATE INDEX IF NOT EXISTS idx_file_read_records_session_path ON file_read_records(session_id, file_path);
             """
         )
-        conn.commit()
 
     def close(self) -> None:
-        if hasattr(self._thread_local, "connection") and self._thread_local.connection is not None:
-            self._thread_local.connection.close()
-            self._thread_local.connection = None
+        with self._lock:
+            if self._conn is not None:
+                self._conn.close()
+                self._conn = None
 
     # -- Unified query interface --
 
     def execute(self, sql: str, params: tuple = ()) -> sqlite3.Cursor:
-        with self._write_lock:
-            conn = self._get_connection()
-            cursor = conn.execute(sql, params)
-            conn.commit()
-            return cursor
+        with self._lock:
+            return self._get_connection().execute(sql, params)
 
     def fetchone(self, sql: str, params: tuple = ()) -> tuple | None:
-        conn = self._get_connection()
-        cursor = conn.execute(sql, params)
-        return cursor.fetchone()
+        with self._lock:
+            return self._get_connection().execute(sql, params).fetchone()
 
     def fetchall(self, sql: str, params: tuple = ()) -> list[tuple]:
-        conn = self._get_connection()
-        cursor = conn.execute(sql, params)
-        return cursor.fetchall()
+        with self._lock:
+            return self._get_connection().execute(sql, params).fetchall()
 
     # -- Session lifecycle --
 
@@ -323,9 +316,8 @@ class DatabaseManager:
     # -- File read records --
 
     def record_file_read(self, session_id: int, file_path: str, mtime: float, size: int, checksum: str) -> None:
-        with self._write_lock:
-            conn = self._get_connection()
-            conn.execute(
+        with self._lock:
+            self._get_connection().execute(
                 "INSERT INTO file_read_records "
                 "(session_id, file_path, mtime, size, checksum, last_read_at, read_count) "
                 "VALUES (?, ?, ?, ?, ?, ?, 1) "
@@ -337,7 +329,6 @@ class DatabaseManager:
                 "read_count = read_count + 1",
                 (session_id, file_path, mtime, size, checksum, time.time()),
             )
-            conn.commit()
 
     def get_file_read_record(self, session_id: int, file_path: str) -> tuple | None:
         return self.fetchone(
@@ -430,10 +421,18 @@ class DatabaseManager:
         self.execute("UPDATE sessions SET name = ? WHERE id = ?", (name, session_id))
 
     def delete_session(self, session_id: int) -> None:
-        self.execute("DELETE FROM tool_calls WHERE session_id = ?", (session_id,))
-        self.execute("DELETE FROM file_snapshots WHERE session_id = ?", (session_id,))
-        self.execute("DELETE FROM file_read_records WHERE session_id = ?", (session_id,))
-        self.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+        with self._lock:
+            conn = self._get_connection()
+            conn.execute("BEGIN IMMEDIATE")
+            try:
+                conn.execute("DELETE FROM tool_calls WHERE session_id = ?", (session_id,))
+                conn.execute("DELETE FROM file_snapshots WHERE session_id = ?", (session_id,))
+                conn.execute("DELETE FROM file_read_records WHERE session_id = ?", (session_id,))
+                conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+                conn.execute("COMMIT")
+            except Exception:
+                conn.execute("ROLLBACK")
+                raise
 
     def get_tool_usage_ranking(self, session_id: int | None = None, limit: int = 10) -> list[tuple]:
         """Returns list of (func_name, call_count, avg_duration_ms, total_duration_ms) ordered by count DESC."""
@@ -469,9 +468,8 @@ class DatabaseManager:
         kwargs_json: str,
         result: str,
     ) -> None:
-        with self._write_lock:
-            conn = self._get_connection()
-            conn.execute(
+        with self._lock:
+            self._get_connection().execute(
                 "INSERT INTO tool_call_summaries "
                 "(session_id, func_name, kwargs_json, result, timestamp) "
                 "VALUES (?, ?, ?, ?, ?) "
@@ -480,7 +478,6 @@ class DatabaseManager:
                 "timestamp = excluded.timestamp",
                 (session_id, func_name, kwargs_json, result, time.time()),
             )
-            conn.commit()
 
     def get_tool_call_summaries(self, session_id: int) -> list[tuple]:
         """Get all tool call summaries for a session ordered by timestamp DESC."""
