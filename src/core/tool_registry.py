@@ -1,5 +1,5 @@
 import asyncio
-import hashlib
+import copy
 import inspect
 import json
 import os
@@ -11,6 +11,7 @@ from typing import Any, ClassVar, ParamSpec, Self, TypeVar
 
 import nest_asyncio
 
+from src.utils.string_snapshot import truncate_string
 from src.workspace.tools.base_tool import BaseTool
 from src.workspace.workspace import Workspace
 
@@ -239,16 +240,19 @@ class ToolRegistry:
         self._current_session_id = session_id
 
     @staticmethod
-    def _compute_args_hash(kwargs: dict) -> str:
-        sorted_json = json.dumps(kwargs, sort_keys=True, default=str)
-        return hashlib.blake2b(sorted_json.encode("utf-8")).hexdigest()
+    def _compute_kwargs_json(kwargs: dict) -> str:
+        truncated = copy.deepcopy(kwargs)
+        for key, value in truncated.items():
+            if isinstance(value, str) and len(value) > 256:
+                truncated[key] = truncate_string(value, max_length=256, suffix="...")
+        return json.dumps(truncated, sort_keys=True, default=str)
 
     def _log_tool_call(self, func_name: str, kwargs: dict, duration_ms: float, status: str) -> str | None:
         session_id = getattr(self, "_current_session_id", None)
         if session_id is None:
             return None
         try:
-            args_hash = self._compute_args_hash(kwargs)
+            kwargs_json = self._compute_kwargs_json(kwargs)
             workspace = getattr(self, "_workspace", None)
             if workspace is not None:
                 # Determine audit_status based on tool category
@@ -268,7 +272,7 @@ class ToolRegistry:
                 workspace.db.log_tool_call(
                     session_id,
                     func_name,
-                    args_hash,
+                    kwargs_json,
                     duration_ms=duration_ms,
                     status=status,
                     audit_status=audit_status,

@@ -105,7 +105,7 @@ class TestToolCallLogging:
         db.log_tool_call(session_id, "write", "def456", duration_ms=120.0, status="error", audit_status="none")
 
         row = db.fetchone(
-            "SELECT func_name, args_hash, duration_ms, status FROM tool_calls WHERE session_id = ?",
+            "SELECT func_name, kwargs, duration_ms, status FROM tool_calls WHERE session_id = ?",
             (session_id,),
         )
         assert row is not None
@@ -297,6 +297,8 @@ class TestThreadSafety:
                 db.create_session(name=name)
             except Exception as e:
                 errors.append(e)
+            finally:
+                db.close()  # 确保每个线程关闭自己的连接,避免 ResourceWarning
 
         threads = [threading.Thread(target=write_session, args=(f"thread_{i}",)) for i in range(5)]
         for t in threads:
