@@ -2,7 +2,6 @@
 
 import warnings
 
-from src.console.ui.interactive_viewer import add_to_viewer
 from src.constants.prompts import (
     AUGMENTATION_WRAPPER,
     SYSTEM_IDENTITY,
@@ -124,14 +123,5 @@ class WorkspaceCommand(Command):
 
     def execute(self, context: CommandContext) -> CommandResult:
         prompt = _assemble_full_prompt(context)
-        entry = context.result_manager.add("workspace_prompt", prompt)
-
-        lines_count = prompt.count("\n") + 1
-        title = (
-            f"[bold cyan]##{entry.index}[/bold cyan] [bold green]workspace_prompt[/bold green]"
-            + f" [yellow]({lines_count} lines)[/yellow]"
-        )
-
-        add_to_viewer(str(entry.index), title, prompt)
-        context.console.print(f"[dim]✓ Workspace prompt ##{entry.index} added to viewer.[/dim]")
+        context.result_manager.add("workspace_prompt", prompt)
         return CommandResult(success=True)
