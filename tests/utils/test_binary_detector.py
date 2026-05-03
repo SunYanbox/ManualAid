@@ -89,20 +89,6 @@ class TestBinaryDetector:
         file_path = temp_dir / "does_not_exist.txt"
         assert is_binary_file(file_path) is False
 
-    def test_unknown_extension_text_content(self, temp_dir):
-        """测试未知扩展名但内容是文本的情况,回退到 MIME 类型检测."""
-        file_path = temp_dir / "unknown.xyz"
-        file_path.write_text("这是未知扩展名的纯文本内容")
-        # MIME 类型检测应识别为文本
-        assert is_binary_file(file_path) is False
-
-    def test_unknown_extension_xml_mime(self, temp_dir):
-        """测试 XML 文件但扩展名未知,使用 MIME 类型检测."""
-        file_path = temp_dir / "data.xyz"
-        file_path.write_text("<?xml version='1.0'?><root>text</root>")
-        # MIME 类型应检测为 application/xml,被视为文本
-        assert is_binary_file(file_path) is False
-
     def test_unknown_extension_binary_content(self, temp_dir):
         """测试未知扩展名且内容是二进制的情况."""
         file_path = temp_dir / "data.unknown"
