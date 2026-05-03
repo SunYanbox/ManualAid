@@ -76,12 +76,15 @@ class DatabaseManager:
 
             CREATE TABLE IF NOT EXISTS file_read_records (
                 id           INTEGER PRIMARY KEY AUTOINCREMENT,
-                file_path    TEXT NOT NULL UNIQUE,
+                session_id   INTEGER NOT NULL,
+                file_path    TEXT NOT NULL,
                 mtime        REAL NOT NULL,
                 size         INTEGER NOT NULL DEFAULT 0,
                 checksum     TEXT NOT NULL DEFAULT '',
                 last_read_at REAL NOT NULL,
-                read_count   INTEGER NOT NULL DEFAULT 1
+                read_count   INTEGER NOT NULL DEFAULT 1,
+                FOREIGN KEY (session_id) REFERENCES sessions(id),
+                UNIQUE(session_id, file_path)
             );
 
             CREATE TABLE IF NOT EXISTS file_snapshots (
@@ -98,7 +101,7 @@ class DatabaseManager:
 
             CREATE INDEX IF NOT EXISTS idx_tool_calls_session ON tool_calls(session_id);
             CREATE INDEX IF NOT EXISTS idx_tool_calls_func ON tool_calls(func_name);
-            CREATE INDEX IF NOT EXISTS idx_file_read_records_path ON file_read_records(file_path);
+            CREATE INDEX IF NOT EXISTS idx_file_read_records_session_path ON file_read_records(session_id, file_path);
             CREATE INDEX IF NOT EXISTS idx_file_snapshots_audit ON file_snapshots(audit_status);
             """
         )
@@ -110,6 +113,10 @@ class DatabaseManager:
         # Phase 3 migration: rename args_hash to kwargs and truncate old data
         if any(row[1] == "args_hash" for row in conn.execute("PRAGMA table_info(tool_calls)")):
             self._migrate_args_hash_to_kwargs(conn)
+
+        # Phase 4 migration: add session_id to file_read_records
+        if not any(row[1] == "session_id" for row in conn.execute("PRAGMA table_info(file_read_records)")):
+            self._migrate_file_read_records_add_session(conn)
 
     @staticmethod
     def _migrate_add_pending_content(conn: sqlite3.Connection) -> None:
@@ -123,6 +130,30 @@ class DatabaseManager:
     def _migrate_args_hash_to_kwargs(conn: sqlite3.Connection) -> None:
         conn.execute("DELETE FROM tool_calls")
         conn.execute("ALTER TABLE tool_calls RENAME COLUMN args_hash TO kwargs")
+        conn.commit()
+
+    @staticmethod
+    def _migrate_file_read_records_add_session(conn: sqlite3.Connection) -> None:
+        conn.executescript(
+            """
+            DROP TABLE IF EXISTS file_read_records;
+
+            CREATE TABLE file_read_records (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id   INTEGER NOT NULL,
+                file_path    TEXT NOT NULL,
+                mtime        REAL NOT NULL,
+                size         INTEGER NOT NULL DEFAULT 0,
+                checksum     TEXT NOT NULL DEFAULT '',
+                last_read_at REAL NOT NULL,
+                read_count   INTEGER NOT NULL DEFAULT 1,
+                FOREIGN KEY (session_id) REFERENCES sessions(id),
+                UNIQUE(session_id, file_path)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_file_read_records_path ON file_read_records(session_id, file_path);
+            """
+        )
         conn.commit()
 
     def close(self) -> None:
@@ -193,27 +224,28 @@ class DatabaseManager:
 
     # -- File read records --
 
-    def record_file_read(self, file_path: str, mtime: float, size: int, checksum: str) -> None:
+    def record_file_read(self, session_id: int, file_path: str, mtime: float, size: int, checksum: str) -> None:
         with self._write_lock:
             conn = self._get_connection()
             conn.execute(
-                "INSERT INTO file_read_records (file_path, mtime, size, checksum, last_read_at, read_count) "
-                "VALUES (?, ?, ?, ?, ?, 1) "
-                "ON CONFLICT(file_path) DO UPDATE SET "
+                "INSERT INTO file_read_records "
+                "(session_id, file_path, mtime, size, checksum, last_read_at, read_count) "
+                "VALUES (?, ?, ?, ?, ?, ?, 1) "
+                "ON CONFLICT(session_id, file_path) DO UPDATE SET "
                 "mtime = excluded.mtime, "
                 "size = excluded.size, "
                 "checksum = excluded.checksum, "
                 "last_read_at = excluded.last_read_at, "
                 "read_count = read_count + 1",
-                (file_path, mtime, size, checksum, time.time()),
+                (session_id, file_path, mtime, size, checksum, time.time()),
             )
             conn.commit()
 
-    def get_file_read_record(self, file_path: str) -> tuple | None:
+    def get_file_read_record(self, session_id: int, file_path: str) -> tuple | None:
         return self.fetchone(
-            "SELECT id, file_path, mtime, size, checksum, last_read_at, read_count "
-            "FROM file_read_records WHERE file_path = ?",
-            (file_path,),
+            "SELECT id, session_id, file_path, mtime, size, checksum, last_read_at, read_count "
+            "FROM file_read_records WHERE session_id = ? AND file_path = ?",
+            (session_id, file_path),
         )
 
     # -- File snapshots --
@@ -302,6 +334,7 @@ class DatabaseManager:
     def delete_session(self, session_id: int) -> None:
         self.execute("DELETE FROM tool_calls WHERE session_id = ?", (session_id,))
         self.execute("DELETE FROM file_snapshots WHERE session_id = ?", (session_id,))
+        self.execute("DELETE FROM file_read_records WHERE session_id = ?", (session_id,))
         self.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
 
     def get_tool_usage_ranking(self, session_id: int | None = None, limit: int = 10) -> list[tuple]:
