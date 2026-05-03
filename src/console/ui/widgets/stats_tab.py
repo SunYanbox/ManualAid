@@ -381,7 +381,10 @@ class StatsTab(Vertical):
 
             async def on_confirm(result: bool | None) -> None:
                 if result:
-                    self._db.delete_session(session_id)
+                    self._db.delete_session_async(session_id)
+                    self.notify(
+                        f"Session '{session_id}' scheduled for deletion.",
+                    )
                     await self._refresh()
 
             self.app.push_screen(
