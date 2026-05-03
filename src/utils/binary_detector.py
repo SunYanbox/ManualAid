@@ -226,11 +226,8 @@ def is_binary_file(path: str | Path) -> bool:
         # 文本类型 MIME
         if mime_type.startswith("text/"):
             return False
-        # 常见的文本格式 MIME
-        if mime_type in ("application/json", "application/xml", "application/javascript", "application/x-yaml"):
-            return False
-        # 其他类型(image/、video/、audio/、application/zip 等)视为二进制
-        return True
+        # 文本格式 MIME 返回 False, 其他类型返回 True
+        return mime_type not in ("application/json", "application/xml", "application/javascript", "application/x-yaml")
 
     # 策略4: 无法判断时,默认假定为文本文件
     return False
