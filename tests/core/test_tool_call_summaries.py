@@ -1,6 +1,7 @@
 """Test tool_call_summaries table functionality."""
 
 import os
+import sqlite3
 import time
 
 import pytest
@@ -99,7 +100,7 @@ class TestToolCallSummariesTable:
         kwargs_json = '{"file_path": "test.txt"}'
         # Trying to insert with non-existent session should raise FK constraint error
         # because PRAGMA foreign_keys=ON is enabled
-        with pytest.raises(Exception):
+        with pytest.raises(sqlite3.IntegrityError):
             temp_db.record_tool_call_summary(999, "read", kwargs_json, "result1")
 
         # No record should be inserted

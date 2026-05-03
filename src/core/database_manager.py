@@ -132,8 +132,7 @@ class DatabaseManager:
         # Ensure file_read_records index exists (for fresh databases or after migration).
         # Must run after migrations since the column may only exist after Phase 4.
         conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_file_read_records_session_path "
-            "ON file_read_records(session_id, file_path)"
+            "CREATE INDEX IF NOT EXISTS idx_file_read_records_session_path ON file_read_records(session_id, file_path)"
         )
         conn.commit()
 
