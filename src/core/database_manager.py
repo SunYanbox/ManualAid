@@ -102,6 +102,18 @@ class DatabaseManager:
             CREATE INDEX IF NOT EXISTS idx_tool_calls_session ON tool_calls(session_id);
             CREATE INDEX IF NOT EXISTS idx_tool_calls_func ON tool_calls(func_name);
             CREATE INDEX IF NOT EXISTS idx_file_snapshots_audit ON file_snapshots(audit_status);
+
+            CREATE TABLE IF NOT EXISTS tool_call_summaries (
+                session_id   INTEGER NOT NULL,
+                func_name    TEXT NOT NULL,
+                kwargs_json  TEXT NOT NULL,
+                result       TEXT NOT NULL,
+                timestamp    REAL NOT NULL,
+                PRIMARY KEY (session_id, func_name, kwargs_json),
+                FOREIGN KEY (session_id) REFERENCES sessions(id)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_tool_call_summaries_session ON tool_call_summaries(session_id);
             """
         )
         conn.commit()
@@ -120,8 +132,7 @@ class DatabaseManager:
         # Ensure file_read_records index exists (for fresh databases or after migration).
         # Must run after migrations since the column may only exist after Phase 4.
         conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_file_read_records_session_path "
-            "ON file_read_records(session_id, file_path)"
+            "CREATE INDEX IF NOT EXISTS idx_file_read_records_session_path ON file_read_records(session_id, file_path)"
         )
         conn.commit()
 
@@ -368,3 +379,33 @@ class DatabaseManager:
             for instance in cls._instances.values():
                 instance.close()
             cls._instances.clear()
+
+    # -- Tool call summaries --
+
+    def record_tool_call_summary(
+        self,
+        session_id: int,
+        func_name: str,
+        kwargs_json: str,
+        result: str,
+    ) -> None:
+        with self._write_lock:
+            conn = self._get_connection()
+            conn.execute(
+                "INSERT INTO tool_call_summaries "
+                "(session_id, func_name, kwargs_json, result, timestamp) "
+                "VALUES (?, ?, ?, ?, ?) "
+                "ON CONFLICT(session_id, func_name, kwargs_json) DO UPDATE SET "
+                "result = excluded.result, "
+                "timestamp = excluded.timestamp",
+                (session_id, func_name, kwargs_json, result, time.time()),
+            )
+            conn.commit()
+
+    def get_tool_call_summaries(self, session_id: int) -> list[tuple]:
+        """Get all tool call summaries for a session ordered by timestamp DESC."""
+        return self.fetchall(
+            "SELECT session_id, func_name, kwargs_json, result, timestamp "
+            "FROM tool_call_summaries WHERE session_id = ? ORDER BY timestamp DESC",
+            (session_id,),
+        )

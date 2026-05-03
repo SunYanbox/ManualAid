@@ -11,6 +11,7 @@ from typing import Any, ClassVar, ParamSpec, Self, TypeVar
 
 import nest_asyncio
 
+from src.console.result_manager import _to_string
 from src.utils.string_snapshot import truncate_string
 from src.workspace.tools.base_tool import BaseTool
 from src.workspace.workspace import Workspace
@@ -205,6 +206,7 @@ class ToolRegistry:
 
             duration_ms = (time.perf_counter() - start_time) * 1000
             self._log_tool_call(func_name, kwargs, duration_ms, status)
+            self._record_tool_call_summary(func_name, kwargs, result)
 
             return self._compress_result(result)
         else:
@@ -280,3 +282,21 @@ class ToolRegistry:
         except Exception:
             pass
         return f"ToolRegistry(sync_tools={len(self._tools)})"
+
+    def _record_tool_call_summary(self, func_name: str, kwargs: dict, result: Any) -> None:
+        session_id = getattr(self, "_current_session_id", None)
+        if session_id is None:
+            return
+
+        # Exclude write tools
+        if func_name in {"write", "edit", "confirm_edit"}:
+            return
+
+        try:
+            kwargs_json = self._compute_kwargs_json(kwargs)
+            workspace = getattr(self, "_workspace", None)
+            if workspace is not None:
+                result_str = _to_string(result)
+                workspace.db.record_tool_call_summary(session_id, func_name, kwargs_json, result_str)
+        except Exception:
+            pass
