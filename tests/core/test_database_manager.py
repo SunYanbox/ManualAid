@@ -105,7 +105,7 @@ class TestToolCallLogging:
         db.log_tool_call(session_id, "write", "def456", duration_ms=120.0, status="error", audit_status="none")
 
         row = db.fetchone(
-            "SELECT func_name, args_hash, duration_ms, status FROM tool_calls WHERE session_id = ?",
+            "SELECT func_name, kwargs, duration_ms, status FROM tool_calls WHERE session_id = ?",
             (session_id,),
         )
         assert row is not None
