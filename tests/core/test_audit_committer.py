@@ -20,6 +20,7 @@ def reset_singletons():
 @pytest.fixture
 def workspace(tmp_path: Path) -> Workspace:
     ws = Workspace(str(tmp_path))
+    ws._current_session_id = ws.db.create_session(name="test_session")
     return ws
 
 
@@ -37,6 +38,7 @@ def _create_pending_snapshot(workspace: Workspace, file_path: str, pending_conte
         "diff_content",
         audit_status="PENDING_AUDIT",
         pending_content=pending_content,
+        session_id=workspace._current_session_id,
     )
 
 
@@ -72,7 +74,9 @@ class TestCommitExistingFile:
         target = workspace.root_path / "test.txt"
         target.write_text("original", encoding="utf-8")
 
-        workspace.db.record_file_read("test.txt", target.stat().st_mtime, target.stat().st_size, "hash")
+        workspace.db.record_file_read(
+            workspace._current_session_id, "test.txt", target.stat().st_mtime, target.stat().st_size, "hash"
+        )
 
         snapshot_id = _create_pending_snapshot(workspace, "test.txt", "updated content")
         result = committer.commit(snapshot_id, approved=True)
@@ -94,7 +98,9 @@ class TestCommitExistingFile:
         target = workspace.root_path / "test.txt"
         target.write_text("original", encoding="utf-8")
 
-        workspace.db.record_file_read("test.txt", target.stat().st_mtime, target.stat().st_size, "hash")
+        workspace.db.record_file_read(
+            workspace._current_session_id, "test.txt", target.stat().st_mtime, target.stat().st_size, "hash"
+        )
 
         # Modify file externally
         time.sleep(0.1)
