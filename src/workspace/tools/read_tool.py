@@ -6,7 +6,7 @@ from src.utils.binary_detector import is_binary_file
 from src.workspace.tools.base_tool import BaseTool
 from src.workspace.workspace import Workspace
 
-# 最大文件读取大小, 超过此大小的文件将被拒绝读取（默认 10MB）
+# 最大文件读取大小, 超过此大小的文件将被拒绝读取(默认 10MB)
 MAX_FILE_SIZE = int(os.getenv("TOOL_READ_MAX_FILE_SIZE", str(10 * 1024 * 1024)))
 
 
