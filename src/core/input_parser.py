@@ -1,7 +1,6 @@
 import html
 import re
 import shlex
-import warnings
 
 from src.console.commands.command_registry import CommandRegistry
 from src.models.commands import CommandParseResult
@@ -53,11 +52,6 @@ def parse_func_call(content: str, warns: list[str]) -> tuple[str, dict]:
     """
     从 <func_call> 标签中提取函数名和参数,使用健壮的回退机制.
     """
-    warnings.warn(
-        "当参数存在`<func_call`字符串时, 会导致无法正确解析工具调用, 需要避免AI在参数输入这个",
-        DeprecationWarning,
-        stacklevel=2,
-    )
     # 提取标签内内容
     inner = re.sub(r"^<func_call\b", "", content)
     inner = re.sub(r"</func_call>$", "", inner).strip()
