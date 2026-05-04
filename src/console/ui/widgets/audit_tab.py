@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import ClassVar
 
+from rich.markup import escape
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Button, Collapsible, Label, Static
 
@@ -136,7 +137,7 @@ class AuditTab(Vertical):
                 snap_id = snap[0]
                 diff_content = snap[4] or "(空 diff)"
 
-                diff_container = Vertical(Static(diff_content), classes="audit-diff")
+                diff_container = Vertical(Static(diff_content, markup=False), classes="audit-diff")
                 btn_row = Horizontal(
                     Button("批准", variant="primary", id=f"approve-{snap_id}", classes="audit-approve"),
                     Button("拒绝", variant="error", id=f"reject-{snap_id}", classes="audit-reject"),
@@ -186,7 +187,8 @@ class AuditTab(Vertical):
             log = self.query_one("#audit-result-log", Vertical)
 
             color = "green" if "已批准" in result or "已拒绝" in result else "red"
-            await log.mount(Static(f"[{color}]{result}[/{color}]"))
+            escaped = escape(result)
+            await log.mount(Static(f"[{color}]{escaped}[/{color}]"))
         except Exception:
             pass
 

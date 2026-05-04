@@ -8,6 +8,25 @@
 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/). 并采用
 [语义化版本](https://semver.org/lang/Chinese/).
 
+## [0.4.1] - 2026-05-04
+
+### 新增
+
+- **单文件路径搜索支持**: 扩展 `exact_search`、`regex_search`
+  工具以直接处理单文件路径. `files_to_search` 初始化阶段增加了 `is_file()`
+  分支判断,并调整了 `relative_path`
+  计算逻辑以适配非目录场景 ([#110](https://github.com/SunYanbox/ManualAid/issues/110)).
+
+### 修复
+
+- **审核标签页 MarkupError 崩溃**: 修复了审核标签页中因未转义文本导致的 Rich
+  Markup 解析错误. 在 `Static` 组件上设置 `markup=False`
+  并对动态生成的日志结果调用
+  `rich.markup.escape()`,防止渲染包含特殊字符的批准/拒绝状态时崩溃 ([#124](https://github.com/SunYanbox/ManualAid/issues/124)).
+- **单文件搜索失效**: 修复了当搜索路径指向单个文件时,`exact_search` 和
+  `regex_search` 工具因递归查找 (`rglob`) 无法处理文件路径而无法读取内容的 Bug
+  ([#110](https://github.com/SunYanbox/ManualAid/issues/110)).
+
 ## [0.4.0] - 2026-05-03
 
 ### 新增
@@ -125,5 +144,7 @@
 
 _初始发布的功能和历史记录._
 
+[0.4.1]: https://github.com/SunYanbox/ManualAid/releases/tag/v0.4.1
+[0.4.0]: https://github.com/SunYanbox/ManualAid/releases/tag/v0.4.0
 [0.3.0]: https://github.com/SunYanbox/ManualAid/releases/tag/v0.3.0
 [0.2.0]: https://github.com/SunYanbox/ManualAid/releases/tag/v0.2.0
