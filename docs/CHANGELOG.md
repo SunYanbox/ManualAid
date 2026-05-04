@@ -8,6 +8,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2026-05-04
+
+### Added
+
+- **Single File Search Support**: Extended search tools (`exact_search`,
+  `regex_search`) to handle single file paths directly. The `files_to_search`
+  initialization now includes `is_file()` branching with adjusted
+  `relative_path` calculation for non-directory scenarios
+  ([#110](https://github.com/SunYanbox/ManualAid/issues/110)).
+
+### Fixed
+
+- **Audit Tab MarkupError Crash**: Fixed Rich Markup parsing errors in the audit
+  tab caused by unescaped text. Set `markup=False` on `Static` widgets and
+  applied `rich.markup.escape()` to dynamically generated log results,
+  preventing crashes when rendering approve/reject statuses containing special
+  characters ([#124](https://github.com/SunYanbox/ManualAid/issues/124)).
+- **Single File Search Failure**: Fixed a bug where `exact_search` and
+  `regex_search` tools failed to read content when the search path pointed to a
+  single file instead of a directory, due to the recursive glob (`rglob`) not
+  handling file paths
+  ([#110](https://github.com/SunYanbox/ManualAid/issues/110)).
+
 ## [0.4.0] - 2026-05-03
 
 ### Added
@@ -153,5 +176,7 @@ and this project adheres to
 
 _Initial release features and history._
 
+[0.4.1]: https://github.com/SunYanbox/ManualAid/releases/tag/v0.4.1
+[0.4.0]: https://github.com/SunYanbox/ManualAid/releases/tag/v0.4.0
 [0.3.0]: https://github.com/SunYanbox/ManualAid/releases/tag/v0.3.0
 [0.2.0]: https://github.com/SunYanbox/ManualAid/releases/tag/v0.2.0
