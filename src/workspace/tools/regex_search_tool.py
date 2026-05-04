@@ -146,15 +146,20 @@ class RegexSearchTool(BaseTool):
         results = []
         file_count = 0
 
+        # 确定要搜索的文件列表(支持单文件或目录)
+        files_to_search = [search_path] if search_path.is_file() else list(search_path.rglob(file_pattern))
+
         # 遍历文件
-        for file_path in search_path.rglob(file_pattern):
+        for file_path in files_to_search:
+            if not file_path.is_file():
+                continue
             # 检查是否达到限制
             if len(results) >= limit:
                 break
 
             # 检查是否应该忽略该文件或文件夹
             should_ignore = False
-            relative_path = file_path.relative_to(search_path)
+            relative_path = file_path.relative_to(search_path) if search_path.is_dir() else file_path
 
             for ignore_pattern in ignore_patterns:
                 # 检查是否匹配忽略模式

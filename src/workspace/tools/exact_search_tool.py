@@ -118,39 +118,43 @@ class ExactSearchTool(BaseTool):
         results = []
         file_count = 0
 
-        # 遍历所有文件(递归)
-        for file_path in search_path.rglob("*"):
-            if file_path.is_file():
-                # 检查是否达到限制
-                if len(results) >= limit:
+        # 确定要搜索的文件列表(支持单文件或目录)
+        files_to_search = [search_path] if search_path.is_file() else list(search_path.rglob("*"))
+
+        # 遍历所有文件
+        for file_path in files_to_search:
+            if not file_path.is_file():
+                continue
+            # 检查是否达到限制
+            if len(results) >= limit:
+                break
+
+            # 检查是否应该忽略
+            should_ignore = False
+            relative_path = file_path.relative_to(search_path) if search_path.is_dir() else file_path
+
+            for ignore_pattern in ignore_patterns:
+                if ignore_pattern.search(str(relative_path)):
+                    should_ignore = True
                     break
 
-                # 检查是否应该忽略
-                should_ignore = False
-                relative_path = file_path.relative_to(search_path)
+            if should_ignore:
+                continue
 
-                for ignore_pattern in ignore_patterns:
-                    if ignore_pattern.search(str(relative_path)):
-                        should_ignore = True
-                        break
+            try:
+                # 读取文件内容
+                with open(file_path, encoding="utf-8") as f:
+                    lines = f.readlines()
 
-                if should_ignore:
-                    continue
+                # 搜索匹配行
+                file_matches = _search_exact_in_file(lines, search_string, case_sensitive, whole_word)
 
-                try:
-                    # 读取文件内容
-                    with open(file_path, encoding="utf-8") as f:
-                        lines = f.readlines()
+                if file_matches:
+                    results.append({"file": str(file_path), "matches": file_matches})
+                    file_count += 1
 
-                    # 搜索匹配行
-                    file_matches = _search_exact_in_file(lines, search_string, case_sensitive, whole_word)
-
-                    if file_matches:
-                        results.append({"file": str(file_path), "matches": file_matches})
-                        file_count += 1
-
-                except OSError, UnicodeDecodeError, PermissionError:
-                    continue  # 跳过无法读取的文件
+            except OSError, UnicodeDecodeError, PermissionError:
+                continue  # 跳过无法读取的文件
 
         # 格式化输出
         return _format_exact_results(results, pattern, limit, file_count, case_sensitive, whole_word)

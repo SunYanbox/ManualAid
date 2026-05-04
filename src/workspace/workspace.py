@@ -72,11 +72,6 @@ class Workspace:
         try:
             path = self.path_validator.validate(folder_path)
 
-            if not path.is_dir():
-                return ToolErrorResponse(
-                    self.search_content.__name__, ValueError(f"{path} is not a directory")
-                ).to_str()
-
             # 初始化排除目录集合
             exclude_set = set(exclude_dirs or [".git", "__pycache__", "node_modules", ".venv", "venv", "dist", "build"])
 
@@ -87,18 +82,21 @@ class Workspace:
             except re.error as e:
                 return f"错误:正则表达式无效 - {e}"
 
-            # 收集所有要搜索的文件
+            # 收集所有要搜索的文件(支持单文件或目录)
             files_to_search = []
-            for file_path in path.rglob(file_pattern):
-                if file_path.is_file():
-                    # 检查是否在排除目录中
-                    should_exclude = False
-                    for parent in file_path.parents:
-                        if parent.name in exclude_set:
-                            should_exclude = True
-                            break
-                    if not should_exclude:
-                        files_to_search.append(file_path)
+            if path.is_file():
+                files_to_search = [path]
+            else:
+                for file_path in path.rglob(file_pattern):
+                    if file_path.is_file():
+                        # 检查是否在排除目录中
+                        should_exclude = False
+                        for parent in file_path.parents:
+                            if parent.name in exclude_set:
+                                should_exclude = True
+                                break
+                        if not should_exclude:
+                            files_to_search.append(file_path)
 
             if not files_to_search:
                 return f"在 {folder_path} 中没有找到匹配 {file_pattern} 的文件"
