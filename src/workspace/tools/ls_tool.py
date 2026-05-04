@@ -10,6 +10,9 @@ class LsTool(BaseTool):
         super().__init__(workspace, "ls", self.ls.__doc__)
         self.func = self.ls
         self.params = BaseTool.extract_params(self.ls)
+        self.param_descriptions = {
+            "folder_path": "目录路径,默认为当前目录",
+        }
 
     @BaseTool.handle_tool_exceptions
     def ls(self, folder_path: str = ".") -> list[str] | str:

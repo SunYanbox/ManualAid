@@ -22,19 +22,18 @@ class ReadTool(BaseTool):
         super().__init__(workspace, "read", self.read.__doc__)
         self.func = self.read
         self.params = BaseTool.extract_params(self.read)
+        self.param_descriptions = {
+            "file_path": "文件路径",
+            "start": "起始行号(1开始; 负数表示倒数, -1=最后一行)",
+            "end": "结束行号(1开始; 负数表示倒数, -1=最后一行)",
+            "context": "扩展结果行数范围 行数范围最终为(start-context, end+context)",
+            "encoding": "编码",
+        }
 
     @BaseTool.handle_tool_exceptions
     def read(self, file_path: str, start: int = 1, end: int = -1, context: int = 0, encoding: str = "utf-8") -> str:
         """
         读取文件内容,可指定行范围,返回带行号的格式化内容
-
-        Parameters
-        ----------
-        file_path: 文件路径
-        start: 起始行号(1开始; 负数表示倒数, -1=最后一行)
-        end: 结束行号(1开始; 负数表示倒数, -1=最后一行)
-        context: 扩展结果行数范围 行数范围最终为(start-context, end+context)
-        encoding: 编码
         """
         path: Path = self.workspace.path_validator.validate(file_path)
 

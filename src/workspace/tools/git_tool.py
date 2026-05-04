@@ -55,14 +55,13 @@ class GitTool(BaseTool):
         super().__init__(workspace, "git", self.git.__doc__, read_permission=True)
         self.func = self.git
         self.params = BaseTool.extract_params(self.git)
+        self.param_descriptions = {
+            "command_str": "Git 子命令及其参数,如 'status'、'diff --cached'、'log --oneline -5'",
+        }
 
     def git(self, command_str: str) -> str:
         """
         执行 Git 命令(白名单限制)
-
-        Parameters
-        ----------
-        command_str: Git 子命令及其参数,如 "status"、"diff --cached"、"log --oneline -5"
         """
         if not command_str or not command_str.strip():
             return ToolErrorResponse(self.__class__.__name__, ValueError("command_str 不能为空")).to_str()

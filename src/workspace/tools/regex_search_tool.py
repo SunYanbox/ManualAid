@@ -103,6 +103,14 @@ class RegexSearchTool(BaseTool):
         super().__init__(workspace, "regex_search", self.regex_search.__doc__)
         self.func = self.regex_search
         self.params = BaseTool.extract_params(self.regex_search)
+        self.param_descriptions = {
+            "pattern": "正则表达式模式",
+            "path": "搜索路径,默认为当前目录",
+            "context": "显示匹配行的上下文行数,默认为3",
+            "file_pattern": "文件匹配模式,支持通配符,默认为'*'",
+            "limit": "最大匹配数量限制,默认为256",
+            "ignore": "忽略匹配正则的文件或文件夹列表",
+        }
 
     @BaseTool.handle_tool_exceptions
     def regex_search(
@@ -116,15 +124,6 @@ class RegexSearchTool(BaseTool):
     ) -> str:
         """
         使用正则表达式搜索文件内容, 支持上下文显示、文件过滤和忽略路径, 返回匹配详情; 适合代码与文档探索
-
-        Parameters
-        ----------
-        pattern: 正则表达式模式
-        path: 搜索路径,默认为当前目录
-        context: 显示匹配行的上下文行数,默认为3
-        file_pattern: 文件匹配模式,支持通配符,默认为"*"
-        limit: 最大匹配数量限制,默认为256
-        ignore: 忽略匹配正则的文件或文件夹列表
         """
         # 验证搜索路径
         search_path: Path = self.workspace.path_validator.validate(path)

@@ -12,16 +12,15 @@ class WriteTool(BaseTool):
         super().__init__(workspace, "write", self.write.__doc__, write_permission=True)
         self.func = self.write
         self.params = BaseTool.extract_params(self.write)
+        self.param_descriptions = {
+            "file_path": "文件路径",
+            "content": "写入内容",
+        }
 
     @BaseTool.handle_tool_exceptions
     def write(self, file_path: str, content: str = "") -> str:
         """
         写入文件内容,如文件不存在则创建(含父目录)
-
-        Parameters
-        ----------
-        file_path: 文件路径
-        content: 写入内容
         """
         source_file_path = Path(file_path)
         file_path: Path = self.workspace.path_validator.resolve_path(source_file_path)
