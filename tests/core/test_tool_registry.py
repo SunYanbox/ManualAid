@@ -159,10 +159,10 @@ class TestToolCategorization:
         for name in ("glob", "ls", "regex_search", "stat", "read", "read_lines", "symbol_ref"):
             assert registry._tool_categories.get(name) == "query", f"{name} should be query"
 
-    def test_edit_tools_category(self):
+    def test_write_tools_category(self):
         registry = ToolRegistry()
         for name in ("write", "edit"):
-            assert registry._tool_categories.get(name) == "edit", f"{name} should be edit"
+            assert registry._tool_categories.get(name) == "write", f"{name} should be write"
 
     def test_git_tool_category(self):
         registry = ToolRegistry()
