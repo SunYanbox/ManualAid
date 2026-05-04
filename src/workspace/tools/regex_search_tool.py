@@ -144,6 +144,7 @@ class RegexSearchTool(BaseTool):
         # 搜索结果
         results = []
         file_count = 0
+        total_matches = 0
 
         # 确定要搜索的文件列表(支持单文件或目录)
         files_to_search = [search_path] if search_path.is_file() else list(search_path.rglob(file_pattern))
@@ -153,7 +154,7 @@ class RegexSearchTool(BaseTool):
             if not file_path.is_file():
                 continue
             # 检查是否达到限制
-            if len(results) >= limit:
+            if total_matches >= limit:
                 break
 
             # 检查是否应该忽略该文件或文件夹
@@ -180,6 +181,7 @@ class RegexSearchTool(BaseTool):
                 if file_results:
                     results.append({"file": str(file_path), "matches": file_results})
                     file_count += 1
+                    total_matches += len(file_results)
 
             except OSError, UnicodeDecodeError, PermissionError:
                 continue  # 跳过无法读取的文件
