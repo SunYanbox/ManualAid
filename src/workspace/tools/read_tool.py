@@ -33,7 +33,7 @@ class ReadTool(BaseTool):
     @BaseTool.handle_tool_exceptions
     def read(self, file_path: str, start: int = 1, end: int = -1, context: int = 0, encoding: str = "utf-8") -> str:
         """
-        读取文件内容,可指定行范围,返回带行号的格式化内容
+        读取文件内容, 返回带行号的格式化内容
         """
         path: Path = self.workspace.path_validator.validate(file_path)
 

@@ -78,10 +78,10 @@ class ExactSearchTool(BaseTool):
         self.params = BaseTool.extract_params(self.exact_search)
         self.param_descriptions = {
             "pattern": "搜索字符串",
-            "path": "搜索路径,默认为当前目录",
-            "case_sensitive": "是否大小写敏感,默认为True",
-            "whole_word": "是否全词匹配,默认为True",
-            "limit": "最大匹配数量限制,默认为256",
+            "path": "搜索文件或文件夹路径",
+            "case_sensitive": "是否大小写敏感",
+            "whole_word": "是否全词匹配",
+            "limit": "最大匹配数量限制",
             "ignore": "忽略匹配正则的文件或文件夹列表",
         }
 
@@ -96,7 +96,7 @@ class ExactSearchTool(BaseTool):
         ignore: list[str] | None = None,
     ) -> str:
         """
-        精确搜索字符串(支持大小写敏感/全词匹配)
+        精确搜索字符串
         """
         # 验证搜索路径
         search_path: Path = self.workspace.path_validator.validate(path)

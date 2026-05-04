@@ -11,7 +11,7 @@ class LsTool(BaseTool):
         self.func = self.ls
         self.params = BaseTool.extract_params(self.ls)
         self.param_descriptions = {
-            "folder_path": "目录路径,默认为当前目录",
+            "folder_path": "目录路径",
         }
 
     @BaseTool.handle_tool_exceptions

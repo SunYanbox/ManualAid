@@ -61,7 +61,7 @@ class GitTool(BaseTool):
 
     def git(self, command_str: str) -> str:
         """
-        执行 Git 命令(白名单限制)
+        执行 Git 命令
         """
         if not command_str or not command_str.strip():
             return ToolErrorResponse(self.__class__.__name__, ValueError("command_str 不能为空")).to_str()

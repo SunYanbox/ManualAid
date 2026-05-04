@@ -20,7 +20,7 @@ class WriteTool(BaseTool):
     @BaseTool.handle_tool_exceptions
     def write(self, file_path: str, content: str = "") -> str:
         """
-        写入文件内容,如文件不存在则创建(含父目录)
+        写入文件内容, 如文件不存在则创建(含父目录)
         """
         source_file_path = Path(file_path)
         file_path: Path = self.workspace.path_validator.resolve_path(source_file_path)

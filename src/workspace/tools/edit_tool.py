@@ -21,11 +21,11 @@ class EditTool(BaseTool):
         self.params = BaseTool.extract_params(self.edit)
         self.param_descriptions = {
             "file_path": "文件路径",
-            "old_string": "待替换的字符串(不能为空)",
+            "old_string": "待替换的字符串",
             "new_string": "替换后的字符串",
-            "max_replacements": "最大替换次数(默认 10,最大 100)",
-            "context_before": "匹配前的上下文文本(可选,用于校验)",
-            "context_after": "匹配后的上下文文本(可选,用于校验)",
+            "max_replacements": "最大替换次数(1~100)",
+            "context_before": "匹配前的上下文文本",
+            "context_after": "匹配后的上下文文本",
         }
 
     @BaseTool.handle_tool_exceptions
@@ -39,10 +39,7 @@ class EditTool(BaseTool):
         context_after: str = "",
     ) -> str:
         """
-        在文件中进行安全的字符串替换(仅预览,不修改磁盘)
-
-        执行 dry-run 替换,生成 diff,记录 PENDING_AUDIT 快照.
-        批准后由 AuditCommitter 执行实际写入.
+        通过在文件中进行安全的字符串替换编辑文件
         """
         # 1. 参数校验
         if not old_string:

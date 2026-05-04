@@ -105,10 +105,10 @@ class RegexSearchTool(BaseTool):
         self.params = BaseTool.extract_params(self.regex_search)
         self.param_descriptions = {
             "pattern": "正则表达式模式",
-            "path": "搜索路径,默认为当前目录",
-            "context": "显示匹配行的上下文行数,默认为3",
-            "file_pattern": "文件匹配模式,支持通配符,默认为'*'",
-            "limit": "最大匹配数量限制,默认为256",
+            "path": "搜索文件或文件夹路径",
+            "context": "显示匹配行的上下文行数",
+            "file_pattern": "文件匹配模式,支持通配符",
+            "limit": "最大匹配数量限制",
             "ignore": "忽略匹配正则的文件或文件夹列表",
         }
 

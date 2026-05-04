@@ -349,12 +349,12 @@ class SymbolRefTool(BaseTool):
         self.params = BaseTool.extract_params(self.symbol_ref)
         self.param_descriptions = {
             "symbol_name": "要查找的符号名称(如函数名、类名、变量名)",
-            "path": "搜索路径,默认为当前目录",
-            "language": "语言类型(auto/python/javascript/typescript/markdown/general),默认auto",
-            "include_definitions": "是否包含定义位置,默认True",
-            "include_references": "是否包含引用位置,默认True",
-            "context_lines": "显示匹配行的上下文行数,默认2",
-            "limit": "最大匹配数量限制,默认为256",
+            "path": "搜索文件或文件夹路径",
+            "language": "语言类型(auto/python/javascript/typescript/markdown/general)",
+            "include_definitions": "是否包含定义位置",
+            "include_references": "是否包含引用位置",
+            "context_lines": "显示匹配行的上下文行数",
+            "limit": "最大匹配数量限制",
             "ignore": "忽略匹配正则的文件或文件夹列表",
             "file_pattern": "文件匹配模式(如 *.py),默认根据语言自动选择",
         }
@@ -373,10 +373,7 @@ class SymbolRefTool(BaseTool):
         file_pattern: str | None = None,
     ) -> str:
         """
-        查找符号(函数、类、变量等)的定义和引用位置
-
-        支持自动识别语言类型,生成智能搜索模式来定位符号的定义和所有使用位置.
-        适用于代码探索、重构影响分析、理解代码结构等场景.
+        查找符号(函数、类、变量等)的定义和引用位置, 适用于代码探索、重构影响分析、理解代码结构等场景.
         """
         # 验证搜索路径
         search_path: Path = self.workspace.path_validator.validate(path)

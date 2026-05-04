@@ -14,7 +14,7 @@ class StatTool(BaseTool):
         self.func = self.stat
         self.params = BaseTool.extract_params(self.stat)
         self.param_descriptions = {
-            "path": "文件或目录路径,默认为当前目录",
+            "path": "文件或目录路径",
         }
 
     @BaseTool.handle_tool_exceptions
