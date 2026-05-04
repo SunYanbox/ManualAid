@@ -231,16 +231,15 @@ the `BaseTool` base class.
            )
            self.func = self.your_method
            self.params = BaseTool.extract_params(self.your_method)
+           self.param_descriptions = {
+               "param1": "Parameter description",
+               "param2": "Parameter description"
+           }
 
        @BaseTool.handle_tool_exceptions
        def your_method(self, param1: str, param2: int = 0) -> str:
            """
            Tool description -- will be generated as LLM-readable documentation.
-
-           Parameters
-           ----------
-           param1: Parameter description
-           param2: Parameter description (with default value)
            """
            # Path operations must be validated through PathValidator
            path = self.workspace.path_validator.validate(param1)

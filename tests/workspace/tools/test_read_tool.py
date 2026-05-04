@@ -78,15 +78,15 @@ class TestReadToolMtimeRecording:
         assert record[7] == 2
 
 
-class TestReadLinesToolMtimeRecording:
-    def test_read_lines_records_mtime(self, workspace: Workspace, tmp_path: Path):
+class TestReadToolRangeRecording:
+    def test_read_range_records_mtime(self, workspace: Workspace, tmp_path: Path):
         file = tmp_path / "test.txt"
         file.write_text("line1\nline2\nline3", encoding="utf-8")
 
-        from src.workspace.tools.read_lines_tool import ReadLinesTool
+        from src.workspace.tools.read_tool import ReadTool
 
-        tool = ReadLinesTool(workspace)
-        result = tool.read_lines("test.txt", 1, 2)
+        tool = ReadTool(workspace)
+        result = tool.read("test.txt", start=1, end=2)
 
         assert "line1" in result
         record = workspace.db.get_file_read_record(workspace._current_session_id, "test.txt")

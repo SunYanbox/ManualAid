@@ -13,17 +13,14 @@ class StatTool(BaseTool):
         super().__init__(workspace, "stat", self.stat.__doc__)
         self.func = self.stat
         self.params = BaseTool.extract_params(self.stat)
+        self.param_descriptions = {
+            "path": "文件或目录路径",
+        }
 
     @BaseTool.handle_tool_exceptions
     def stat(self, path: str = ".") -> str:
         """
         获取工作区内文件或目录的详细信息,包括大小、行数(仅文件)、修改时间、权限等
-
-        Args:
-            path: 文件或目录路径,默认为当前目录
-
-        Returns:
-            格式化的详细信息字符串
         """
         # 验证路径
         target_path: Path = self.workspace.path_validator.validate(path)

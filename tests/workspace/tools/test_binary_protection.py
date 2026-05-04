@@ -1,7 +1,7 @@
 """二进制文件保护机制的集成测试.
 
-验证 read/read_lines/write/edit 工具在遇到二进制文件时的行为:
-- read/read_lines: 返回明确的二进制文件错误提示
+验证 read/write/edit 工具在遇到二进制文件时的行为:
+- read: 返回明确的二进制文件错误提示
 - write/edit: 阻止对二进制文件的操作
 """
 
@@ -67,24 +67,24 @@ class TestReadBinaryProtection:
         assert "二进制文件" not in result
 
 
-class TestReadLinesBinaryProtection:
-    """测试 read_lines 工具的二进制保护."""
+class TestReadRangeBinaryProtection:
+    """测试 read 工具按范围读取时的二进制保护."""
 
-    def test_read_lines_binary_by_extension(self, workspace: Workspace, binary_ext_file: Path):
+    def test_read_range_binary_by_extension(self, workspace: Workspace, binary_ext_file: Path):
         """通过扩展名检测到的二进制文件应被拒绝读取."""
-        from src.workspace.tools.read_lines_tool import ReadLinesTool
+        from src.workspace.tools.read_tool import ReadTool
 
-        tool = ReadLinesTool(workspace)
-        result = tool.read_lines("image.png", 1, 10)
+        tool = ReadTool(workspace)
+        result = tool.read("image.png", start=1, end=10)
 
         assert "二进制文件" in result
 
-    def test_read_lines_text_file_still_works(self, workspace: Workspace, text_file: Path):
+    def test_read_range_text_file_still_works(self, workspace: Workspace, text_file: Path):
         """文本文件读取应不受影响."""
-        from src.workspace.tools.read_lines_tool import ReadLinesTool
+        from src.workspace.tools.read_tool import ReadTool
 
-        tool = ReadLinesTool(workspace)
-        result = tool.read_lines("readme.txt", 1, 2)
+        tool = ReadTool(workspace)
+        result = tool.read("readme.txt", start=1, end=2)
 
         assert "hello world" in result
         assert "二进制文件" not in result
