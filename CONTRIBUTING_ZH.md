@@ -215,16 +215,15 @@ docs(README): 添加贡献指南 / add contributing guide
            )
            self.func = self.your_method
            self.params = BaseTool.extract_params(self.your_method)
+           self.param_descriptions = {
+               "param1": "参数说明",
+               "param2": "参数说明"
+           }
 
        @BaseTool.handle_tool_exceptions
        def your_method(self, param1: str, param2: int = 0) -> str:
            """
            工具描述 -- 会生成为 LLM 可读的文档.
-
-           Parameters
-           ----------
-           param1: 参数说明
-           param2: 参数说明(带默认值)
            """
            # 路径操作必须通过 PathValidator 验证
            path = self.workspace.path_validator.validate(param1)
