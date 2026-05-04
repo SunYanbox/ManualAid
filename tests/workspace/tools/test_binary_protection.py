@@ -54,7 +54,7 @@ class TestReadBinaryProtection:
         tool = ReadTool(workspace)
         result = tool.read("image.png")
 
-        assert "二进制文件" in result
+        assert "二进制文件" in result.data
 
     def test_read_text_file_still_works(self, workspace: Workspace, text_file: Path):
         """文本文件读取应不受影响."""
@@ -63,8 +63,8 @@ class TestReadBinaryProtection:
         tool = ReadTool(workspace)
         result = tool.read("readme.txt")
 
-        assert "hello world" in result
-        assert "二进制文件" not in result
+        assert "hello world" in result.data
+        assert "二进制文件" not in result.data
 
 
 class TestReadRangeBinaryProtection:
@@ -77,7 +77,7 @@ class TestReadRangeBinaryProtection:
         tool = ReadTool(workspace)
         result = tool.read("image.png", start=1, end=10)
 
-        assert "二进制文件" in result
+        assert "二进制文件" in result.data
 
     def test_read_range_text_file_still_works(self, workspace: Workspace, text_file: Path):
         """文本文件读取应不受影响."""
@@ -86,8 +86,8 @@ class TestReadRangeBinaryProtection:
         tool = ReadTool(workspace)
         result = tool.read("readme.txt", start=1, end=2)
 
-        assert "hello world" in result
-        assert "二进制文件" not in result
+        assert "hello world" in result.data
+        assert "二进制文件" not in result.data
 
 
 class TestWriteBinaryProtection:
@@ -100,7 +100,7 @@ class TestWriteBinaryProtection:
         tool = WriteTool(workspace)
         result = tool.write("image.png", "malicious content")
 
-        assert "二进制文件" in result
+        assert "二进制文件" in result.data
         # 不应创建快照
         rows = workspace.db.fetchall("SELECT * FROM file_snapshots")
         assert len(rows) == 0
@@ -112,8 +112,8 @@ class TestWriteBinaryProtection:
         tool = WriteTool(workspace)
         result = tool.write("readme.txt", "new content")
 
-        assert "Write Preview" in result
-        assert "二进制文件" not in result
+        assert "Write Preview" in result.data
+        assert "二进制文件" not in result.data
 
     def test_write_new_binary_ext_blocked(self, workspace: Workspace):
         """写入新的二进制扩展名文件(不存在)也应被阻止."""
@@ -122,7 +122,7 @@ class TestWriteBinaryProtection:
         tool = WriteTool(workspace)
         result = tool.write("new_app.exe", "fake exe content")
 
-        assert "二进制文件" in result
+        assert "二进制文件" in result.data
 
     def test_write_new_text_ext_allowed(self, workspace: Workspace):
         """写入新的文本扩展名文件应正常通过."""
@@ -131,8 +131,8 @@ class TestWriteBinaryProtection:
         tool = WriteTool(workspace)
         result = tool.write("new_file.py", "print('hello')")
 
-        assert "Write Preview" in result
-        assert "二进制文件" not in result
+        assert "Write Preview" in result.data
+        assert "二进制文件" not in result.data
 
 
 class TestEditBinaryProtection:
@@ -145,7 +145,7 @@ class TestEditBinaryProtection:
         tool = EditTool(workspace)
         result = tool.edit("image.png", "fake", "replaced")
 
-        assert "二进制文件" in result
+        assert "二进制文件" in result.data
 
     def test_edit_text_file_still_works(self, workspace: Workspace, text_file: Path):
         """编辑文本文件应不受影响."""
@@ -154,5 +154,5 @@ class TestEditBinaryProtection:
         tool = EditTool(workspace)
         result = tool.edit("readme.txt", "hello", "hi")
 
-        assert "Edit Preview" in result
-        assert "二进制文件" not in result
+        assert "Edit Preview" in result.data
+        assert "二进制文件" not in result.data

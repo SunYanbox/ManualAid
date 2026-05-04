@@ -197,11 +197,7 @@ class ToolRegistry:
                 raw_result = tool.func(*args, **kwargs)
 
             # 统一解包 ToolResult
-            if isinstance(raw_result, ToolResult):
-                result = raw_result
-            else:
-                # 兼容未使用 @handle_tool_exceptions 的工具 (如 GitTool)
-                result = ToolResult(success=True, data=raw_result)
+            result = raw_result if isinstance(raw_result, ToolResult) else ToolResult(success=True, data=raw_result)
 
             status = "success" if result.success else "error"
             output = result.data if result.success else result.error

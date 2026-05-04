@@ -52,8 +52,8 @@ class TestEditBasic:
         _create_file(workspace, "test.txt", "hello world")
         result = edit_tool.edit("test.txt", "world", "there")
 
-        assert "Edit Preview" in result
-        assert "Snapshot ID:" in result
+        assert "Edit Preview" in result.data
+        assert "Snapshot ID:" in result.data
 
     def test_does_not_write_to_disk(self, edit_tool, workspace):
         file = _create_file(workspace, "test.txt", "hello world")
@@ -74,14 +74,14 @@ class TestEditBasic:
         _create_file(workspace, "test.txt", "line1\nline2\nline3")
         result = edit_tool.edit("test.txt", "line2", "modified")
 
-        assert "-line2" in result
-        assert "+modified" in result
+        assert "-line2" in result.data
+        assert "+modified" in result.data
 
     def test_multiple_replacements(self, edit_tool, workspace):
         _create_file(workspace, "test.txt", "a a a a a")
         result = edit_tool.edit("test.txt", "a", "b", max_replacements=3)
 
-        assert "Replacements: 3" in result
+        assert "Replacements: 3" in result.data
         # Verify pending content has exactly 3 replacements
         snap = workspace.db.fetchone("SELECT pending_content FROM file_snapshots")
         assert snap is not None
@@ -91,8 +91,8 @@ class TestEditBasic:
         _create_file(workspace, "test.txt", "hello world")
         result = edit_tool.edit("test.txt", "nonexistent", "replacement")
 
-        assert "No changes made" in result
-        assert "old_string not found" in result
+        assert "No changes made" in result.data
+        assert "old_string not found" in result.data
 
 
 class TestEditMaxReplacements:
@@ -100,19 +100,19 @@ class TestEditMaxReplacements:
         _create_file(workspace, "test.txt", "a a a a a a a a a a a a")  # 12 a's
         result = edit_tool.edit("test.txt", "a", "b", max_replacements=5)
 
-        assert "Replacements: 5" in result
+        assert "Replacements: 5" in result.data
 
     def test_max_replacements_default_10(self, edit_tool, workspace):
         _create_file(workspace, "test.txt", " ".join(["a"] * 20))
         result = edit_tool.edit("test.txt", "a", "b")
 
-        assert "Replacements: 10" in result
+        assert "Replacements: 10" in result.data
 
     def test_max_replacements_capped_at_100(self, edit_tool, workspace):
         _create_file(workspace, "test.txt", "a " * 150)
         result = edit_tool.edit("test.txt", "a", "b", max_replacements=200)
 
-        assert "Replacements: 100" in result
+        assert "Replacements: 100" in result.data
 
 
 class TestEditContextValidation:
@@ -120,33 +120,33 @@ class TestEditContextValidation:
         _create_file(workspace, "test.txt", "prefix target suffix")
         result = edit_tool.edit("test.txt", "target", "replaced", context_before="prefix ")
 
-        assert "Edit Preview" in result
+        assert "Edit Preview" in result.data
 
     def test_context_before_mismatch(self, edit_tool, workspace):
         _create_file(workspace, "test.txt", "prefix target suffix")
         result = edit_tool.edit("test.txt", "target", "replaced", context_before="wrong ")
 
-        assert "context_before" in result
-        assert "mismatch" in result.lower()
+        assert "context_before" in result.data
+        assert "mismatch" in result.data.lower()
 
     def test_context_after_matches(self, edit_tool, workspace):
         _create_file(workspace, "test.txt", "prefix target suffix")
         result = edit_tool.edit("test.txt", "target", "replaced", context_after=" suffix")
 
-        assert "Edit Preview" in result
+        assert "Edit Preview" in result.data
 
     def test_context_after_mismatch(self, edit_tool, workspace):
         _create_file(workspace, "test.txt", "prefix target suffix")
         result = edit_tool.edit("test.txt", "target", "replaced", context_after=" wrong")
 
-        assert "context_after" in result
-        assert "mismatch" in result.lower()
+        assert "context_after" in result.data
+        assert "mismatch" in result.data.lower()
 
     def test_both_contexts_match(self, edit_tool, workspace):
         _create_file(workspace, "test.txt", "before target after")
         result = edit_tool.edit("test.txt", "target", "replaced", context_before="before ", context_after=" after")
 
-        assert "Edit Preview" in result
+        assert "Edit Preview" in result.data
 
     def test_context_with_multiple_matches(self, edit_tool, workspace):
         _create_file(workspace, "test.txt", "before X after\nignore\nbefore X after")
@@ -154,8 +154,8 @@ class TestEditContextValidation:
             "test.txt", "X", "Y", max_replacements=2, context_before="before ", context_after=" after"
         )
 
-        assert "Edit Preview" in result
-        assert "Replacements: 2" in result
+        assert "Edit Preview" in result.data
+        assert "Replacements: 2" in result.data
 
 
 class TestEditMtimeValidation:
@@ -168,13 +168,13 @@ class TestEditMtimeValidation:
         file.write_text("modified externally", encoding="utf-8")
 
         result = edit_tool.edit("test.txt", "original", "replaced")
-        assert "FILE_MODIFIED_EXTERNALLY" in result
+        assert "FILE_MODIFIED_EXTERNALLY" in result.data
 
     def test_edit_no_prior_read_succeeds(self, edit_tool, workspace):
         _create_file(workspace, "test.txt", "original content")
         result = edit_tool.edit("test.txt", "original", "updated")
 
-        assert "Edit Preview" in result
+        assert "Edit Preview" in result.data
 
 
 class TestEditEdgeCases:
@@ -182,15 +182,15 @@ class TestEditEdgeCases:
         _create_file(workspace, "test.txt", "content")
         result = edit_tool.edit("test.txt", "", "replacement")
 
-        assert "不能为空" in result or "empty" in result.lower()
+        assert "不能为空" in result.data or "empty" in result.data.lower()
 
     def test_nonexistent_file(self, edit_tool, workspace):
         result = edit_tool.edit("nonexistent.txt", "old", "new")
-        assert "不存在" in result or "not found" in result.lower() or "exists" in result.lower()
+        assert "不存在" in result.data or "not found" in result.data.lower() or "exists" in result.data.lower()
 
     def test_file_outside_workspace(self, edit_tool, workspace):
         result = edit_tool.edit("../outside.txt", "old", "new")
-        assert "越界" in result or "boundary" in result.lower() or "outside" in result.lower()
+        assert "越界" in result.error or "boundary" in result.error.lower() or "outside" in result.error.lower()
 
     def test_edit_snapshot_has_old_hash(self, edit_tool, workspace):
         _create_file(workspace, "test.txt", "original")

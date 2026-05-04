@@ -14,7 +14,7 @@ class ToolResult:
     调用方可通过 success 标志可靠判断执行状态,无需依赖隐式类型约定.
     """
 
-    __slots__ = ("success", "data", "error")
+    __slots__ = ("data", "error", "success")
 
     def __init__(self, success: bool, data: Any = None, error: str | None = None) -> None:
         self.success = success
