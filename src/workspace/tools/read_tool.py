@@ -38,7 +38,9 @@ class ReadTool(BaseTool):
         file_path: Path = self.workspace.path_validator.validate(path)
 
         if not file_path.is_file():
-            return ToolErrorResponse(self.__class__.__name__, ValueError(f"读取文件{file_path}时未读取到完整文件")).to_str()
+            return ToolErrorResponse(
+                self.__class__.__name__, ValueError(f"读取文件{file_path}时未读取到完整文件")
+            ).to_str()
 
         if is_binary_file(file_path):
             return ToolErrorResponse(

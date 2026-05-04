@@ -26,9 +26,7 @@ class WriteTool(BaseTool):
         path: Path = self.workspace.path_validator.resolve_path(source_path)
 
         if path.exists() and path.is_dir():
-            return ToolErrorResponse(
-                self.__class__.__name__, ValueError(f"路径 {path} 是一个目录,无法写入")
-            ).to_str()
+            return ToolErrorResponse(self.__class__.__name__, ValueError(f"路径 {path} 是一个目录,无法写入")).to_str()
 
         if is_binary_file(path):
             return ToolErrorResponse(
