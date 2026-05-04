@@ -96,16 +96,14 @@ class ToolRegistry:
         if len(name) > self.MAX_FUNC_NAME_LENGTH:
             warnings.warn(f"工具名称 '{name}' 超过 {self.MAX_FUNC_NAME_LENGTH} 字符", UserWarning, stacklevel=3)
 
-    def _set_tool_category(self, tool_name: str) -> None:
-        """根据工具名称设置分类."""
-        if tool_name in {"glob", "ls", "regex_search", "exact_search", "stat", "read", "symbol_ref"}:
-            self._tool_categories[tool_name] = "query"
-        elif tool_name in {"write", "edit", "confirm_edit"}:
-            self._tool_categories[tool_name] = "edit"
-        elif tool_name == "git":
-            self._tool_categories[tool_name] = "dangerous"
+    def _set_tool_category(self, tool: BaseTool) -> None:
+        """根据工具的 write_permission 属性设置分类."""
+        if tool.name == "git":
+            self._tool_categories[tool.name] = "dangerous"
+        elif tool.write_permission:
+            self._tool_categories[tool.name] = "write"
         else:
-            self._tool_categories[tool_name] = "query"
+            self._tool_categories[tool.name] = "query"
 
     def register(self, workspace: Workspace) -> None:
         """为工作区注册工具"""
@@ -140,7 +138,7 @@ class ToolRegistry:
                     warnings.warn(f"工具{tool.name}没有注册功能回调和参数", stacklevel=2)
                     continue
                 self._tools[tool.name] = tool
-                self._set_tool_category(tool.name)
+                self._set_tool_category(tool)
             except ValueError:
                 pass
 
@@ -266,7 +264,7 @@ class ToolRegistry:
                     command_str = kwargs.get("command_str", "")
                     if not GitTool.is_safe_command(command_str):
                         audit_status = "PENDING_AUDIT"
-                elif category == "edit":
+                elif category == "write":
                     audit_status = "none"  # Snapshot has its own PENDING_AUDIT
 
                 workspace.db.log_tool_call(
@@ -287,7 +285,8 @@ class ToolRegistry:
             return
 
         # Exclude write tools
-        if func_name in {"write", "edit", "confirm_edit"}:
+        tool = self._tools.get(func_name)
+        if tool is not None and tool.write_permission:
             return
 
         try:
