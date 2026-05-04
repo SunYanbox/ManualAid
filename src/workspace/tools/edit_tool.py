@@ -20,7 +20,7 @@ class EditTool(BaseTool):
         self.func = self.edit
         self.params = BaseTool.extract_params(self.edit)
         self.param_descriptions = {
-            "file_path": "文件路径",
+            "path": "文件路径",
             "old_string": "待替换的字符串",
             "new_string": "替换后的字符串",
             "max_replacements": "最大替换次数(1~100)",
@@ -31,7 +31,7 @@ class EditTool(BaseTool):
     @BaseTool.handle_tool_exceptions
     def edit(
         self,
-        file_path: str,
+        path: str,
         old_string: str,
         new_string: str,
         max_replacements: int = 10,
@@ -51,8 +51,8 @@ class EditTool(BaseTool):
             max_replacements = 100
 
         # 2. 路径解析
-        source_file_path = Path(file_path)
-        resolved_path: Path = self.workspace.path_validator.resolve_path(source_file_path)
+        source_path = Path(path)
+        resolved_path: Path = self.workspace.path_validator.resolve_path(source_path)
 
         if not resolved_path.is_file():
             return ToolErrorResponse(
@@ -92,7 +92,7 @@ class EditTool(BaseTool):
             idx += len(old_string)
 
         if count == 0:
-            return f"No changes made: old_string not found in file.\nFile: {file_path}\nSearching for: '{old_string}'"
+            return f"No changes made: old_string not found in file.\nFile: {path}\nSearching for: '{old_string}'"
 
         # 6. 执行替换(生成新内容)
         new_content = old_content.replace(old_string, new_string, count)
