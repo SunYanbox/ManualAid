@@ -125,8 +125,7 @@ ManualAid registers 12 tools for LLM use via XML function calls:
 | -------------- | ------------------------------------------------ |
 | `ls`           | List directory contents                          |
 | `glob`         | Find files by glob pattern                       |
-| `read`         | Read file contents (with optional line limit)    |
-| `read_lines`   | Read specific line range from a file             |
+| `read`         | Read file contents with optional line range      |
 | `stat`         | Get file/directory metadata (size, mtime, lines) |
 | `exact_search` | Exact string search with case/whole-word options |
 | `regex_search` | Regex search with context display                |

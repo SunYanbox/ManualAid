@@ -112,7 +112,6 @@ class ToolRegistry:
         from src.workspace.tools.git_tool import GitTool
         from src.workspace.tools.glob_tool import GlobTool
         from src.workspace.tools.ls_tool import LsTool
-        from src.workspace.tools.read_lines_tool import ReadLinesTool
         from src.workspace.tools.read_tool import ReadTool
         from src.workspace.tools.regex_search_tool import RegexSearchTool
         from src.workspace.tools.stat_tool import StatTool
@@ -125,7 +124,6 @@ class ToolRegistry:
             ExactSearchTool,
             GlobTool,
             LsTool,
-            ReadLinesTool,
             ReadTool,
             RegexSearchTool,
             WriteTool,

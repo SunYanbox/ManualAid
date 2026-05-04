@@ -156,7 +156,7 @@ class TestToolCategorization:
 
     def test_query_tools_category(self):
         registry = ToolRegistry()
-        for name in ("glob", "ls", "regex_search", "stat", "read", "read_lines", "symbol_ref"):
+        for name in ("glob", "ls", "regex_search", "stat", "read", "symbol_ref"):
             assert registry._tool_categories.get(name) == "query", f"{name} should be query"
 
     def test_write_tools_category(self):

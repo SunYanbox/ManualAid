@@ -1,15 +1,11 @@
 """符号引用查找工具 - 查找函数、类、变量等的定义和引用"""
 
 import re
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from src.models.tool_error_response import ToolErrorResponse
 from src.workspace.tools.base_tool import BaseTool
 from src.workspace.workspace import Workspace
-
-# 默认排除的目录(与 workspace.py 保持一致, 后续改为从项目配置加载)
-DEFAULT_EXCLUDED_DIRS = {".git", "__pycache__", "node_modules", ".venv", "venv", "dist", "build", ".idea", ".vscode"}
 
 
 def _get_file_pattern_by_language(language: str) -> str:
@@ -124,79 +120,7 @@ def _generate_patterns(symbol_name: str, language: str, include_def: bool, inclu
     return unique_patterns
 
 
-def _search_single_pattern(
-    workspace: Workspace,
-    pattern_info: dict,
-    search_path: str,
-    symbol_name: str,
-    context_lines: int,
-    limit: int,
-    file_pattern: str,
-    ignore: list[str] | None,
-) -> list[dict]:
-    """使用 Workspace.search_content 执行单个模式的搜索(并发版本)"""
-    results = []
-
-    try:
-        # 使用 workspace 的并发搜索能力
-        search_result = workspace.search_content(
-            pattern=pattern_info["pattern"],
-            folder_path=search_path,
-            file_pattern=file_pattern,
-            max_workers=4,  # 并发线程数
-            case_sensitive=False,
-        )
-
-        # 解析 search_content 的返回结果
-        if not search_result or "未找到匹配" in search_result:
-            return results
-
-        # 解析结果格式: search_content 返回的是格式化的字符串
-        # 格式: [文件] path\n----\n  行号 | 内容
-        lines = search_result.split("\n")
-        current_file = None
-        current_matches = []
-
-        for line in lines:
-            if line.startswith("[文件] "):
-                # 保存上一个文件的结果
-                if current_file and current_matches:
-                    results.append({"file": current_file, "matches": current_matches, "type": pattern_info["type"]})
-                current_file = line[6:]  # 去掉 "[文件] "
-                current_matches = []
-            elif line.startswith("----"):
-                continue
-            elif line.strip() and current_file:
-                # 解析匹配行: "  行号 | 内容"
-                match = re.match(r"\s+(\d+)\s*\|\s*(.*)", line)
-                if match:
-                    line_num = int(match.group(1))
-                    content = match.group(2)
-
-                    # 收集上下文(这里简化处理,因为 search_content 不直接提供上下文)
-                    # 为了保持兼容性,我们构建一个简化的上下文
-                    current_matches.append(
-                        {
-                            "line_num": line_num,
-                            "content": content,
-                            "context": [{"line_num": line_num, "content": content, "is_match": True}],
-                            "match_type": pattern_info["type"],
-                            "symbol_name": symbol_name,
-                        }
-                    )
-
-        # 保存最后一个文件的结果
-        if current_file and current_matches:
-            results.append({"file": current_file, "matches": current_matches, "type": pattern_info["type"]})
-
-    except Exception:
-        # 如果搜索失败,静默跳过
-        pass
-
-    return results
-
-
-def _search_patterns_concurrent(
+def _search_all_patterns(
     workspace: Workspace,
     patterns: list[dict],
     search_path: str,
@@ -206,40 +130,124 @@ def _search_patterns_concurrent(
     file_pattern: str,
     ignore: list[str] | None,
 ) -> list[dict]:
-    """并发执行多个模式的搜索"""
-    all_results = []
+    """单次文件遍历搜索所有模式, 返回按文件分组且带上下文的结果.
 
-    # 使用线程池并发执行多个模式的搜索
-    with ThreadPoolExecutor(max_workers=min(len(patterns), 4)) as executor:
-        future_to_pattern = {
-            executor.submit(
-                _search_single_pattern,
-                workspace,
-                pattern_info,
-                search_path,
-                symbol_name,
-                context_lines,
-                limit - len(all_results),
-                file_pattern,
-                ignore,
-            ): pattern_info
-            for pattern_info in patterns
-        }
+    相比旧实现的优势:
+    - 文件系统只遍历 1 次(旧: N 次, N=模式数量)
+    - 每个文件只读取 1 次(旧: N 次)
+    - 直接使用结构化数据, 无需 格式化→正则解析 的反模式
+    - 真正实现上下文行读取(旧实现仅将匹配行本身作为上下文)
+    """
+    # 编译所有正则模式
+    compiled_patterns: list[tuple[re.Pattern, str]] = []
+    for p in patterns:
+        try:
+            regex = re.compile(p["pattern"], re.IGNORECASE)
+            compiled_patterns.append((regex, p["type"]))
+        except re.error:
+            continue
 
-        for future in as_completed(future_to_pattern):
-            try:
-                results = future.result()
-                all_results.extend(results)
-                if len(all_results) >= limit:
-                    # 达到限制,取消剩余任务
-                    for f in future_to_pattern:
-                        f.cancel()
-                    break
-            except Exception:
-                # 单个模式失败不影响其他模式
-                pass
+    if not compiled_patterns:
+        return []
 
-    return all_results[:limit]
+    # 单次遍历搜索: 所有模式在一次文件遍历中完成
+    matches = workspace.search_content_multi_pattern(
+        patterns=compiled_patterns,
+        folder_path=search_path,
+        file_pattern=file_pattern,
+        max_workers=4,
+        ignore=ignore,
+    )
+
+    if not matches:
+        return []
+
+    # 应用 limit 截断
+    matches = matches[:limit]
+
+    # 按文件分组并构建带上下文的结果
+    return _build_results_with_context(matches, context_lines, symbol_name, workspace.root_path)
+
+
+def _build_results_with_context(
+    matches: list[dict],
+    context_lines: int,
+    symbol_name: str,
+    root_path: Path,
+) -> list[dict]:
+    """从扁平匹配列表构建按文件分组、带上下文的结果"""
+    context_lines = max(0, context_lines)
+
+    # 按文件分组, 保留首次出现的顺序
+    file_matches: dict[str, list[dict]] = {}
+    file_order: list[str] = []
+    for m in matches:
+        f = m["file"]
+        if f not in file_matches:
+            file_matches[f] = []
+            file_order.append(f)
+        file_matches[f].append(m)
+
+    results = []
+    for file_rel in file_order:
+        file_match_list = file_matches[file_rel]
+
+        # 收集需要读取的行号范围(匹配行 ± 上下文行)
+        needed_lines: set[int] = set()
+        for m in file_match_list:
+            for delta in range(-context_lines, context_lines + 1):
+                needed_lines.add(m["line_num"] + delta)
+
+        # 仅读取需要的行(不加载整个文件到内存)
+        line_cache: dict[int, str] = {}
+        file_full_path = root_path / file_rel
+        try:
+            if needed_lines:
+                max_needed = max(needed_lines)
+                with open(file_full_path, encoding="utf-8") as f:
+                    for line_num, line in enumerate(f, 1):
+                        if line_num in needed_lines:
+                            line_cache[line_num] = line.rstrip("\n\r")
+                        if line_num >= max_needed:
+                            break
+        except UnicodeDecodeError, PermissionError, OSError:
+            pass
+
+        # 为每个匹配项构建上下文
+        built_matches = []
+        for m in file_match_list:
+            match_line_num = m["line_num"]
+            context = []
+            for delta in range(-context_lines, context_lines + 1):
+                ctx_line_num = match_line_num + delta
+                if ctx_line_num in line_cache:
+                    context.append(
+                        {
+                            "line_num": ctx_line_num,
+                            "content": line_cache[ctx_line_num],
+                            "is_match": delta == 0,
+                        }
+                    )
+
+            built_matches.append(
+                {
+                    "line_num": match_line_num,
+                    "content": m["content"],
+                    "context": context,
+                    "match_type": m["pattern_type"],
+                    "symbol_name": symbol_name,
+                }
+            )
+
+        results.append(
+            {
+                "file": file_rel,
+                "matches": built_matches,
+                "type": file_match_list[0]["pattern_type"],
+            }
+        )
+
+    return results
 
 
 def _detect_language(search_path: Path, specified_lang: str) -> str:
@@ -347,6 +355,17 @@ class SymbolRefTool(BaseTool):
         super().__init__(workspace, "symbol_ref", self.symbol_ref.__doc__, read_permission=True, write_permission=False)
         self.func = self.symbol_ref
         self.params = BaseTool.extract_params(self.symbol_ref)
+        self.param_descriptions = {
+            "symbol_name": "要查找的符号名称(如函数名、类名、变量名)",
+            "path": "搜索文件或文件夹路径",
+            "language": "语言类型(auto/python/javascript/typescript/markdown/general)",
+            "include_definitions": "是否包含定义位置",
+            "include_references": "是否包含引用位置",
+            "context_lines": "显示匹配行的上下文行数",
+            "limit": "最大匹配数量限制",
+            "ignore": "忽略匹配正则的文件或文件夹列表",
+            "file_pattern": "文件匹配模式(如 *.py),默认根据语言自动选择",
+        }
 
     @BaseTool.handle_tool_exceptions
     def symbol_ref(
@@ -362,24 +381,7 @@ class SymbolRefTool(BaseTool):
         file_pattern: str | None = None,
     ) -> str:
         """
-        查找符号(函数、类、变量等)的定义和引用位置
-
-        支持自动识别语言类型,生成智能搜索模式来定位符号的定义和所有使用位置.
-        适用于代码探索、重构影响分析、理解代码结构等场景.
-
-        Args:
-            symbol_name: 要查找的符号名称(如函数名、类名、变量名)
-            path: 搜索路径,默认为当前目录
-            language: 语言类型(auto/python/javascript/typescript/markdown/general),默认auto
-            include_definitions: 是否包含定义位置,默认True
-            include_references: 是否包含引用位置,默认True
-            context_lines: 显示匹配行的上下文行数,默认2
-            limit: 最大匹配数量限制,默认为256
-            ignore: 忽略匹配正则的文件或文件夹列表
-            file_pattern: 文件匹配模式(如 *.py),默认根据语言自动选择
-
-        Returns:
-            格式化的符号引用搜索结果
+        查找符号(函数、类、变量等)的定义和引用位置, 适用于代码探索、重构影响分析、理解代码结构等场景.
         """
         # 验证搜索路径
         search_path: Path = self.workspace.path_validator.validate(path)
@@ -400,7 +402,7 @@ class SymbolRefTool(BaseTool):
             return f"无法为符号 '{symbol_name}' 生成有效的搜索模式(语言: {detected_lang})"
 
         # 使用并发搜索执行所有模式
-        all_results = _search_patterns_concurrent(
+        all_results = _search_all_patterns(
             self.workspace,
             patterns,
             path,

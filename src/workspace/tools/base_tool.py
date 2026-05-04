@@ -7,23 +7,21 @@ from src.core.file_tracker import FileTracker
 from src.workspace.workspace import Workspace
 
 
-def build_param_doc(name: str, params: dict[str, Any]) -> str:
-    """Generate a concise XML parameter doc."""
+def build_param_list_item(name: str, params: dict[str, Any], description: str = "") -> str:
+    """Generate a Markdown list item describing a parameter."""
     from src.constants.prompts import clean_type_annotation
 
-    result = f'<param name="{name}"'
-    if "annotation" in params:
-        result += f' type="{clean_type_annotation(params["annotation"])}"'
-    else:
-        result += ' type="string"'
+    type_str = clean_type_annotation(params.get("annotation", "Any"))
+
     if params.get("required", False):
-        result += ' required="true"'
+        req_str = "required"
     else:
-        result += ' required="false"'
-    if "default" in params:
-        result += f' default="{params["default"]}"'
-    result += " />"
-    return result
+        default_val = params.get("default", "")
+        req_str = f"optional, default=`{default_val}`"
+
+    desc_suffix = f": {description}" if description else ""
+
+    return f"- **{name}** ({type_str}, {req_str}){desc_suffix}"
 
 
 def convert_param_type(value: str, expected_type: str) -> Any:
@@ -112,6 +110,7 @@ class BaseTool:
         self.doc: str = doc
         self.func: Callable[..., Any] | None = None
         self.params: dict[str, Any] | None = None
+        self.param_descriptions: dict[str, str] = {}
 
     def to_doc(self) -> str:
         """转换为模型可读文档格式"""
@@ -119,7 +118,8 @@ class BaseTool:
         if self.params and len(self.params) > 0:
             lines.append("    <params>")
             for name, param in self.params.items():
-                lines.append(f"        {build_param_doc(name, param)}")
+                desc = self.param_descriptions.get(name, "")
+                lines.append(f"        {build_param_list_item(name, param, desc)}")
             lines.append("    </params>")
         else:
             lines.append("    <params><!-- 此工具不需要参数 --></params>")

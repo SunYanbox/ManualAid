@@ -19,11 +19,19 @@ class EditTool(BaseTool):
         super().__init__(workspace, "edit", self.edit.__doc__, write_permission=True)
         self.func = self.edit
         self.params = BaseTool.extract_params(self.edit)
+        self.param_descriptions = {
+            "path": "文件路径",
+            "old_string": "待替换的字符串",
+            "new_string": "替换后的字符串",
+            "max_replacements": "最大替换次数(1~100)",
+            "context_before": "匹配前的上下文文本",
+            "context_after": "匹配后的上下文文本",
+        }
 
     @BaseTool.handle_tool_exceptions
     def edit(
         self,
-        file_path: str,
+        path: str,
         old_string: str,
         new_string: str,
         max_replacements: int = 10,
@@ -31,19 +39,7 @@ class EditTool(BaseTool):
         context_after: str = "",
     ) -> str:
         """
-        在文件中进行安全的字符串替换(仅预览,不修改磁盘)
-
-        执行 dry-run 替换,生成 diff,记录 PENDING_AUDIT 快照.
-        批准后由 AuditCommitter 执行实际写入.
-
-        Parameters
-        ----------
-        file_path: 文件路径
-        old_string: 待替换的字符串(不能为空)
-        new_string: 替换后的字符串
-        max_replacements: 最大替换次数(默认 10,最大 100)
-        context_before: 匹配前的上下文文本(可选,用于校验)
-        context_after: 匹配后的上下文文本(可选,用于校验)
+        通过在文件中进行安全的字符串替换编辑文件
         """
         # 1. 参数校验
         if not old_string:
@@ -55,8 +51,8 @@ class EditTool(BaseTool):
             max_replacements = 100
 
         # 2. 路径解析
-        source_file_path = Path(file_path)
-        resolved_path: Path = self.workspace.path_validator.resolve_path(source_file_path)
+        source_path = Path(path)
+        resolved_path: Path = self.workspace.path_validator.resolve_path(source_path)
 
         if not resolved_path.is_file():
             return ToolErrorResponse(
@@ -96,7 +92,7 @@ class EditTool(BaseTool):
             idx += len(old_string)
 
         if count == 0:
-            return f"No changes made: old_string not found in file.\nFile: {file_path}\nSearching for: '{old_string}'"
+            return f"No changes made: old_string not found in file.\nFile: {path}\nSearching for: '{old_string}'"
 
         # 6. 执行替换(生成新内容)
         new_content = old_content.replace(old_string, new_string, count)
