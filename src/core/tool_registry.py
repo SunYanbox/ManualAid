@@ -11,9 +11,10 @@ from typing import Any, ClassVar, ParamSpec, Self, TypeVar
 
 import nest_asyncio
 
+from models.tools.tool_result import ToolResult
 from src.console.result_manager import _to_string
 from src.utils.string_snapshot import truncate_string
-from src.workspace.tools.base_tool import BaseTool, ToolResult
+from src.workspace.tools.base_tool import BaseTool
 from src.workspace.workspace import Workspace
 
 P = ParamSpec("P")
@@ -55,36 +56,6 @@ class ToolRegistry:
         # 配置常量 - 从环境变量读取,带默认值
         self.MAX_DOC_LENGTH = int(os.getenv("TOOL_MAX_DOC_LENGTH", "360"))
         self.MAX_FUNC_NAME_LENGTH = int(os.getenv("TOOL_MAX_FUNC_NAME_LENGTH", "80"))
-        self.MAX_RESULT_LENGTH = int(os.getenv("TOOL_MAX_RESULT_LENGTH", "30000"))
-        self.LIST_TRUNCATE_THRESHOLD = int(os.getenv("TOOL_LIST_TRUNCATE_THRESHOLD", "100"))
-        self.DICT_TRUNCATE_THRESHOLD = int(os.getenv("TOOL_DICT_TRUNCATE_THRESHOLD", "100"))
-
-        # 验证配置值
-        self._validate_config()
-
-    def _validate_config(self) -> None:
-        """验证配置值确保在合理范围内"""
-        if self.MAX_RESULT_LENGTH < 10:
-            warnings.warn(
-                f"TOOL_MAX_RESULT_LENGTH 过小({self.MAX_RESULT_LENGTH}),建议至少为100", UserWarning, stacklevel=2
-            )
-            self.MAX_RESULT_LENGTH = 100
-
-        if self.LIST_TRUNCATE_THRESHOLD < 10:
-            warnings.warn(
-                f"TOOL_LIST_TRUNCATE_THRESHOLD 过小({self.LIST_TRUNCATE_THRESHOLD}),建议至少为50",
-                UserWarning,
-                stacklevel=2,
-            )
-            self.LIST_TRUNCATE_THRESHOLD = 50
-
-        if self.DICT_TRUNCATE_THRESHOLD < 10:
-            warnings.warn(
-                f"TOOL_DICT_TRUNCATE_THRESHOLD 过小({self.DICT_TRUNCATE_THRESHOLD}),建议至少为50",
-                UserWarning,
-                stacklevel=2,
-            )
-            self.DICT_TRUNCATE_THRESHOLD = 50
 
     def _validate_tool_info(self, name: str, doc: str) -> None:
         """验证工具信息并发出警告"""
@@ -142,29 +113,7 @@ class ToolRegistry:
             except ValueError:
                 pass
 
-    def _compress_result(self, result: Any) -> Any:
-        """压缩过长的结果"""
-        result_length = len(result)
-        if isinstance(result, str):
-            if result_length > self.MAX_RESULT_LENGTH:
-                return (
-                    result[: self.MAX_RESULT_LENGTH]
-                    + f"... [字符串结果已截断 显示的字符数: {self.LIST_TRUNCATE_THRESHOLD} / {result_length}]"
-                )
-        elif isinstance(result, (list, tuple)):
-            if result_length > self.LIST_TRUNCATE_THRESHOLD:
-                return [
-                    *list(result[: self.LIST_TRUNCATE_THRESHOLD]),
-                    f"... [列表已截断 显示的项: {self.LIST_TRUNCATE_THRESHOLD} / {result_length}]",
-                ]
-        elif isinstance(result, dict) and result_length > self.DICT_TRUNCATE_THRESHOLD:
-            compressed = {k: result[k] for k in list(result.keys())[: self.DICT_TRUNCATE_THRESHOLD]}
-            compressed["..."] = f"[字典已截断 显示的项: {self.DICT_TRUNCATE_THRESHOLD} / {result_length}]"
-            return compressed
-
-        return result
-
-    def execute(self, func_name: str, *args: Any, **kwargs: Any) -> Any:
+    def execute(self, func_name: str, *args: Any, **kwargs: Any) -> ToolResult:
         """
         执行工具函数
 
@@ -197,16 +146,22 @@ class ToolRegistry:
                 raw_result = tool.func(*args, **kwargs)
 
             # 统一解包 ToolResult
-            result = raw_result if isinstance(raw_result, ToolResult) else ToolResult(success=True, data=raw_result)
-
-            status = "success" if result.success else "error"
-            output = result.data if result.success else result.error
-
+            result = (
+                raw_result
+                if (isinstance(raw_result, ToolResult))
+                else (
+                    ToolResult(
+                        success=False,
+                        func_name=func_name,
+                        func_kwargs=kwargs,
+                        error=f"错误的工具返回值类型: {raw_result.__class__.__name__}",
+                    )
+                )
+            )
             duration_ms = (time.perf_counter() - start_time) * 1000
-            self._log_tool_call(func_name, kwargs, duration_ms, status)
-            self._record_tool_call_summary(func_name, kwargs, output)
-
-            return self._compress_result(output)
+            self._log_tool_call(func_name, kwargs, duration_ms, result.status)
+            self._record_tool_call_summary(func_name, kwargs, result.response)
+            return result
         else:
             raise ValueError(f"未找到工具: {func_name}")
 

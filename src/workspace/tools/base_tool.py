@@ -4,27 +4,8 @@ from pathlib import Path
 from typing import Any
 
 from src.core.file_tracker import FileTracker
+from src.models.tools.tool_result import ToolResult
 from src.workspace.workspace import Workspace
-
-
-class ToolResult:
-    """工具执行结果的结构化包装,显式区分成功与失败.
-
-    所有被 @handle_tool_exceptions 装饰的工具方法均返回此类型,
-    调用方可通过 success 标志可靠判断执行状态,无需依赖隐式类型约定.
-    """
-
-    __slots__ = ("data", "error", "success")
-
-    def __init__(self, success: bool, data: Any = None, error: str | None = None) -> None:
-        self.success = success
-        self.data = data
-        self.error = error
-
-    def __repr__(self) -> str:
-        if self.success:
-            return f"ToolResult(success=True, data={self.data!r})"
-        return f"ToolResult(success=False, error={self.error!r})"
 
 
 def build_param_list_item(name: str, params: dict[str, Any], description: str = "") -> str:
@@ -128,7 +109,7 @@ class BaseTool:
         self.write_permission: bool = write_permission
         self.name: str = name
         self.doc: str = doc
-        self.func: Callable[..., Any] | None = None
+        self.func: Callable[..., ToolResult] | None = None
         self.params: dict[str, Any] | None = None
         self.param_descriptions: dict[str, str] = {}
 
@@ -244,16 +225,25 @@ class BaseTool:
         diff = difflib.unified_diff(old_lines, new_lines, fromfile=f"a/{file_path}", tofile=f"b/{file_path}")
         return "".join(diff)
 
-    @staticmethod
-    def handle_tool_exceptions(func):
-        """工具方法异常处理装饰器 —— 将异常转换为 ToolResult 失败结果.
+    @classmethod
+    def make_tool_result_response(
+        cls, success: bool, kwargs: dict, data: Any = None, error: str | None = None
+    ) -> ToolResult:
+        return ToolResult(success=success, func_name=cls.__name__, func_kwargs=kwargs, data=data, error=error)
 
-        与旧版的关键区别: 异常不再被吞噬为普通字符串,
-        而是封装为 ToolResult(success=False, error=...), 调用方可可靠区分成功/失败.
-        """
+    @classmethod
+    def make_success_response(cls, kwargs: dict, data: Any = None, error: str | None = None) -> ToolResult:
+        return cls.make_tool_result_response(success=True, kwargs=kwargs, data=data, error=error)
+
+    @classmethod
+    def make_failed_response(cls, kwargs: dict, data: Any = None, error: str | None = None) -> ToolResult:
+        return cls.make_tool_result_response(success=False, kwargs=kwargs, data=data, error=error)
+
+    @staticmethod
+    def handle_tool_exceptions(func) -> ToolResult:
+        """工具方法异常处理装饰器 —— 将异常转换为 ToolResult 失败结果"""
         from functools import wraps
 
-        from src.models.tool_error_response import ToolErrorResponse
         from src.workspace.path_validator import PathNotFoundError, WorkspaceBoundaryError
 
         @wraps(func)
@@ -264,26 +254,31 @@ class BaseTool:
                 if isinstance(raw, ToolResult):
                     return raw
                 # 否则包装为成功结果
-                return ToolResult(success=True, data=raw)
+                return ToolResult(success=True, func_name=func.__name__, func_kwargs=kwargs, data=raw)
             except PathNotFoundError as err1:
                 return ToolResult(
                     success=False,
-                    error=ToolErrorResponse(self.__class__.__name__, err1).to_str(),
+                    func_name=func.__name__,
+                    func_kwargs=kwargs,
+                    error=f"{err1.__class__.__name__}: {err1}",
                 )
             except WorkspaceBoundaryError as err2:
                 return ToolResult(
                     success=False,
-                    error=ToolErrorResponse(self.__class__.__name__, err2).to_str(),
+                    func_name=func.__name__,
+                    func_kwargs=kwargs,
+                    error=f"{err2.__class__.__name__}: {err2}",
                 )
             except PermissionError as err3:
                 return ToolResult(
                     success=False,
-                    error=ToolErrorResponse(self.__class__.__name__, err3).to_str(),
+                    func_name=func.__name__,
+                    func_kwargs=kwargs,
+                    error=f"{err3.__class__.__name__}: {err3}",
                 )
             except Exception as err:
                 return ToolResult(
-                    success=False,
-                    error=ToolErrorResponse(self.__class__.__name__, err).to_str(),
+                    success=False, func_name=func.__name__, func_kwargs=kwargs, error=f"{err.__class__.__name__}: {err}"
                 )
 
         return wrapper
