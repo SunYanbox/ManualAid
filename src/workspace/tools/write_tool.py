@@ -52,7 +52,7 @@ class WriteTool(BaseTool):
         new_hash = FileTracker.compute_checksum_from_string(content)
         diff_content = self._generate_diff(old_content, content, rel_path)
 
-        session_id = self.workspace._current_session_id
+        session_id = self.workspace.session_id
         snapshot_id = self.workspace.db.record_file_snapshot(
             rel_path,
             old_hash,

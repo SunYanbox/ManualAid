@@ -7,6 +7,26 @@ from src.core.file_tracker import FileTracker
 from src.workspace.workspace import Workspace
 
 
+class ToolResult:
+    """工具执行结果的结构化包装,显式区分成功与失败.
+
+    所有被 @handle_tool_exceptions 装饰的工具方法均返回此类型,
+    调用方可通过 success 标志可靠判断执行状态,无需依赖隐式类型约定.
+    """
+
+    __slots__ = ("success", "data", "error")
+
+    def __init__(self, success: bool, data: Any = None, error: str | None = None) -> None:
+        self.success = success
+        self.data = data
+        self.error = error
+
+    def __repr__(self) -> str:
+        if self.success:
+            return f"ToolResult(success=True, data={self.data!r})"
+        return f"ToolResult(success=False, error={self.error!r})"
+
+
 def build_param_list_item(name: str, params: dict[str, Any], description: str = "") -> str:
     """Generate a Markdown list item describing a parameter."""
     from src.constants.prompts import clean_type_annotation
@@ -181,7 +201,7 @@ class BaseTool:
         try:
             meta = FileTracker.get_file_meta(resolved_path)
             if meta:
-                session_id = self.workspace._current_session_id
+                session_id = self.workspace.session_id
                 if session_id is not None:
                     rel_path = str(resolved_path.relative_to(self.workspace.root_path))
                     self.workspace.db.record_file_read(
@@ -195,7 +215,7 @@ class BaseTool:
         if not resolved_path.exists():
             return None
 
-        session_id = self.workspace._current_session_id
+        session_id = self.workspace.session_id
         if session_id is None:
             return None
 
@@ -226,7 +246,11 @@ class BaseTool:
 
     @staticmethod
     def handle_tool_exceptions(func):
-        """工具方法异常处理装饰器."""
+        """工具方法异常处理装饰器 —— 将异常转换为 ToolResult 失败结果.
+
+        与旧版的关键区别: 异常不再被吞噬为普通字符串,
+        而是封装为 ToolResult(success=False, error=...), 调用方可可靠区分成功/失败.
+        """
         from functools import wraps
 
         from src.models.tool_error_response import ToolErrorResponse
@@ -235,14 +259,31 @@ class BaseTool:
         @wraps(func)
         def wrapper(self, *args, **kwargs):
             try:
-                return func(self, *args, **kwargs)
+                raw = func(self, *args, **kwargs)
+                # 如果工具内部已返回 ToolResult, 直接透传
+                if isinstance(raw, ToolResult):
+                    return raw
+                # 否则包装为成功结果
+                return ToolResult(success=True, data=raw)
             except PathNotFoundError as err1:
-                return ToolErrorResponse(self.__class__.__name__, err1).to_str()
+                return ToolResult(
+                    success=False,
+                    error=ToolErrorResponse(self.__class__.__name__, err1).to_str(),
+                )
             except WorkspaceBoundaryError as err2:
-                return ToolErrorResponse(self.__class__.__name__, err2).to_str()
+                return ToolResult(
+                    success=False,
+                    error=ToolErrorResponse(self.__class__.__name__, err2).to_str(),
+                )
             except PermissionError as err3:
-                return ToolErrorResponse(self.__class__.__name__, err3).to_str()
+                return ToolResult(
+                    success=False,
+                    error=ToolErrorResponse(self.__class__.__name__, err3).to_str(),
+                )
             except Exception as err:
-                return ToolErrorResponse(self.__class__.__name__, err).to_str()
+                return ToolResult(
+                    success=False,
+                    error=ToolErrorResponse(self.__class__.__name__, err).to_str(),
+                )
 
         return wrapper

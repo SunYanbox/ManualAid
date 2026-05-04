@@ -13,7 +13,7 @@ import nest_asyncio
 
 from src.console.result_manager import _to_string
 from src.utils.string_snapshot import truncate_string
-from src.workspace.tools.base_tool import BaseTool
+from src.workspace.tools.base_tool import BaseTool, ToolResult
 from src.workspace.workspace import Workspace
 
 P = ParamSpec("P")
@@ -181,30 +181,36 @@ class ToolRegistry:
             kwargs = tool.convert_args(kwargs)
 
             start_time = time.perf_counter()
-            status = "success"
-            try:
-                if inspect.iscoroutinefunction(tool.func):
-                    coro = tool.func(*args, **kwargs)
-                    # 已有事件循环
-                    try:
-                        loop = asyncio.get_running_loop()
-                        nest_asyncio.apply()
-                        result = loop.run_until_complete(coro)
-                    except RuntimeError:  # pragma: no cover  // pytest内置事件循环, 测不到这里
-                        # 没有运行中的事件循环
-                        result = asyncio.run(coro)
-                else:
-                    # 同步函数
-                    result = tool.func(*args, **kwargs)
-            except Exception as e:
-                status = "error"
-                result = f'<func_name="{tool.name}", errors={e.__class__.__name__}({e})>'
+
+            if inspect.iscoroutinefunction(tool.func):
+                coro = tool.func(*args, **kwargs)
+                # 已有事件循环
+                try:
+                    loop = asyncio.get_running_loop()
+                    nest_asyncio.apply()
+                    raw_result = loop.run_until_complete(coro)
+                except RuntimeError:  # pragma: no cover  // pytest内置事件循环, 测不到这里
+                    # 没有运行中的事件循环
+                    raw_result = asyncio.run(coro)
+            else:
+                # 同步函数
+                raw_result = tool.func(*args, **kwargs)
+
+            # 统一解包 ToolResult
+            if isinstance(raw_result, ToolResult):
+                result = raw_result
+            else:
+                # 兼容未使用 @handle_tool_exceptions 的工具 (如 GitTool)
+                result = ToolResult(success=True, data=raw_result)
+
+            status = "success" if result.success else "error"
+            output = result.data if result.success else result.error
 
             duration_ms = (time.perf_counter() - start_time) * 1000
             self._log_tool_call(func_name, kwargs, duration_ms, status)
-            self._record_tool_call_summary(func_name, kwargs, result)
+            self._record_tool_call_summary(func_name, kwargs, output)
 
-            return self._compress_result(result)
+            return self._compress_result(output)
         else:
             raise ValueError(f"未找到工具: {func_name}")
 
@@ -234,8 +240,10 @@ class ToolRegistry:
         return self._tools.get(name)
 
     def set_session_id(self, session_id: int) -> None:
-        """设置当前会话 ID"""
+        """设置当前会话 ID,并同步到关联的 Workspace."""
         self._current_session_id = session_id
+        if self._workspace is not None:
+            self._workspace.session_id = session_id
 
     @staticmethod
     def _compute_kwargs_json(kwargs: dict) -> str:
@@ -246,13 +254,13 @@ class ToolRegistry:
         return json.dumps(truncated, sort_keys=True, default=str)
 
     def _log_tool_call(self, func_name: str, kwargs: dict, duration_ms: float, status: str) -> str | None:
-        session_id = getattr(self, "_current_session_id", None)
-        if session_id is None:
+        if self._current_session_id is None:
             return None
         try:
             kwargs_json = self._compute_kwargs_json(kwargs)
             workspace = getattr(self, "_workspace", None)
             if workspace is not None:
+                session_id = self._current_session_id
                 # Determine audit_status based on tool category
                 category = self._tool_categories.get(func_name, "query")
                 audit_status = "none"
@@ -280,8 +288,7 @@ class ToolRegistry:
         return f"ToolRegistry(sync_tools={len(self._tools)})"
 
     def _record_tool_call_summary(self, func_name: str, kwargs: dict, result: Any) -> None:
-        session_id = getattr(self, "_current_session_id", None)
-        if session_id is None:
+        if self._current_session_id is None:
             return
 
         # Exclude write tools
@@ -294,6 +301,6 @@ class ToolRegistry:
             workspace = getattr(self, "_workspace", None)
             if workspace is not None:
                 result_str = _to_string(result)
-                workspace.db.record_tool_call_summary(session_id, func_name, kwargs_json, result_str)
+                workspace.db.record_tool_call_summary(self._current_session_id, func_name, kwargs_json, result_str)
         except Exception:
             pass
