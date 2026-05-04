@@ -1,9 +1,13 @@
+import os
 from pathlib import Path
 
 from src.models.tool_error_response import ToolErrorResponse
 from src.utils.binary_detector import is_binary_file
 from src.workspace.tools.base_tool import BaseTool
 from src.workspace.workspace import Workspace
+
+# 最大文件读取大小, 超过此大小的文件将被拒绝读取（默认 10MB）
+MAX_FILE_SIZE = int(os.getenv("TOOL_READ_MAX_FILE_SIZE", str(10 * 1024 * 1024)))
 
 
 def _resolve_index(idx: int, total: int) -> int:
@@ -46,6 +50,16 @@ class ReadTool(BaseTool):
             return ToolErrorResponse(
                 self.__class__.__name__,
                 ValueError(f"无法读取二进制文件: {file_path}. 请使用二进制安全工具或转换为 base64."),
+            ).to_str()
+
+        file_size = file_path.stat().st_size
+        if file_size > MAX_FILE_SIZE:
+            return ToolErrorResponse(
+                self.__class__.__name__,
+                ValueError(
+                    f"文件过大 ({file_size} 字节), 超过最大限制 ({MAX_FILE_SIZE} 字节): {file_path}. "
+                    f"请使用范围参数 (start/end) 分批读取."
+                ),
             ).to_str()
 
         with open(file_path, encoding=encoding) as f:
