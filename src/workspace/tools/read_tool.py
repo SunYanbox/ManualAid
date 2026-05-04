@@ -6,6 +6,17 @@ from src.workspace.tools.base_tool import BaseTool
 from src.workspace.workspace import Workspace
 
 
+def _resolve_index(idx: int, total: int) -> int:
+    """Resolve a 1-based or negative index to a clamped 1-based line number."""
+    if idx < 0:
+        idx = total + 1 + idx
+    if idx < 1:
+        return 1
+    if idx > total:
+        return total
+    return idx
+
+
 class ReadTool(BaseTool):
     def __init__(self, workspace: Workspace):
         super().__init__(workspace, "read", self.read.__doc__)
@@ -13,14 +24,16 @@ class ReadTool(BaseTool):
         self.params = BaseTool.extract_params(self.read)
 
     @BaseTool.handle_tool_exceptions
-    def read(self, file_path: str, max_lines: int = 0, encoding: str = "utf-8") -> str:
+    def read(self, file_path: str, start: int = 1, end: int = -1, context: int = 0, encoding: str = "utf-8") -> str:
         """
-        读取文件内容,可限制最大行数,返回文件内容字符串(带行号)
+        读取文件内容,可指定行范围,返回带行号的格式化内容
 
         Parameters
         ----------
         file_path: 文件路径
-        max_lines: 最大行数(0表示不限制)
+        start: 起始行号(1开始; 负数表示倒数, -1=最后一行)
+        end: 结束行号(1开始; 负数表示倒数, -1=最后一行)
+        context: 扩展结果行数范围 行数范围最终为(start-context, end+context)
         encoding: 编码
         """
         path: Path = self.workspace.path_validator.validate(file_path)
@@ -39,15 +52,35 @@ class ReadTool(BaseTool):
 
         total_lines = len(lines)
 
-        if max_lines > 0:
-            lines = lines[:max_lines]
+        if total_lines == 0:
+            header = f"\n[文件: {path}]\n[行 0-0 / 共 0 行]\n"
+            separator = "-" * 80 + "\n"
+            self._record_read_meta(path)
+            return header + separator
+
+        context = max(0, context)
+
+        actual_start = _resolve_index(start, total_lines) - context
+        actual_end = _resolve_index(end, total_lines) + context
+
+        if actual_start < 1:
+            actual_start = 1
+        if actual_end > total_lines:
+            actual_end = total_lines
+
+        if actual_end < actual_start:
+            return (
+                f"错误:解析后的结束行 {actual_end} 小于起始行 {actual_start} "
+                f"(原始参数: start={start}, end={end}, context={context})"
+            )
 
         result_lines = []
-        for i, line in enumerate(lines, 1):
-            content = line.rstrip("\n\r")
-            result_lines.append(f"{i:6d} | {content}")
+        for i in range(actual_start - 1, actual_end):
+            line_num = i + 1
+            content = lines[i].rstrip("\n\r")
+            result_lines.append(f"{line_num:6d} | {content}")
 
-        header = f"\n[文件: {path}]\n[行 1-{len(lines)} / 共 {total_lines} 行]\n"
+        header = f"\n[文件: {path}]\n[行 {actual_start}-{actual_end} / 共 {total_lines} 行]\n"
         separator = "-" * 80 + "\n"
 
         self._record_read_meta(path)

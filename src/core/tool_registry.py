@@ -98,7 +98,7 @@ class ToolRegistry:
 
     def _set_tool_category(self, tool_name: str) -> None:
         """根据工具名称设置分类."""
-        if tool_name in {"glob", "ls", "regex_search", "exact_search", "stat", "read", "read_lines", "symbol_ref"}:
+        if tool_name in {"glob", "ls", "regex_search", "exact_search", "stat", "read", "symbol_ref"}:
             self._tool_categories[tool_name] = "query"
         elif tool_name in {"write", "edit", "confirm_edit"}:
             self._tool_categories[tool_name] = "edit"
@@ -114,7 +114,6 @@ class ToolRegistry:
         from src.workspace.tools.git_tool import GitTool
         from src.workspace.tools.glob_tool import GlobTool
         from src.workspace.tools.ls_tool import LsTool
-        from src.workspace.tools.read_lines_tool import ReadLinesTool
         from src.workspace.tools.read_tool import ReadTool
         from src.workspace.tools.regex_search_tool import RegexSearchTool
         from src.workspace.tools.stat_tool import StatTool
@@ -127,7 +126,6 @@ class ToolRegistry:
             ExactSearchTool,
             GlobTool,
             LsTool,
-            ReadLinesTool,
             ReadTool,
             RegexSearchTool,
             WriteTool,
