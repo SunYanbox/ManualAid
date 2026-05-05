@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import pyperclip
+from src.core.copy2clip import copy_to_clipboard
 
 from src.core.agent_manager import AgentManager
 from src.models.commands import Command, CommandContext, CommandResult
@@ -27,7 +27,9 @@ class AgentCommand(Command):
 
     def execute(self, context: CommandContext) -> CommandResult:
         mgr = AgentManager()
-        args = context.parsed_input.args.strip()
+        # Parse args from source: "/agent list" -> "list"
+        parts = context.parsed_input.source.split()
+        args = " ".join(parts[1:]) if len(parts) > 1 else ""
 
         if not args:
             return self._show_current(mgr, context)
@@ -93,7 +95,6 @@ class AgentCommand(Command):
 
     def _copy_agent(self, mgr: AgentManager, context: CommandContext, name: str | None) -> CommandResult:
         if name:
-            # Resolve name (exact or unique prefix)
             agent = mgr.get(name)
             if agent is None:
                 matches = [n for n in mgr.agent_names() if n.startswith(name)]
@@ -111,12 +112,11 @@ class AgentCommand(Command):
             agent = mgr.get_current()
 
         text = self._format_agent_copy(agent)
-        try:
-            pyperclip.copy(text)
+        if copy_to_clipboard(text):
             context.console.print(f"[green]Agent '{agent.name}' settings copied to clipboard.[/green]")
-        except Exception:
+        else:
             context.console.print(text)
-            context.console.print("[yellow](pyperclip unavailable — printed above instead)[/yellow]")
+            context.console.print("[yellow](Clipboard unavailable — printed above instead)[/yellow]")
         return CommandResult(success=True)
 
     @staticmethod
