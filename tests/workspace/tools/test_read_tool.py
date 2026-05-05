@@ -33,7 +33,7 @@ class TestReadToolMtimeRecording:
         tool = ReadTool(workspace)
         result = tool.read("test.txt")
 
-        assert "hello" in result
+        assert "hello" in result.data
         record = workspace.db.get_file_read_record(workspace._current_session_id, "test.txt")
         assert record is not None
         assert record[3] == pytest.approx(file.stat().st_mtime, abs=0.01)
@@ -59,7 +59,7 @@ class TestReadToolMtimeRecording:
         tool = ReadTool(workspace)
         result = tool.read("nonexistent.txt")
 
-        assert "error" in result.lower() or "Error" in result
+        assert "error" in result.error.lower() or "Error" in result.error
         record = workspace.db.get_file_read_record(workspace._current_session_id, "nonexistent.txt")
         assert record is None
 
@@ -88,6 +88,6 @@ class TestReadToolRangeRecording:
         tool = ReadTool(workspace)
         result = tool.read("test.txt", start=1, end=2)
 
-        assert "line1" in result
+        assert "line1" in result.data
         record = workspace.db.get_file_read_record(workspace._current_session_id, "test.txt")
         assert record is not None

@@ -85,7 +85,6 @@ def init_workspace(start_path: str | None = None) -> Workspace | None:
 
     session_id = workspace.db.create_session(name=f"session_{time.strftime('%Y%m%d_%H%M%S')}")
     tool_registry.set_session_id(session_id)
-    workspace._current_session_id = session_id
 
     # Start a daemon heartbeat thread to periodically persist session duration
     # and guard against accidental deletion flag

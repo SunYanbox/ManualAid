@@ -3,7 +3,7 @@
 import re
 from pathlib import Path
 
-from src.models.tool_error_response import ToolErrorResponse
+from src.models.tools.tool_result import ToolResult
 from src.workspace.tools.base_tool import BaseTool
 from src.workspace.workspace import Workspace
 
@@ -379,14 +379,14 @@ class SymbolRefTool(BaseTool):
         limit: int = 256,
         ignore: list[str] | None = None,
         file_pattern: str | None = None,
-    ) -> str:
+    ) -> ToolResult:
         """
         查找符号(函数、类、变量等)的定义和引用位置, 适用于代码探索、重构影响分析、理解代码结构等场景.
         """
         # 验证搜索路径
         search_path: Path = self.workspace.path_validator.validate(path)
         if not search_path.exists():
-            return ToolErrorResponse(self.__class__.__name__, f"路径不存在: {path}").to_str()
+            return self.make_failed_response(kwargs=locals().copy(), error=f"路径不存在: {path}")
 
         # 自动检测语言
         detected_lang = _detect_language(search_path, language)
@@ -399,7 +399,9 @@ class SymbolRefTool(BaseTool):
         patterns = _generate_patterns(symbol_name, detected_lang, include_definitions, include_references)
 
         if not patterns:
-            return f"无法为符号 '{symbol_name}' 生成有效的搜索模式(语言: {detected_lang})"
+            return self.make_failed_response(
+                kwargs=locals().copy(), error=f"无法为符号 '{symbol_name}' 生成有效的搜索模式(语言: {detected_lang})"
+            )
 
         # 使用并发搜索执行所有模式
         all_results = _search_all_patterns(
@@ -414,4 +416,6 @@ class SymbolRefTool(BaseTool):
         )
 
         # 格式化输出
-        return _format_results(all_results, symbol_name, detected_lang, limit)
+        return self.make_success_response(
+            kwargs=locals().copy(), data=_format_results(all_results, symbol_name, detected_lang, limit)
+        )

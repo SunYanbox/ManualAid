@@ -208,7 +208,21 @@ docs(README): add contributing guide
 ## How to Add a New Tool
 
 All tools are located in the `src/workspace/tools/` directory and inherit from
-the `BaseTool` base class.
+the `BaseTool` base class. All tool methods must return a `ToolResult` object
+(located in `src/models/tools/tool_result.py`).
+
+### ToolResult Model
+
+`ToolResult` is the unified tool execution result wrapper:
+
+| Field         | Description                                     |
+| :------------ | :---------------------------------------------- |
+| `success`     | Whether execution succeeded (`bool`)            |
+| `func_name`   | Name of the tool method (`str`)                 |
+| `func_kwargs` | Dictionary of invocation parameters (`dict`)    |
+| `data`        | Return data on success (`Any`)                  |
+| `error`       | Error message on failure (`str\|None`)          |
+| `response`    | Auto-generated XML string (for LLM consumption) |
 
 ### Step Overview
 
@@ -217,6 +231,7 @@ the `BaseTool` base class.
 2. **Inherit from BaseTool**:
 
    ```python
+   from src.models.tools.tool_result import ToolResult
    from src.workspace.tools.base_tool import BaseTool
    from src.workspace.workspace import Workspace
 
@@ -237,14 +252,25 @@ the `BaseTool` base class.
            }
 
        @BaseTool.handle_tool_exceptions
-       def your_method(self, param1: str, param2: int = 0) -> str:
+       def your_method(self, param1: str, param2: int = 0) -> ToolResult:
            """
            Tool description -- will be generated as LLM-readable documentation.
            """
            # Path operations must be validated through PathValidator
            path = self.workspace.path_validator.validate(param1)
-           # ... tool logic ...
-           return f'{path}x{param2}'
+
+           # Note: Return ToolResult, not raw data
+           # On success, use make_success_response
+           return self.make_success_response(
+               kwargs=locals().copy(),
+               data=f'{path}x{param2}'
+           )
+
+           # On failure, use make_failed_response
+           # return self.make_failed_response(
+           #     kwargs=locals().copy(),
+           #     error="Specific error description"
+           # )
    ```
 
 3. **Special handling for write operations**: If the tool involves writing
@@ -253,16 +279,58 @@ the `BaseTool` base class.
      `self._validate_mtime(path)`
    - Generate a diff and record a `PENDING_AUDIT` snapshot instead of writing
      directly to disk
+   - Still return via
+     `self.make_success_response(kwargs=locals().copy(), data=...)` or
+     `self.make_failed_response(kwargs=locals().copy(), error=...)`
    - Refer to the implementations of `WriteTool` and `EditTool`
 
 4. **Register the tool**: Import and instantiate your tool in the `register()`
    method of `src/core/tool_registry.py`:
 
+   ```python
+   def register(self, workspace: Workspace) -> None:
+       from src.workspace.tools.your_tool import YourTool
+
+       self._workspace = workspace
+
+       for cls in (
+           # ... other existing tool classes ...
+           YourTool,
+       ):
+           try:
+               tool = cls(workspace)
+               if tool.func is None or tool.params is None:
+                   warnings.warn(f"Tool {tool.name} has no registered function callback and parameters", stacklevel=2)
+                   continue
+               self._tools[tool.name] = tool
+               self._set_tool_category(tool)
+           except ValueError:
+               pass
+   ```
+
 5. **Add tests**: Create corresponding test files under
    `tests/workspace/tools/`. At minimum, cover:
-   - Normal execution paths
+   - Normal execution paths (assert `result.success is True`, check
+     `result.data`)
+   - Failure scenarios (assert `result.success is False`, check `result.error`)
    - Parameter validation (e.g., empty parameters, invalid values)
    - Path security (e.g., out-of-bounds access)
+
+   Test example:
+
+   ```python
+   def test_your_tool_success(workspace):
+       tool = YourTool(workspace)
+       result = tool.your_method(param1="valid_path", param2=42)
+       assert result.success is True
+       assert result.data is not None
+
+   def test_your_tool_failure(workspace):
+       tool = YourTool(workspace)
+       result = tool.your_method(param1="../outside_path", param2=42)
+       assert result.success is False
+       assert "WorkspaceBoundaryError" in result.error
+   ```
 
 ---
 

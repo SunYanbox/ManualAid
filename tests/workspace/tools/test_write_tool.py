@@ -40,8 +40,8 @@ def read_tool(workspace: Workspace):
 class TestWritePreview:
     def test_write_returns_preview(self, write_tool, tmp_path: Path):
         result = write_tool.write("new_file.txt", "hello")
-        assert "Write Preview" in result
-        assert "Snapshot ID:" in result
+        assert "Write Preview" in result.data
+        assert "Snapshot ID:" in result.data
 
     def test_write_does_not_write_to_disk(self, write_tool, tmp_path: Path):
         write_tool.write("new_file.txt", "hello")
@@ -85,7 +85,7 @@ class TestWriteAfterRead:
         read_tool.read("test.txt")
         result = write_tool.write("test.txt", "line1\nmodified\nline3")
 
-        assert "Write Preview" in result
+        assert "Write Preview" in result.data
         rows = write_tool.workspace.db.fetchall("SELECT diff_content FROM file_snapshots")
         assert len(rows) == 1
         assert "-line2" in rows[0][0]
@@ -111,14 +111,15 @@ class TestWriteModifiedExternally:
             time.sleep(0.1)
 
         result = write_tool.write("test.txt", "should fail")
-        assert "FILE_MODIFIED_EXTERNALLY" in result
+        assert result.success is False
+        assert "FILE_MODIFIED_EXTERNALLY" in result.error
 
     def test_write_no_prior_read_succeeds(self, write_tool, tmp_path: Path):
         file = tmp_path / "test.txt"
         file.write_text("existing content", encoding="utf-8")
 
         result = write_tool.write("test.txt", "new content")
-        assert "Write Preview" in result
+        assert "Write Preview" in result.data
 
 
 class TestWriteSnapshotPendingContent:

@@ -62,6 +62,15 @@ class Workspace:
             self._db = DatabaseManager(str(self.root_path))
         return self._db
 
+    @property
+    def session_id(self) -> int | None:
+        """当前会话 ID 的公开 getter —— 工具类通过此接口访问, 避免直接访问私有属性."""
+        return self._current_session_id
+
+    @session_id.setter
+    def session_id(self, value: int | None) -> None:
+        self._current_session_id = value
+
     def search_content(
         self,
         pattern: str,

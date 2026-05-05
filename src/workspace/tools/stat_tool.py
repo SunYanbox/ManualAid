@@ -2,6 +2,7 @@ import stat as stat_constants
 from datetime import datetime
 from pathlib import Path
 
+from src.models.tools.tool_result import ToolResult
 from src.workspace.tools.base_tool import BaseTool
 from src.workspace.workspace import Workspace
 
@@ -18,7 +19,7 @@ class StatTool(BaseTool):
         }
 
     @BaseTool.handle_tool_exceptions
-    def stat(self, path: str = ".") -> str:
+    def stat(self, path: str = ".") -> ToolResult:
         """
         获取工作区内文件或目录的详细信息,包括大小、行数(仅文件)、修改时间、权限等
         """
@@ -142,4 +143,4 @@ class StatTool(BaseTool):
             except PermissionError:
                 output.append("目录内容: 无法访问")
 
-        return "\n".join(output)
+        return self.make_success_response(kwargs=locals().copy(), data="\n".join(output))
