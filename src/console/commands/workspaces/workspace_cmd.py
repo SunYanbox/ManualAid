@@ -9,6 +9,7 @@ from src.constants.prompts import (
     WORKFLOW_GUIDELINES,
     generate_extensions_section,
 )
+from src.core.agent_manager import AgentManager
 from src.models.commands import Command, CommandContext, CommandResult
 
 INSTRUCTION: list[str] = ["AGENTS.md", "CLAUDE.md"]
@@ -17,13 +18,20 @@ AGENTS_MD_FENCE_END = "<!-- llm-relevant-end -->"
 
 
 def _generate_tool_definitions_section(context: CommandContext) -> str:
-    """Generate <tool_definitions> XML block with doc for each registered tool."""
+    """Generate <tool_definitions> XML block with doc for each registered tool,
+    filtered by the current agent's tool permissions."""
+    mgr = AgentManager()
+    agent = mgr.get_current()
     tools = context.tool_registry.list_tools()
+
     if not tools.get("sync"):
         return "<tool_definitions><!-- 没有可用的工具 --></tool_definitions>"
 
     docs: list[str] = ["<tool_definitions>"]
     for name in tools["sync"]:
+        # Filter by agent permissions
+        if not agent.tool_permissions.is_tool_allowed(name):
+            continue
         info = context.tool_registry.get_tool_info(name)
         if info:
             doc_xml = info.to_doc()
@@ -82,6 +90,24 @@ def _load_agents_md(context: CommandContext) -> str:
     return ""
 
 
+def _generate_agent_directive_section(context: CommandContext) -> str:
+    """Generate <agent_directive> XML block from the current agent."""
+    mgr = AgentManager()
+    agent = mgr.get_current()
+    if not agent.body_role and not agent.body_workflow:
+        return ""
+
+    parts = [f'  <agent_directive name="{agent.name}">', ""]
+    if agent.body_role:
+        parts.append(agent.body_role)
+        parts.append("")
+    if agent.body_workflow:
+        parts.append(agent.body_workflow)
+        parts.append("")
+    parts.append("  </agent_directive>")
+    return "\n".join(parts)
+
+
 def _assemble_full_prompt(context: CommandContext) -> str:
     """Assemble the complete system prompt from ordered XML sections."""
     sections = [
@@ -91,13 +117,20 @@ def _assemble_full_prompt(context: CommandContext) -> str:
         "",
         TOOL_RULES,
         "",
-        _generate_tool_definitions_section(context),
-        "",
-        WORKFLOW_GUIDELINES,
-        "",
-        _generate_workspace_metadata(context),
-        "",
     ]
+
+    # Agent directive (if any)
+    agent_directive = _generate_agent_directive_section(context)
+    if agent_directive:
+        sections.append(agent_directive)
+        sections.append("")
+
+    sections.append(_generate_tool_definitions_section(context))
+    sections.append("")
+    sections.append(WORKFLOW_GUIDELINES)
+    sections.append("")
+    sections.append(_generate_workspace_metadata(context))
+    sections.append("")
 
     augmentations = _load_agents_md(context)
     if augmentations:
