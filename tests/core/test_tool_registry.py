@@ -33,31 +33,6 @@ def isolate_tool_registry():
     DatabaseManager.reset_instances()
 
 
-def test_validate_config():
-    """测试配置验证 - 一次性测试所有阈值"""
-    config = ToolRegistry()
-
-    # 设置所有值为过小
-    config.MAX_RESULT_LENGTH = 5
-    config.LIST_TRUNCATE_THRESHOLD = 3
-    config.DICT_TRUNCATE_THRESHOLD = 2
-
-    # 验证触发3个警告
-    with pytest.warns(UserWarning) as record:
-        config._validate_config()
-
-    # 验证警告数量和内容
-    assert len(record) == 3
-    assert "TOOL_MAX_RESULT_LENGTH" in str(record[0].message)
-    assert "TOOL_LIST_TRUNCATE_THRESHOLD" in str(record[1].message)
-    assert "TOOL_DICT_TRUNCATE_THRESHOLD" in str(record[2].message)
-
-    # 验证所有值都被修正
-    assert config.MAX_RESULT_LENGTH == 100
-    assert config.LIST_TRUNCATE_THRESHOLD == 50
-    assert config.DICT_TRUNCATE_THRESHOLD == 50
-
-
 def test_tool_registry_singleton():
     """测试单例模式"""
     registry1 = ToolRegistry()
@@ -65,14 +40,6 @@ def test_tool_registry_singleton():
 
     assert registry1 is registry2
     assert id(registry1) == id(registry2)
-
-
-def test_execute_nonexistent_tool():
-    """测试执行不存在的工具"""
-    registry = ToolRegistry()
-
-    with pytest.raises(ValueError, match="未找到工具: nonexistent"):
-        registry.execute("nonexistent")
 
 
 def test_validate_tool_info():

@@ -1,3 +1,5 @@
+import pytest
+
 from src.models.tools.tool_result import ToolResult
 
 
@@ -28,6 +30,29 @@ def test_no_compress_short_results():
     assert ToolResult._compress_result(short_string) == short_string
     assert ToolResult._compress_result(short_list) == short_list
     assert ToolResult._compress_result(short_dict) == short_dict
+
+
+def test_validate_config():
+    """测试配置验证 - 一次性测试所有阈值"""
+    # 设置所有值为过小
+    ToolResult.MAX_RESULT_LENGTH = 5
+    ToolResult.LIST_TRUNCATE_THRESHOLD = 3
+    ToolResult.DICT_TRUNCATE_THRESHOLD = 2
+
+    # 验证触发3个警告
+    with pytest.warns(UserWarning) as record:
+        ToolResult._validate_config()
+
+    # 验证警告数量和内容
+    assert len(record) == 3
+    assert "TOOL_MAX_RESULT_LENGTH" in str(record[0].message)
+    assert "TOOL_LIST_TRUNCATE_THRESHOLD" in str(record[1].message)
+    assert "TOOL_DICT_TRUNCATE_THRESHOLD" in str(record[2].message)
+
+    # 验证所有值都被修正
+    assert ToolResult.MAX_RESULT_LENGTH == 100
+    assert ToolResult.LIST_TRUNCATE_THRESHOLD == 50
+    assert ToolResult.DICT_TRUNCATE_THRESHOLD == 50
 
 
 def test_compress_result_string():

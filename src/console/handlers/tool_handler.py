@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import time
 from typing import TYPE_CHECKING
 
@@ -100,35 +99,9 @@ class ToolHandler:
             start = time.perf_counter()
 
             # 执行
-            try:
-                response = self.tool_registry.execute(func_name, **func_kwargs)
-                if isinstance(response, str):
-                    response_str = response
-                elif isinstance(response, (dict, list, tuple)):
-                    response_str = json.dumps(response)
-                else:
-                    response_str = f"<not_support_result>{response.__class__.__name__}({response})</not_support_result>"
+            response = self.tool_registry.execute(func_name, **func_kwargs)
 
-                temp_result = [
-                    "",
-                    f"<func_result name={func_name} parms={parms}>",
-                    response_str,
-                    "</func_result>",
-                    "",
-                ]
-                func_result = str.join("\n", temp_result)
-            except Exception as e:
-                import traceback
-
-                error = (
-                    f"执行工具{func_name}(参数={parms})时出现错误: "
-                    f"Error={e.__class__.__name__}({e}, {traceback.format_exc()})"
-                )
-                self.console.print(f"[red]{error}[/red]")
-                func_result = "\n".join(["", "<ErrorExecute>", error, "</ErrorExecute>", ""])
-                self.console.print(f"[red]{error}[/red]")
-
-            collection.add(func_name, time.perf_counter() - start, kwargs=func_kwargs, result=func_result)
+            collection.add(func_name, time.perf_counter() - start, kwargs=func_kwargs, result=response.response)
 
         result = ""
 

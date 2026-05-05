@@ -3,7 +3,7 @@ import os
 import warnings
 from typing import Any, ClassVar
 
-from utils.string_snapshot import truncate_params_string
+from src.utils.string_snapshot import truncate_params_string
 
 
 def to_xml_string(func_name: str, parms: dict, data: Any = None, err: Any = None) -> str:
@@ -93,7 +93,7 @@ class ToolResult:
             compressed["..."] = f"[字典已截断 显示的项: {cls.DICT_TRUNCATE_THRESHOLD} / {result_length}]"
             return compressed
 
-        return ""
+        return result
 
     @classmethod
     def _validate_config(cls) -> None:

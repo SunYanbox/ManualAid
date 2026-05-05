@@ -11,8 +11,8 @@ from typing import Any, ClassVar, ParamSpec, Self, TypeVar
 
 import nest_asyncio
 
-from models.tools.tool_result import ToolResult
 from src.console.result_manager import _to_string
+from src.models.tools.tool_result import ToolResult
 from src.utils.string_snapshot import truncate_string
 from src.workspace.tools.base_tool import BaseTool
 from src.workspace.workspace import Workspace
@@ -125,45 +125,48 @@ class ToolRegistry:
         Returns:
             函数执行结果(自动压缩过长的结果)
         """
-        if func_name in self._tools:
-            tool = self._tools[func_name]
-            kwargs = tool.convert_args(kwargs)
+        try:
+            if func_name in self._tools:
+                tool = self._tools[func_name]
+                kwargs = tool.convert_args(kwargs)
 
-            start_time = time.perf_counter()
+                start_time = time.perf_counter()
 
-            if inspect.iscoroutinefunction(tool.func):
-                coro = tool.func(*args, **kwargs)
-                # 已有事件循环
-                try:
-                    loop = asyncio.get_running_loop()
-                    nest_asyncio.apply()
-                    raw_result = loop.run_until_complete(coro)
-                except RuntimeError:  # pragma: no cover  // pytest内置事件循环, 测不到这里
-                    # 没有运行中的事件循环
-                    raw_result = asyncio.run(coro)
-            else:
-                # 同步函数
-                raw_result = tool.func(*args, **kwargs)
+                if inspect.iscoroutinefunction(tool.func):
+                    coro = tool.func(*args, **kwargs)
+                    # 已有事件循环
+                    try:
+                        loop = asyncio.get_running_loop()
+                        nest_asyncio.apply()
+                        raw_result = loop.run_until_complete(coro)
+                    except RuntimeError:  # pragma: no cover  // pytest内置事件循环, 测不到这里
+                        # 没有运行中的事件循环
+                        raw_result = asyncio.run(coro)
+                else:
+                    # 同步函数
+                    raw_result = tool.func(*args, **kwargs)
 
-            # 统一解包 ToolResult
-            result = (
-                raw_result
-                if (isinstance(raw_result, ToolResult))
-                else (
-                    ToolResult(
-                        success=False,
-                        func_name=func_name,
-                        func_kwargs=kwargs,
-                        error=f"错误的工具返回值类型: {raw_result.__class__.__name__}",
+                # 统一解包 ToolResult
+                result = (
+                    raw_result
+                    if (isinstance(raw_result, ToolResult))
+                    else (
+                        ToolResult(
+                            success=False,
+                            func_name=func_name,
+                            func_kwargs=kwargs,
+                            error=f"错误的工具返回值类型: {raw_result.__class__.__name__}",
+                        )
                     )
                 )
-            )
-            duration_ms = (time.perf_counter() - start_time) * 1000
-            self._log_tool_call(func_name, kwargs, duration_ms, result.status)
-            self._record_tool_call_summary(func_name, kwargs, result.response)
-            return result
-        else:
-            raise ValueError(f"未找到工具: {func_name}")
+                duration_ms = (time.perf_counter() - start_time) * 1000
+                self._log_tool_call(func_name, kwargs, duration_ms, result.status)
+                self._record_tool_call_summary(func_name, kwargs, result.response)
+                return result
+            else:
+                raise ValueError(f"未找到工具: {func_name}")
+        except Exception as e:
+            return ToolResult(success=False, data=kwargs, error=str(e), func_name=func_name, func_kwargs=kwargs)
 
     def generate_markdown(self) -> str:
         """
