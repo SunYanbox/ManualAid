@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from src.core.agent_manager import _parse_frontmatter, _parse_agent_file
+from src.core.agent_manager import AgentManager, _parse_frontmatter, _parse_agent_file
 from src.models.agent import ToolPermissions
 
 
@@ -58,8 +58,8 @@ test
         meta, body = _parse_frontmatter(content)
         whitelist = meta.get("tool_permissions.whitelist", [])
         blacklist = meta.get("tool_permissions.blacklist", [])
-        assert whitelist == [] or whitelist == [""]
-        assert blacklist == [] or blacklist == [""]
+        assert whitelist == [], f"Expected [], got {whitelist!r}"
+        assert blacklist == [], f"Expected [], got {blacklist!r}"
 
 
 class TestParseAgentFile:
@@ -112,3 +112,43 @@ Some content without sections.
         assert agent is not None
         assert agent.body_role == ""
         assert agent.body_workflow == ""
+
+
+class TestAgentManager:
+    def test_get_default_fallback(self, tmp_path):
+        """No agents dir -> get_default() returns a fallback AgentConfig."""
+        mgr = AgentManager()
+        mgr.initialize(tmp_path)
+        default = mgr.get_default()
+        assert default.name == "default"
+        assert default.tool_permissions.whitelist == []
+
+    def test_switch_unknown_returns_false(self, tmp_path):
+        mgr = AgentManager()
+        mgr.initialize(tmp_path)
+        assert mgr.switch_agent("nonexistent") is False
+
+    def test_write_default_creates_file(self, tmp_path):
+        mgr = AgentManager()
+        mgr.initialize(tmp_path)
+        mgr.write_default(tmp_path)
+        agents_dir = tmp_path / ".ManualAid" / "agents"
+        assert (agents_dir / "default.md").exists()
+
+    def test_write_default_is_idempotent(self, tmp_path):
+        mgr = AgentManager()
+        mgr.initialize(tmp_path)
+        mgr.write_default(tmp_path)
+        content_first = (tmp_path / ".ManualAid" / "agents" / "default.md").read_text(encoding="utf-8")
+        mgr.write_default(tmp_path)  # second call should be no-op
+        content_second = (tmp_path / ".ManualAid" / "agents" / "default.md").read_text(encoding="utf-8")
+        assert content_first == content_second
+
+    def test_agent_names_sorted(self, tmp_path):
+        agents_dir = tmp_path / ".ManualAid" / "agents"
+        agents_dir.mkdir(parents=True)
+        (agents_dir / "z-agent.md").write_text("---\nname: z-agent\ndescription: Z\n---\n## Role\nx")
+        (agents_dir / "a-agent.md").write_text("---\nname: a-agent\ndescription: A\n---\n## Role\nx")
+        mgr = AgentManager()
+        mgr.initialize(tmp_path)
+        assert mgr.agent_names() == ["a-agent", "z-agent"]

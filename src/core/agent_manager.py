@@ -172,6 +172,7 @@ class AgentManager:
         self._agents: dict[str, AgentConfig] = {}
         self._agents_dir: Path | None = None
         self._loaded = False
+        self._load_lock: threading.Lock = threading.Lock()
         self._current_agent_name: str = "default"
         self._initialized = True
 
@@ -192,13 +193,16 @@ class AgentManager:
     def _ensure_loaded(self) -> None:
         if self._loaded:
             return
-        self._agents = {}
-        if self._agents_dir and self._agents_dir.is_dir():
-            for fpath in sorted(self._agents_dir.glob("*.md")):
-                agent = _parse_agent_file(fpath)
-                if agent is not None:
-                    self._agents[agent.name] = agent
-        self._loaded = True
+        with self._load_lock:
+            if self._loaded:
+                return
+            self._agents = {}
+            if self._agents_dir and self._agents_dir.is_dir():
+                for fpath in sorted(self._agents_dir.glob("*.md")):
+                    agent = _parse_agent_file(fpath)
+                    if agent is not None:
+                        self._agents[agent.name] = agent
+            self._loaded = True
 
     def get(self, name: str) -> AgentConfig | None:
         self._ensure_loaded()
