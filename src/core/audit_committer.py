@@ -90,3 +90,19 @@ class AuditCommitter:
 
         except Exception as e:
             return f"写入失败: {e.__class__.__name__}({e})"
+
+    def batch_commit(self, snapshot_ids: list[int], approved: bool) -> list[tuple[int, str]]:
+        """批量审核多个快照.
+
+        Args:
+            snapshot_ids: 快照 ID 列表
+            approved: True=批准, False=拒绝
+
+        Returns:
+            (snapshot_id, result_message) 列表
+        """
+        results: list[tuple[int, str]] = []
+        for snap_id in snapshot_ids:
+            result = self.commit(snap_id, approved)
+            results.append((snap_id, result))
+        return results
