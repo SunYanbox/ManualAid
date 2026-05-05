@@ -128,8 +128,10 @@ class GitTool(BaseTool):
             )
         except FileNotFoundError:
             return self.make_failed_response(kwargs=locals().copy(), error=str(OSError("Git 未安装或不在系统 PATH 中")))
-        except subprocess.TimeoutExpired:
-            return self.make_failed_response(kwargs=locals().copy(), error=str(OSError("Git 命令执行超时(30 秒)")))
+        except subprocess.TimeoutExpired as time_out_exception:
+            return self.make_failed_response(
+                kwargs=locals().copy(), error=f"TimeoutExpired(Git 命令执行超时: {time_out_exception})"
+            )
 
         # 5. 处理输出
         if result.returncode != 0:

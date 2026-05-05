@@ -125,12 +125,12 @@ class EditTool(BaseTool):
         return self.make_success_response(
             locals().copy(),
             (
-                "修改已推送到审核系统\n",
+                "修改已推送到审核系统\n"
                 f"[Edit Preview]\n"
                 f"File: {rel_path}\n"
                 f"Snapshot ID: {snapshot_id}\n"
                 f"Replacements: {count}\n"
-                f"Diff:\n{diff_content}",
+                f"Diff:\n{diff_content}"
             ),
         )
 

@@ -12,7 +12,7 @@ def to_xml_string(func_name: str, params: dict, data: Any = None, err: str | Non
 
     try:
         messages: list[str] = []
-        if data:
+        if data is not None:
             messages.append("<result_response>")
             if isinstance(data, str):
                 messages.append(data)
@@ -29,7 +29,7 @@ def to_xml_string(func_name: str, params: dict, data: Any = None, err: str | Non
                     "</error_response>",
                 ]
             )
-        if not data and not err:
+        if data is None and not err:
             messages.append("没有任何工具调用数据或错误详情, 请提示用户检查工具是否正常")
 
         temp_result = [
