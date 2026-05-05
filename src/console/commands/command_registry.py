@@ -48,6 +48,7 @@ class CommandRegistry:
         from src.console.commands.systems.quit_cmd import QuitCommand
         from src.console.commands.systems.tool_detail_cmd import ToolDetailCommand
         from src.console.commands.systems.tools_cmd import ToolsCommand
+        from src.console.commands.workspaces.agent_cmd import AgentCommand
         from src.console.commands.workspaces.workspace_cmd import WorkspaceCommand
 
         registry = cls()
@@ -59,6 +60,7 @@ class CommandRegistry:
                 CopyCommand(),
                 HistoryCommand(),
                 WorkspaceCommand(),
+                AgentCommand(),
                 NewWindowCommand(),
                 HelpCommand(),
                 ClsCommand(),
