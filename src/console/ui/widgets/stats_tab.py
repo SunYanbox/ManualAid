@@ -6,7 +6,7 @@ from typing import ClassVar
 
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
-from textual.widgets import Button, DataTable, Input, Label, Static
+from textual.widgets import Button, DataTable, Input, Label, Static, TabbedContent, TabPane
 
 
 class RenameDialog(ModalScreen[str | None]):
@@ -135,7 +135,18 @@ class StatsTab(Vertical):
         height: 1fr;
         width: 1fr;
         padding: 0 1;
+    }
+
+    StatsTab TabbedContent {
+        height: 1fr;
+        width: 1fr;
+    }
+
+    StatsTab TabPane {
+        height: 1fr;
+        width: 1fr;
         overflow-y: auto;
+        padding: 0 1;
     }
 
     #stats-placeholder {
@@ -265,11 +276,27 @@ class StatsTab(Vertical):
         if self._db is None:
             return
 
+        # Save active tab before rebuilding
+        active_tab = ""
+        try:
+            tc = self.query_one(TabbedContent)
+            active_tab = tc.active
+        except Exception:
+            pass
+
         await self.remove_children()
         self._build_content()
 
+        # Restore active tab
+        if active_tab:
+            try:
+                tc = self.query_one(TabbedContent)
+                tc.active = active_tab
+            except Exception:
+                pass
+
     def _build_content(self) -> None:
-        """Mount all content widgets."""
+        """Mount all content widgets into tabbed layout."""
         if self._db is None:
             return
 
@@ -297,7 +324,7 @@ class StatsTab(Vertical):
             if row:
                 current_name = row[0]
 
-        # --- Section 1: Overview ---
+        # --- Tab 1: Overview ---
         overview_text = (
             f"[bold]Overview[/bold]\n"
             f"Total Sessions: {total_sessions}\n"
@@ -305,14 +332,16 @@ class StatsTab(Vertical):
             f"Overall Success Rate: {success_rate:.1f}%\n"
             f"Active Session: {current_name or 'N/A'}"
         )
-        self.mount(Static(overview_text, id="stats-overview"))
+        overview_pane = TabPane("Overview", id="tab-overview")
+        overview_pane.mount(Static(overview_text, id="stats-overview"))
 
-        # --- Section 2: Current session stats ---
+        # --- Tab 2: Current Session ---
+        session_pane = TabPane("Session", id="tab-session")
         if self._current_session_id is not None:
             summary = self._db.get_session_summary(self._current_session_id)
             if summary:
                 duration_str = self._format_duration(summary["duration"])
-                self.mount(Label("Current Session", classes="stats-header"))
+                session_pane.mount(Label("Current Session", classes="stats-header"))
                 dt = DataTable(id="stats-current-session")
                 dt.add_columns("Metric", "Value")
                 dt.add_row("Duration", duration_str)
@@ -320,23 +349,27 @@ class StatsTab(Vertical):
                 dt.add_row("Successful", str(summary["success_count"]))
                 dt.add_row("Failed", str(summary["fail_count"]))
                 dt.add_row("Success Rate", f"{summary['success_rate']:.1f}%")
-                self.mount(dt)
+                session_pane.mount(dt)
+        else:
+            session_pane.mount(Label("No active session.", id="stats-empty"))
 
-        # --- Section 3: Tool usage ranking ---
+        # --- Tab 3: Tool Ranking ---
+        tools_pane = TabPane("Tools", id="tab-tools")
         ranking = self._db.get_tool_usage_ranking(self._current_session_id)
         if ranking:
-            self.mount(Label("Top Tools", classes="stats-header"))
+            tools_pane.mount(Label("Top Tools", classes="stats-header"))
             dt = DataTable(id="stats-tool-ranking")
             dt.add_columns("#", "Tool", "Calls", "Avg Time", "Total Time")
             for i, (func_name, count, avg_dur, total_dur) in enumerate(ranking, 1):
                 avg_str = f"{avg_dur:.1f}ms" if avg_dur is not None else "N/A"
                 total_str = f"{total_dur:.1f}ms" if total_dur is not None else "N/A"
                 dt.add_row(str(i), func_name, str(count), avg_str, total_str)
-            self.mount(dt)
+            tools_pane.mount(dt)
         else:
-            self.mount(Label("No tool calls recorded yet.", id="stats-empty"))
+            tools_pane.mount(Label("No tool calls recorded yet.", id="stats-empty"))
 
-        # --- Section 4: Session list ---
+        # --- Tab 4: Sessions List ---
+        sessions_pane = TabPane("Sessions", id="tab-sessions")
         if sessions:
             total_pages = (len(sessions) + self._sessions_per_page - 1) // self._sessions_per_page
             if self._session_page >= total_pages:
@@ -348,7 +381,7 @@ class StatsTab(Vertical):
             end_idx = start_idx + self._sessions_per_page
             page_sessions = sessions[start_idx:end_idx]
 
-            self.mount(Label("Sessions", classes="stats-header"))
+            sessions_pane.mount(Label("Sessions", classes="stats-header"))
 
             if total_pages > 1:
                 nav = Horizontal(
@@ -360,7 +393,7 @@ class StatsTab(Vertical):
                     id="stats-pagination",
                     classes="stats-pagination",
                 )
-                self.mount(nav)
+                sessions_pane.mount(nav)
 
             for s in page_sessions:
                 sid, name, _created_at, duration = s
@@ -383,9 +416,15 @@ class StatsTab(Vertical):
                     Button("Delete", id=f"delete-{sid}", variant="error"),
                     classes="stats-session-row",
                 )
-                self.mount(row)
+                sessions_pane.mount(row)
                 if is_active:
                     row.query_one(f"#delete-{sid}", Button).disabled = True
+        else:
+            sessions_pane.mount(Label("No sessions yet.", id="stats-empty"))
+
+        # Mount the tabbed content
+        tc = TabbedContent(overview_pane, session_pane, tools_pane, sessions_pane)
+        self.mount(tc)
 
     async def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle rename/delete button clicks."""
