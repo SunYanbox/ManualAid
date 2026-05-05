@@ -111,7 +111,8 @@ class TestWriteModifiedExternally:
             time.sleep(0.1)
 
         result = write_tool.write("test.txt", "should fail")
-        assert "FILE_MODIFIED_EXTERNALLY" in result.data
+        assert result.success is False
+        assert "FILE_MODIFIED_EXTERNALLY" in result.error
 
     def test_write_no_prior_read_succeeds(self, write_tool, tmp_path: Path):
         file = tmp_path / "test.txt"
