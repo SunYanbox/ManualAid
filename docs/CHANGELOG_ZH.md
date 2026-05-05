@@ -8,6 +8,60 @@
 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/). 并采用
 [语义化版本](https://semver.org/lang/Chinese/).
 
+## [0.5.0] - 2026-05-05
+
+### 新增
+
+- **结构化工具返回结果**: 引入 `ToolResult`
+  数据类作为所有工具的统一返回类型,替代以往不一致的字符串和列表响应. 该类包含
+  `success`、`data`、`error`、`response`
+  属性,内置结果压缩与标准化 XML 格式化功能. 所有工具方法现均返回 `ToolResult`
+  对象,使上游调用方能进行一致的错误处理 ([#133, #142](https://github.com/SunYanbox/ManualAid/issues/133)).
+- **`exact_search` 文件模式过滤**: 为 `exact_search` 新增 `file_pattern`
+  参数(默认 `"*"`),与已有的 `regex_search`
+  行为对齐. 支持按文件扩展名或通配符模式过滤搜索范围 ([#134, #140](https://github.com/SunYanbox/ManualAid/issues/134)).
+- **工具自动分类**: 工具现根据 `write_permission`
+  属性自动归类为只读或可写,无需手动注册分类,减少维护成本 ([#135, #139](https://github.com/SunYanbox/ManualAid/issues/135)).
+- **`read` 工具范围读取**: `read` 工具现支持通过 `start`、`end`(支持负数索引) 和
+  `context` 参数进行精确的行范围读取,替代原有的粗粒度 `max_lines`
+  方式. 显示头部现展示实际读取的行范围 (`[行 start-end / 共 total_lines 行]`)
+  ([#119, #128](https://github.com/SunYanbox/ManualAid/issues/119)).
+- **参数描述机制**: 在 `BaseTool` 中引入 `param_descriptions`
+  字典,允许每个工具为参数提供可读描述. 参数文档格式从内联 XML 转为 Markdown 列表项 (`- **名称** (类型, 必需/可选): 描述`)
+  ([#127, #128](https://github.com/SunYanbox/ManualAid/issues/127)).
+- **文件大小限制**: 为 `read`
+  工具添加了可配置的最大文件大小限制 (`MAX_READ_FILE_SIZE`,默认 10MB),防止读取大文件时内存溢出 ([#130, #141](https://github.com/SunYanbox/ManualAid/issues/130)).
+
+### 更改
+
+- **工具路径参数统一**: 将所有工具中的路径参数统一重命名为 `path`——原
+  `file_path`(read、write、edit)和 `folder_path`(ls、glob)现统一使用
+  `path`. 此举减少 LLM 混淆并缩短注入 Token 长度 ([#127, #128](https://github.com/SunYanbox/ManualAid/issues/127)).
+- **工具注入长度优化**: 移除工具函数中冗余的 Docstring `Parameters`
+  段落、缩短工具描述、精简参数文档格式. 配合参数统一,这些变更显著缩短了系统提示注入长度,降低 LLM 幻觉风险 ([#127, #128](https://github.com/SunYanbox/ManualAid/issues/127)).
+- **符号搜索性能重构**: 用单次遍历多模式搜索(`search_content_multi_pattern`
+  API)替代原有的逐模式文件遍历, 消除了 N 倍 I/O 开销. 搜索结果现解析为结构化的
+  `list[dict]`
+  而非对格式化文本做正则解析,修复了 "先格式化再解析"的反模式 ([#132, #137](https://github.com/SunYanbox/ManualAid/issues/132)).
+- **异常处理整合**: `handle_tool_exceptions` 装饰器现统一将所有异常封装为
+  `ToolResult(success=False, error=...)` 对象. 移除了 `ToolErrorResponse`
+  依赖,错误消息格式化为 `ClassName: Message`
+  ([#133, #142](https://github.com/SunYanbox/ManualAid/issues/133)).
+
+### 修复
+
+- **搜索工具 `limit` 语义**: 修正了 `exact_search` 和 `regex_search` 中 `limit`
+  参数的计数逻辑,从统计"扫描文件数"改为统计"匹配结果数",使行为符合用户预期 ([#134, #140](https://github.com/SunYanbox/ManualAid/issues/134)).
+- **输入解析器冗余警告**: 清理了输入解析器中已过时的 `warnings.warn`
+  调用及未使用的 `import warnings`
+  依赖 ([#138](https://github.com/SunYanbox/ManualAid/issues/138)).
+
+### 移除
+
+- **`read_lines` 工具**: 已合并至增强后的 `read` 工具. 所有 `read_lines`
+  功能现可通过 `read` 的 `start`/`end`/`context`
+  参数访问 ([#119, #128](https://github.com/SunYanbox/ManualAid/issues/119)).
+
 ## [0.4.1] - 2026-05-04
 
 ### 新增
@@ -144,6 +198,7 @@
 
 _初始发布的功能和历史记录._
 
+[0.5.0]: https://github.com/SunYanbox/ManualAid/releases/tag/v0.5.0
 [0.4.1]: https://github.com/SunYanbox/ManualAid/releases/tag/v0.4.1
 [0.4.0]: https://github.com/SunYanbox/ManualAid/releases/tag/v0.4.0
 [0.3.0]: https://github.com/SunYanbox/ManualAid/releases/tag/v0.3.0
