@@ -140,7 +140,7 @@ class BaseTool:
         return func_call
 
     @staticmethod
-    def extract_params(func: Callable[..., Any]) -> dict[str, Any]:
+    def extract_params(func: Callable[..., ToolResult]) -> dict[str, Any]:
         """提取函数参数信息"""
         sig = inspect.signature(func)
         params = {}
@@ -240,7 +240,7 @@ class BaseTool:
         return cls.make_tool_result_response(success=False, kwargs=kwargs, data=data, error=error)
 
     @staticmethod
-    def handle_tool_exceptions(func) -> ToolResult:
+    def handle_tool_exceptions(func) -> Callable[..., ToolResult]:
         """工具方法异常处理装饰器 —— 将异常转换为 ToolResult 失败结果"""
         from functools import wraps
 

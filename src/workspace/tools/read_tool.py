@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from src.models.tool_error_response import ToolErrorResponse
+from src.models.tools.tool_result import ToolResult
 from src.utils.binary_detector import is_binary_file
 from src.workspace.tools.base_tool import BaseTool
 from src.workspace.workspace import Workspace
@@ -35,32 +35,34 @@ class ReadTool(BaseTool):
         }
 
     @BaseTool.handle_tool_exceptions
-    def read(self, path: str, start: int = 1, end: int = -1, context: int = 0, encoding: str = "utf-8") -> str:
+    def read(self, path: str, start: int = 1, end: int = -1, context: int = 0, encoding: str = "utf-8") -> ToolResult:
         """
         读取文件内容, 返回带行号的格式化内容
         """
         file_path: Path = self.workspace.path_validator.validate(path)
 
         if not file_path.is_file():
-            return ToolErrorResponse(
-                self.__class__.__name__, ValueError(f"读取文件{file_path}时未读取到完整文件")
-            ).to_str()
+            return self.make_failed_response(
+                kwargs=locals().copy(), error=str(ValueError(f"读取文件{file_path}时未读取到完整文件"))
+            )
 
         if is_binary_file(file_path):
-            return ToolErrorResponse(
-                self.__class__.__name__,
-                ValueError(f"无法读取二进制文件: {file_path}. 请使用二进制安全工具或转换为 base64."),
-            ).to_str()
+            return self.make_failed_response(
+                kwargs=locals().copy(),
+                error=str(ValueError(f"无法读取二进制文件: {file_path}. 请使用二进制安全工具或转换为 base64.")),
+            )
 
         file_size = file_path.stat().st_size
         if file_size > MAX_FILE_SIZE:
-            return ToolErrorResponse(
-                self.__class__.__name__,
-                ValueError(
-                    f"文件过大 ({file_size} 字节), 超过最大限制 ({MAX_FILE_SIZE} 字节): {file_path}. "
-                    f"请使用范围参数 (start/end) 分批读取."
+            return self.make_failed_response(
+                kwargs=locals().copy(),
+                error=str(
+                    ValueError(
+                        f"文件过大 ({file_size} 字节), 超过最大限制 ({MAX_FILE_SIZE} 字节): {file_path}. "
+                        f"请使用范围参数 (start/end) 分批读取."
+                    )
                 ),
-            ).to_str()
+            )
 
         with open(file_path, encoding=encoding) as f:
             lines = f.readlines()
@@ -71,7 +73,7 @@ class ReadTool(BaseTool):
             header = f"\n[文件: {file_path}]\n[行 0-0 / 共 0 行]\n"
             separator = "-" * 80 + "\n"
             self._record_read_meta(file_path)
-            return header + separator
+            return self.make_success_response(kwargs=locals().copy(), data=header + separator)
 
         context = max(0, context)
 
@@ -84,9 +86,12 @@ class ReadTool(BaseTool):
             actual_end = total_lines
 
         if actual_end < actual_start:
-            return (
-                f"错误:解析后的结束行 {actual_end} 小于起始行 {actual_start} "
-                f"(原始参数: start={start}, end={end}, context={context})"
+            return self.make_failed_response(
+                kwargs=locals().copy(),
+                error=(
+                    f"错误:解析后的结束行 {actual_end} 小于起始行 {actual_start} "
+                    f"(原始参数: start={start}, end={end}, context={context})"
+                ),
             )
 
         result_lines = []
@@ -100,4 +105,4 @@ class ReadTool(BaseTool):
 
         self._record_read_meta(file_path)
 
-        return header + separator + "\n".join(result_lines)
+        return self.make_success_response(kwargs=locals().copy(), data=header + separator + "\n".join(result_lines))

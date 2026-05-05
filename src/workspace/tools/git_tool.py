@@ -4,7 +4,7 @@ import re
 import shlex
 import subprocess
 
-from src.models.tool_error_response import ToolErrorResponse
+from src.models.tools.tool_result import ToolResult
 from src.workspace.tools.base_tool import BaseTool
 from src.workspace.workspace import Workspace
 
@@ -59,55 +59,61 @@ class GitTool(BaseTool):
             "command_str": "Git 子命令及其参数,如 'status'、'diff --cached'、'log --oneline -5'",
         }
 
-    def git(self, command_str: str) -> str:
+    def git(self, command_str: str) -> ToolResult:
         """
         执行 Git 命令
         """
         if not command_str or not command_str.strip():
-            return ToolErrorResponse(self.__class__.__name__, ValueError("command_str 不能为空")).to_str()
+            return self.make_failed_response(kwargs=locals().copy(), error=str(ValueError("command_str 不能为空")))
 
         try:
             tokens = shlex.split(command_str)
         except ValueError as e:
-            return ToolErrorResponse(self.__class__.__name__, e).to_str()
+            return self.make_failed_response(kwargs=locals().copy(), error=str(e))
 
         if not tokens:
-            return ToolErrorResponse(self.__class__.__name__, ValueError("无法解析命令")).to_str()
+            return self.make_failed_response(
+                kwargs=locals().copy(), error=str(ValueError(f"无法解析命令: `{command_str}`"))
+            )
 
         base_command = tokens[0]
 
         # 1. 白名单检查
         if base_command not in _ALLOWED_COMMANDS:
             allowed_list = ", ".join(sorted(_ALLOWED_COMMANDS))
-            return (
-                f"ERROR: Git command '{base_command}' is not in the allowed whitelist.\n"
-                f"Allowed commands: {allowed_list}"
+            return self.make_failed_response(
+                kwargs=locals().copy(),
+                error=(
+                    f"ERROR: Git command '{base_command}' is not in the allowed whitelist.\n"
+                    f"Allowed commands: {allowed_list}"
+                ),
             )
 
         # 2. 拦截正则检查
         for pattern in _BLOCKED_PATTERNS:
             if pattern.search(command_str):
-                return (
-                    f"ERROR: The command was blocked by security policy.\n"
-                    f"Pattern matched: {pattern.pattern}\n"
-                    f"Command: {command_str}"
+                return self.make_failed_response(
+                    kwargs=locals().copy(),
+                    error=(
+                        f"ERROR: The command was blocked by security policy.\n"
+                        f"Pattern matched: {pattern.pattern}\n"
+                        f"Command: {command_str}"
+                    ),
                 )
 
         # 3. restore 安全检查 — 必须指定文件路径
         if base_command == "restore":
             non_flag_args = [t for t in tokens[1:] if not t.startswith("-")]
             if not non_flag_args:
-                return ToolErrorResponse(
-                    self.__class__.__name__,
-                    ValueError("restore 需要指定文件路径,不允许裸 restore"),
-                ).to_str()
+                return self.make_failed_response(
+                    kwargs=locals().copy(), error=str(ValueError("restore 需要指定文件路径,不允许裸 restore"))
+                )
             for arg in non_flag_args:
                 stripped = arg.strip()
                 if stripped in (".", "*", "all") or stripped.startswith("*"):
-                    return ToolErrorResponse(
-                        self.__class__.__name__,
-                        ValueError("restore 需要指定具体文件路径,不允许使用通配符"),
-                    ).to_str()
+                    return self.make_failed_response(
+                        kwargs=locals().copy(), error=str(ValueError("restore 需要指定具体文件路径,不允许使用通配符"))
+                    )
 
         # 4. 执行命令
         try:
@@ -121,22 +127,17 @@ class GitTool(BaseTool):
                 env=env,
             )
         except FileNotFoundError:
-            return ToolErrorResponse(
-                self.__class__.__name__,
-                OSError("Git 未安装或不在系统 PATH 中"),
-            ).to_str()
+            return self.make_failed_response(kwargs=locals().copy(), error=str(OSError("Git 未安装或不在系统 PATH 中")))
         except subprocess.TimeoutExpired:
-            return ToolErrorResponse(
-                self.__class__.__name__,
-                TimeoutError("Git 命令执行超时(30 秒)"),
-            ).to_str()
+            return self.make_failed_response(kwargs=locals().copy(), error=str(OSError("Git 命令执行超时(30 秒)")))
 
         # 5. 处理输出
         if result.returncode != 0:
             stderr = (result.stderr or "").strip()
-            if stderr:
-                return f"Git command failed (exit code {result.returncode}):\n{stderr}"
-            return f"Git command failed (exit code {result.returncode})"
+            return self.make_failed_response(
+                kwargs=locals().copy(),
+                error=f"Git command failed (exit code {result.returncode})" + f":\n{stderr}" if stderr else "",
+            )
 
         # Combine stdout and stderr
         output_parts = []
@@ -165,9 +166,13 @@ class GitTool(BaseTool):
             if err:
                 output_parts.append(err.rstrip("\n"))
             if not output_parts and _result2.returncode != 0:
-                return f"Git command failed (exit code {_result2.returncode})"
+                return self.make_failed_response(
+                    kwargs=locals().copy(), error=f"Git command failed (exit code {_result2.returncode})"
+                )
 
-        return "\n".join(output_parts) if output_parts else "(no output)"
+        return self.make_success_response(
+            kwargs=locals().copy(), data="\n".join(output_parts) if output_parts else "(no output)"
+        )
 
     @staticmethod
     def is_safe_command(command_str: str) -> bool:

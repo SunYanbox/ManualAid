@@ -6,19 +6,36 @@ from typing import Any, ClassVar
 from src.utils.string_snapshot import truncate_params_string
 
 
-def to_xml_string(func_name: str, parms: dict, data: Any = None, err: Any = None) -> str:
+def to_xml_string(func_name: str, params: dict, data: Any = None, err: str | None = None) -> str:
+    params = params.copy()
+    params.pop("self", None)
+
     try:
-        if isinstance(data, str):
-            response_str = data
-        elif isinstance(data, (dict, list, tuple)):
-            response_str = json.dumps(data)
-        else:
-            response_str = f"<not_support_type>{data.__class__.__name__}({data})</not_support_type>"
+        messages: list[str] = []
+        if data:
+            messages.append("<result_response>")
+            if isinstance(data, str):
+                messages.append(data)
+            elif isinstance(data, (dict, list, tuple)):
+                messages.append(json.dumps(data))
+            else:
+                messages.append(f"<not_support_type>{data.__class__.__name__}({data})</not_support_type>")
+            messages.append("</result_response>")
+        if err:
+            messages.extend(
+                [
+                    "<error_response>",
+                    err,
+                    "</error_response>",
+                ]
+            )
+        if not data and not err:
+            messages.append("没有任何工具调用数据或错误详情, 请提示用户检查工具是否正常")
 
         temp_result = [
             "",
-            f"<func_result name={func_name} parms={truncate_params_string(str(parms))}>",
-            response_str,
+            f"<func_result name={func_name} parms={truncate_params_string(str(params))}>",
+            *messages,
             "</func_result>",
             "",
         ]
@@ -29,8 +46,9 @@ def to_xml_string(func_name: str, parms: dict, data: Any = None, err: Any = None
         func_result = "\n".join(
             [
                 "",
-                f"<ErrorExecute name={func_name} parms={truncate_params_string(str(parms))}>",
+                f"<ErrorExecute name={func_name} parms={truncate_params_string(str(params))}>",
                 f"Error={e.__class__.__name__}({e}, {traceback.format_exc()})",
+                err if err else "",
                 "</ErrorExecute>",
                 "",
             ]

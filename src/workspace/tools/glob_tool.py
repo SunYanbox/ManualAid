@@ -1,6 +1,6 @@
 from itertools import islice
 
-from src.models.tool_error_response import ToolErrorResponse
+from src.models.tools.tool_result import ToolResult
 from src.workspace.tools.base_tool import BaseTool
 from src.workspace.workspace import Workspace
 
@@ -17,15 +17,18 @@ class GlobTool(BaseTool):
         }
 
     @BaseTool.handle_tool_exceptions
-    def glob(self, pattern: str, path: str = ".", max_ret: int = 1000) -> list[str]:
+    def glob(self, pattern: str, path: str = ".", max_ret: int = 1000) -> ToolResult:
         """
         在工作区内按通配符模式匹配并列出所有路径,带[Folder]或[File]的类型标记. 失败时返回错误信息
         """
         root_path = self.workspace.path_validator.validate(path)
         if not root_path.is_dir():
-            return ToolErrorResponse(self.__class__.__name__, f"{root_path}不是一个文件夹路径").to_str()
+            return self.make_failed_response(kwargs=locals().copy(), error=f"{root_path}不是一个文件夹路径")
 
-        return [
-            f"{'[Folder]' if item.is_dir() else '[File]'} {item.relative_to(self.workspace.root_path)}"
-            for item in islice(root_path.glob(pattern), max_ret)
-        ]
+        return self.make_success_response(
+            kwargs=locals().copy(),
+            data=[
+                f"{'[Folder]' if item.is_dir() else '[File]'} {item.relative_to(self.workspace.root_path)}"
+                for item in islice(root_path.glob(pattern), max_ret)
+            ],
+        )
