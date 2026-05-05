@@ -8,6 +8,81 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-05-05
+
+### Added
+
+- **Structured Tool Result**: Introduced `ToolResult` data class as the unified
+  return type for all tools, replacing inconsistent string and list responses.
+  The class includes `success`, `data`, `error`, and `response` attributes with
+  built-in result compression and standardized XML formatting. All tools now
+  return `ToolResult` objects, enabling consistent upstream error handling
+  ([#133, #142](https://github.com/SunYanbox/ManualAid/issues/133)).
+- **File Pattern Filtering for `exact_search`**: Added `file_pattern` parameter
+  to `exact_search` (default `"*"`), matching the existing `regex_search`
+  behavior. Allows filtering search scope by file extension or glob pattern
+  ([#134, #140](https://github.com/SunYanbox/ManualAid/issues/134)).
+- **Auto-Categorization of Tools**: Tools are now automatically classified as
+  read-only or write based on the `write_permission` attribute, eliminating
+  manual category registration and reducing maintenance overhead
+  ([#135, #139](https://github.com/SunYanbox/ManualAid/issues/135)).
+- **Range Reading in `read` Tool**: The `read` tool now supports precise line
+  range reading via `start`, `end` (supports negative indexing), and `context`
+  parameters, replacing the coarse `max_lines` approach. Display header now
+  shows the actual line range read (`[Lines start-end / total_lines]`)
+  ([#119, #128](https://github.com/SunYanbox/ManualAid/issues/119)).
+- **Parameter Descriptions**: Introduced `param_descriptions` dictionary in
+  `BaseTool` allowing each tool to provide human-readable parameter
+  descriptions. Parameter documentation format changed from inline XML to
+  Markdown list items (`- **name** (type, required/optional): description`)
+  ([#127, #128](https://github.com/SunYanbox/ManualAid/issues/127)).
+- **File Size Limit**: Added configurable max file size limit
+  (`MAX_READ_FILE_SIZE`, default 10MB) to the `read` tool to prevent
+  out-of-memory errors when reading large files
+  ([#130, #141](https://github.com/SunYanbox/ManualAid/issues/130)).
+
+### Changed
+
+- **Tool Path Parameter Unification**: Renamed path parameters across all tools
+  to a consistent `path` name — `file_path` (read, write, edit) and
+  `folder_path` (ls, glob) are now uniformly `path`. This reduces LLM confusion
+  and injection token length
+  ([#127, #128](https://github.com/SunYanbox/ManualAid/issues/127)).
+- **Tool Injection Optimization**: Removed redundant docstring `Parameters`
+  sections from tool functions, shortened tool descriptions, and streamlined
+  parameter documentation format. Combined with parameter unification, these
+  changes significantly reduce system prompt injection length, lowering LLM
+  hallucination risk
+  ([#127, #128](https://github.com/SunYanbox/ManualAid/issues/127)).
+- **Symbol Search Performance**: Replaced per-pattern file traversal with a
+  single-pass multi-pattern search via `search_content_multi_pattern` API,
+  eliminating N× I/O overhead. Results are now parsed as structured `list[dict]`
+  instead of regex-parsing formatted text, fixing the "format-then-parse"
+  anti-pattern
+  ([#132, #137](https://github.com/SunYanbox/ManualAid/issues/132)).
+- **Exception Handling Consolidation**: The `handle_tool_exceptions` decorator
+  now uniformly wraps all exceptions into `ToolResult(success=False, error=...)`
+  objects. Removed `ToolErrorResponse` dependency; error messages are now
+  formatted as `ClassName: Message`
+  ([#133, #142](https://github.com/SunYanbox/ManualAid/issues/133)).
+
+### Fixed
+
+- **`limit` Semantics in Search Tools**: Corrected the `limit` parameter in both
+  `exact_search` and `regex_search` to count individual match results rather
+  than files scanned, aligning behavior with user expectations
+  ([#134, #140](https://github.com/SunYanbox/ManualAid/issues/134)).
+- **Redundant Warnings in Input Parser**: Removed stale `warnings.warn` calls
+  and the unused `import warnings` dependency from the input parser
+  ([#138](https://github.com/SunYanbox/ManualAid/issues/138)).
+
+### Removed
+
+- **`read_lines` Tool**: Merged into the enhanced `read` tool with range-reading
+  support. All `read_lines` functionality is now accessible via `read` with
+  `start`/`end`/`context` parameters
+  ([#119, #128](https://github.com/SunYanbox/ManualAid/issues/119)).
+
 ## [0.4.1] - 2026-05-04
 
 ### Added
@@ -176,6 +251,7 @@ and this project adheres to
 
 _Initial release features and history._
 
+[0.5.0]: https://github.com/SunYanbox/ManualAid/releases/tag/v0.5.0
 [0.4.1]: https://github.com/SunYanbox/ManualAid/releases/tag/v0.4.1
 [0.4.0]: https://github.com/SunYanbox/ManualAid/releases/tag/v0.4.0
 [0.3.0]: https://github.com/SunYanbox/ManualAid/releases/tag/v0.3.0

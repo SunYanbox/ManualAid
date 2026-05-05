@@ -9,7 +9,7 @@ LLM chat interfaces. Paste LLM-generated tool calls (in XML format), review and
 audit dangerous operations, and manage sessions with full history tracking --
 all running locally on your machine.
 
-> **Version**: 0.4.1 | **Python**: >=3.14
+> **Version**: 0.5.0 | **Python**: >=3.14
 
 ---
 
