@@ -192,7 +192,22 @@ docs(README): 添加贡献指南 / add contributing guide
 
 ## 如何添加新工具
 
-所有工具位于 `src/workspace/tools/` 目录,继承 `BaseTool` 基类.
+所有工具位于 `src/workspace/tools/` 目录,继承 `BaseTool`
+基类. 所有工具方法必须返回 `ToolResult` 对象(位于
+`src/models/tools/tool_result.py`).
+
+### ToolResult 模型
+
+`ToolResult` 是统一的工具执行结果包装器:
+
+| 字段          | 说明                                     |
+| :------------ | :--------------------------------------- |
+| `success`     | 执行是否成功 (`bool`)                    |
+| `func_name`   | 工具方法名 (`str`)                       |
+| `func_kwargs` | 调用参数字典 (`dict`)                    |
+| `data`        | 成功时的返回数据 (`Any`)                 |
+| `error`       | 失败时的错误消息 (`str\|None`)           |
+| `response`    | 自动生成的 XML 格式字符串(用于 LLM 消费) |
 
 ### 步骤概述
 
@@ -201,6 +216,7 @@ docs(README): 添加贡献指南 / add contributing guide
 2. **继承 BaseTool**:
 
    ```python
+   from src.models.tools.tool_result import ToolResult
    from src.workspace.tools.base_tool import BaseTool
    from src.workspace.workspace import Workspace
 
@@ -221,28 +237,80 @@ docs(README): 添加贡献指南 / add contributing guide
            }
 
        @BaseTool.handle_tool_exceptions
-       def your_method(self, param1: str, param2: int = 0) -> str:
+       def your_method(self, param1: str, param2: int = 0) -> ToolResult:
            """
            工具描述 -- 会生成为 LLM 可读的文档.
            """
            # 路径操作必须通过 PathValidator 验证
            path = self.workspace.path_validator.validate(param1)
-           # ... 工具逻辑 ...
-           return f'{path}x{param2}'
+
+           # 注意: 返回 ToolResult 而非原始数据
+           # 成功时使用 make_success_response
+           return self.make_success_response(
+               kwargs=locals().copy(),
+               data=f'{path}x{param2}'
+           )
+
+           # 失败时使用 make_failed_response
+           # return self.make_failed_response(
+           #     kwargs=locals().copy(),
+           #     error="具体的错误描述"
+           # )
    ```
 
 3. **写入操作的特殊处理**: 如果工具涉及写入(`write_permission=True`),需要:
    - 通过 `self._validate_mtime(path)` 检查文件是否被外部修改
    - 生成 diff 并记录 `PENDING_AUDIT` 快照,而非直接写入磁盘
+   - 返回格式仍然使用
+     `self.make_success_response(kwargs=locals().copy(), data=...)` 或
+     `self.make_failed_response(kwargs=locals().copy(), error=...)`
    - 参考 `WriteTool` 和 `EditTool` 的实现
 
 4. **注册工具**: 在 `src/core/tool_registry.py` 的 `register()`
    方法中导入并实例化你的工具:
 
+   ```python
+   def register(self, workspace: Workspace) -> None:
+       from src.workspace.tools.your_tool import YourTool
+
+       self._workspace = workspace
+
+       for cls in (
+           # ... 其他已有的工具类 ...
+           YourTool,
+       ):
+           try:
+               tool = cls(workspace)
+               if tool.func is None or tool.params is None:
+                   warnings.warn(f"工具{tool.name}没有注册功能回调和参数", stacklevel=2)
+                   continue
+               self._tools[tool.name] = tool
+               self._set_tool_category(tool)
+           except ValueError:
+               pass
+   ```
+
 5. **补充测试**: 在 `tests/workspace/tools/` 下创建对应的测试文件. 至少覆盖:
-   - 正常执行路径
+   - 正常执行路径(断言 `result.success is True`, 检查 `result.data`)
+   - 失败场景(断言 `result.success is False`, 检查 `result.error`)
    - 参数验证(如空参数、非法值)
    - 路径安全(如越界访问)
+
+   测试示例:
+
+   ```python
+   def test_your_tool_success(workspace):
+       tool = YourTool(workspace)
+       result = tool.your_method(param1="valid_path", param2=42)
+       assert result.success is True
+       assert result.data is not None
+
+   def test_your_tool_failure(workspace):
+       tool = YourTool(workspace)
+       result = tool.your_method(param1="../outside_path", param2=42)
+       assert result.success is False
+       assert "WorkspaceBoundaryError" in result.error
+   ```
 
 ---
 
