@@ -299,10 +299,10 @@ class AuditTab(Vertical):
         self._file_batch_map.clear()
         file_index = 0
 
-        for file_path in sorted(grouped):
+        for file_index, file_path in enumerate(sorted(grouped), start=1):
             snaps = grouped[file_path]
             snap_ids = [snap[0] for snap in snaps]
-            file_index += 1
+
             self._file_batch_map[file_index] = (snap_ids, file_path)
 
             all_snap_widgets: list[Static | Horizontal] = []
