@@ -2,8 +2,7 @@
 
 from pathlib import Path
 
-from src.core.agent_manager import AgentManager, _parse_frontmatter, _parse_agent_file
-from src.models.agent import ToolPermissions
+from src.core.agent_manager import AgentManager, _parse_agent_file, _parse_frontmatter
 
 
 class TestParseFrontmatter:
@@ -40,7 +39,7 @@ tool_permissions:
 ## Role
 test
 """
-        meta, body = _parse_frontmatter(content)
+        meta, _body = _parse_frontmatter(content)
         assert meta["tool_permissions.whitelist"] == ["read", "glob"]
         assert meta["tool_permissions.blacklist"] == ["git"]
 
@@ -55,7 +54,7 @@ tool_permissions:
 ## Role
 test
 """
-        meta, body = _parse_frontmatter(content)
+        meta, _body = _parse_frontmatter(content)
         whitelist = meta.get("tool_permissions.whitelist", [])
         blacklist = meta.get("tool_permissions.blacklist", [])
         assert whitelist == [], f"Expected [], got {whitelist!r}"
@@ -65,7 +64,8 @@ test
 class TestParseAgentFile:
     def test_full_agent_file(self, tmp_path: Path):
         md_file = tmp_path / "test-agent.md"
-        md_file.write_text("""---
+        md_file.write_text(
+            """---
 name: test-agent
 description: My test agent
 tool_permissions:
@@ -84,7 +84,9 @@ You are a test agent.
 
 1. Test things.
 2. Verify results.
-""", encoding="utf-8")
+""",
+            encoding="utf-8",
+        )
         agent = _parse_agent_file(md_file)
         assert agent is not None
         assert agent.name == "test-agent"
@@ -102,12 +104,15 @@ You are a test agent.
 
     def test_no_role_section(self, tmp_path: Path):
         md_file = tmp_path / "no-role.md"
-        md_file.write_text("""---
+        md_file.write_text(
+            """---
 name: no-role
 description: No role
 ---
 Some content without sections.
-""", encoding="utf-8")
+""",
+            encoding="utf-8",
+        )
         agent = _parse_agent_file(md_file)
         assert agent is not None
         assert agent.body_role == ""

@@ -11,11 +11,11 @@ from textual.widgets import Button, Footer, Label, Select, TextArea
 from src.console.handlers.command_handler import CommandHandler
 from src.console.handlers.tool_handler import ToolHandler
 from src.console.ui.tui_console import TuiConsole
+from src.core.agent_manager import AgentManager
 from src.core.input_parser import parse_input
 from src.core.paste_cache import PasteReference
 from src.core.paste_window import show_paste_window
 from src.utils.generate_help_text import generate_help_text
-from src.core.agent_manager import AgentManager
 from src.utils.string_snapshot import truncate_for_display
 
 if TYPE_CHECKING:
@@ -212,9 +212,7 @@ class REPL(App):
         # 更新标题栏右侧显示实际工作区路径和当前 Agent
         title_right = self.query_one("#title-right", Label)
         mgr = AgentManager()
-        title_right.update(
-            f"Agent: {mgr.current_agent_name} | 工作区: {self.workspace.root_path}"
-        )
+        title_right.update(f"Agent: {mgr.current_agent_name} | 工作区: {self.workspace.root_path}")
 
         # 创建审核提交模块并注入审核标签页
         from src.core.audit_committer import AuditCommitter
@@ -255,12 +253,8 @@ class REPL(App):
             mgr = AgentManager()
             if mgr.switch_agent(str(event.value)):
                 title_right = self.query_one("#title-right", Label)
-                title_right.update(
-                    f"Agent: {mgr.current_agent_name} | 工作区: {self.workspace.root_path}"
-                )
-                self.tui_console.print(
-                    f"[dim]Switched to agent: {mgr.current_agent_name}[/dim]"
-                )
+                title_right.update(f"Agent: {mgr.current_agent_name} | 工作区: {self.workspace.root_path}")
+                self.tui_console.print(f"[dim]Switched to agent: {mgr.current_agent_name}[/dim]")
 
     # -- 输入处理 -----------------------------------------------------------
 

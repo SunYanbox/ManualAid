@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from src.core.copy2clip import copy_to_clipboard
-
 from src.core.agent_manager import AgentManager
+from src.core.copy2clip import copy_to_clipboard
+from src.models.agent import AgentConfig
 from src.models.commands import Command, CommandContext, CommandResult
 
 
@@ -85,9 +85,7 @@ class AgentCommand(Command):
             return CommandResult(success=True)
 
         if len(matches) > 1:
-            context.console.print(
-                f"[red]Ambiguous prefix '{name}' matches: {', '.join(matches)}[/red]"
-            )
+            context.console.print(f"[red]Ambiguous prefix '{name}' matches: {', '.join(matches)}[/red]")
         else:
             context.console.print(f"[red]Agent '{name}' not found.[/red]")
             context.console.print("Use [bold]/agent list[/bold] to see available agents.")
@@ -101,9 +99,7 @@ class AgentCommand(Command):
                 if len(matches) == 1:
                     agent = mgr.get(matches[0])
                 elif len(matches) > 1:
-                    context.console.print(
-                        f"[red]Ambiguous prefix '{name}' matches: {', '.join(matches)}[/red]"
-                    )
+                    context.console.print(f"[red]Ambiguous prefix '{name}' matches: {', '.join(matches)}[/red]")
                     return CommandResult(success=False)
                 else:
                     context.console.print(f"[red]Agent '{name}' not found.[/red]")
@@ -120,7 +116,7 @@ class AgentCommand(Command):
         return CommandResult(success=True)
 
     @staticmethod
-    def _format_agent_copy(agent: "AgentConfig") -> str:
+    def _format_agent_copy(agent: AgentConfig) -> str:
         """Format agent body (role + workflow) for external pasting."""
         parts = [f"--- Agent: {agent.name} ---", ""]
         if agent.body_role:

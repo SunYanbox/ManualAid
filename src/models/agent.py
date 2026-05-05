@@ -16,9 +16,7 @@ class ToolPermissions:
         """
         if tool_name in self.blacklist:
             return False
-        if self.whitelist and tool_name not in self.whitelist:
-            return False
-        return True
+        return not self.whitelist or tool_name in self.whitelist
 
 
 @dataclass
