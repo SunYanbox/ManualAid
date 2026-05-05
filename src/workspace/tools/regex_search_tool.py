@@ -2,7 +2,7 @@ import contextlib
 import re
 from pathlib import Path
 
-from src.models.tool_error_response import ToolErrorResponse
+from src.models.tools.tool_result import ToolResult
 from src.workspace.tools.base_tool import BaseTool
 from src.workspace.workspace import Workspace
 
@@ -103,6 +103,14 @@ class RegexSearchTool(BaseTool):
         super().__init__(workspace, "regex_search", self.regex_search.__doc__)
         self.func = self.regex_search
         self.params = BaseTool.extract_params(self.regex_search)
+        self.param_descriptions = {
+            "pattern": "正则表达式模式",
+            "path": "搜索文件或文件夹路径",
+            "context": "显示匹配行的上下文行数",
+            "file_pattern": "文件匹配模式,支持通配符",
+            "limit": "最大匹配数量限制",
+            "ignore": "忽略匹配正则的文件或文件夹列表",
+        }
 
     @BaseTool.handle_tool_exceptions
     def regex_search(
@@ -113,18 +121,9 @@ class RegexSearchTool(BaseTool):
         file_pattern: str = "*",
         limit: int = 256,
         ignore: list[str] | None = None,
-    ) -> str:
+    ) -> ToolResult:
         """
         使用正则表达式搜索文件内容, 支持上下文显示、文件过滤和忽略路径, 返回匹配详情; 适合代码与文档探索
-
-        Parameters
-        ----------
-        pattern: 正则表达式模式
-        path: 搜索路径,默认为当前目录
-        context: 显示匹配行的上下文行数,默认为3
-        file_pattern: 文件匹配模式,支持通配符,默认为"*"
-        limit: 最大匹配数量限制,默认为256
-        ignore: 忽略匹配正则的文件或文件夹列表
         """
         # 验证搜索路径
         search_path: Path = self.workspace.path_validator.validate(path)
@@ -133,7 +132,7 @@ class RegexSearchTool(BaseTool):
         try:
             regex = re.compile(pattern)
         except re.error as e:
-            return ToolErrorResponse(self.__class__.__name__, f"无效的正则表达式: {e}").to_str()
+            return self.make_failed_response(kwargs=locals().copy(), error=f"无效的正则表达式: {e}")
 
         # 收集忽略模式
         ignore_patterns = []
@@ -145,6 +144,8 @@ class RegexSearchTool(BaseTool):
         # 搜索结果
         results = []
         file_count = 0
+        total_matches = 0
+        warnings = ["<ExecuteWarning>"]
 
         # 确定要搜索的文件列表(支持单文件或目录)
         files_to_search = [search_path] if search_path.is_file() else list(search_path.rglob(file_pattern))
@@ -154,7 +155,7 @@ class RegexSearchTool(BaseTool):
             if not file_path.is_file():
                 continue
             # 检查是否达到限制
-            if len(results) >= limit:
+            if total_matches >= limit:
                 break
 
             # 检查是否应该忽略该文件或文件夹
@@ -181,9 +182,17 @@ class RegexSearchTool(BaseTool):
                 if file_results:
                     results.append({"file": str(file_path), "matches": file_results})
                     file_count += 1
+                    total_matches += len(file_results)
 
-            except OSError, UnicodeDecodeError, PermissionError:
+            except (OSError, UnicodeDecodeError, PermissionError) as e:
+                warnings.append(f"在文件{file_path}搜索匹配行时出错: {e}")
                 continue  # 跳过无法读取的文件
 
+        warnings.append("</ExecuteWarning>")
+
         # 格式化输出
-        return _format_regex_results(results, pattern, limit, file_count)
+        return self.make_success_response(
+            kwargs=locals().copy(),
+            data=_format_regex_results(results, pattern, limit, file_count),
+            error="\n".join(warnings) if len(warnings) > 2 else None,
+        )

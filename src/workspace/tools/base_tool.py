@@ -4,26 +4,25 @@ from pathlib import Path
 from typing import Any
 
 from src.core.file_tracker import FileTracker
+from src.models.tools.tool_result import ToolResult
 from src.workspace.workspace import Workspace
 
 
-def build_param_doc(name: str, params: dict[str, Any]) -> str:
-    """Generate a concise XML parameter doc."""
+def build_param_list_item(name: str, params: dict[str, Any], description: str = "") -> str:
+    """Generate a Markdown list item describing a parameter."""
     from src.constants.prompts import clean_type_annotation
 
-    result = f'<param name="{name}"'
-    if "annotation" in params:
-        result += f' type="{clean_type_annotation(params["annotation"])}"'
-    else:
-        result += ' type="string"'
+    type_str = clean_type_annotation(params.get("annotation", "Any"))
+
     if params.get("required", False):
-        result += ' required="true"'
+        req_str = "required"
     else:
-        result += ' required="false"'
-    if "default" in params:
-        result += f' default="{params["default"]}"'
-    result += " />"
-    return result
+        default_val = params.get("default", "")
+        req_str = f"optional, default=`{default_val}`"
+
+    desc_suffix = f": {description}" if description else ""
+
+    return f"- **{name}** ({type_str}, {req_str}){desc_suffix}"
 
 
 def convert_param_type(value: str, expected_type: str) -> Any:
@@ -110,8 +109,9 @@ class BaseTool:
         self.write_permission: bool = write_permission
         self.name: str = name
         self.doc: str = doc
-        self.func: Callable[..., Any] | None = None
+        self.func: Callable[..., ToolResult] | None = None
         self.params: dict[str, Any] | None = None
+        self.param_descriptions: dict[str, str] = {}
 
     def to_doc(self) -> str:
         """转换为模型可读文档格式"""
@@ -119,7 +119,8 @@ class BaseTool:
         if self.params and len(self.params) > 0:
             lines.append("    <params>")
             for name, param in self.params.items():
-                lines.append(f"        {build_param_doc(name, param)}")
+                desc = self.param_descriptions.get(name, "")
+                lines.append(f"        {build_param_list_item(name, param, desc)}")
             lines.append("    </params>")
         else:
             lines.append("    <params><!-- 此工具不需要参数 --></params>")
@@ -139,7 +140,7 @@ class BaseTool:
         return func_call
 
     @staticmethod
-    def extract_params(func: Callable[..., Any]) -> dict[str, Any]:
+    def extract_params(func: Callable[..., ToolResult]) -> dict[str, Any]:
         """提取函数参数信息"""
         sig = inspect.signature(func)
         params = {}
@@ -181,7 +182,7 @@ class BaseTool:
         try:
             meta = FileTracker.get_file_meta(resolved_path)
             if meta:
-                session_id = self.workspace._current_session_id
+                session_id = self.workspace.session_id
                 if session_id is not None:
                     rel_path = str(resolved_path.relative_to(self.workspace.root_path))
                     self.workspace.db.record_file_read(
@@ -195,7 +196,7 @@ class BaseTool:
         if not resolved_path.exists():
             return None
 
-        session_id = self.workspace._current_session_id
+        session_id = self.workspace.session_id
         if session_id is None:
             return None
 
@@ -224,25 +225,60 @@ class BaseTool:
         diff = difflib.unified_diff(old_lines, new_lines, fromfile=f"a/{file_path}", tofile=f"b/{file_path}")
         return "".join(diff)
 
+    @classmethod
+    def make_tool_result_response(
+        cls, success: bool, kwargs: dict, data: Any = None, error: str | None = None
+    ) -> ToolResult:
+        return ToolResult(success=success, func_name=cls.__name__, func_kwargs=kwargs, data=data, error=error)
+
+    @classmethod
+    def make_success_response(cls, kwargs: dict, data: Any = None, error: str | None = None) -> ToolResult:
+        return cls.make_tool_result_response(success=True, kwargs=kwargs, data=data, error=error)
+
+    @classmethod
+    def make_failed_response(cls, kwargs: dict, data: Any = None, error: str | None = None) -> ToolResult:
+        return cls.make_tool_result_response(success=False, kwargs=kwargs, data=data, error=error)
+
     @staticmethod
-    def handle_tool_exceptions(func):
-        """工具方法异常处理装饰器."""
+    def handle_tool_exceptions(func) -> Callable[..., ToolResult]:
+        """工具方法异常处理装饰器 —— 将异常转换为 ToolResult 失败结果"""
         from functools import wraps
 
-        from src.models.tool_error_response import ToolErrorResponse
         from src.workspace.path_validator import PathNotFoundError, WorkspaceBoundaryError
 
         @wraps(func)
         def wrapper(self, *args, **kwargs):
             try:
-                return func(self, *args, **kwargs)
+                raw = func(self, *args, **kwargs)
+                # 如果工具内部已返回 ToolResult, 直接透传
+                if isinstance(raw, ToolResult):
+                    return raw
+                # 否则包装为成功结果
+                return ToolResult(success=True, func_name=func.__name__, func_kwargs=kwargs, data=raw)
             except PathNotFoundError as err1:
-                return ToolErrorResponse(self.__class__.__name__, err1).to_str()
+                return ToolResult(
+                    success=False,
+                    func_name=func.__name__,
+                    func_kwargs=kwargs,
+                    error=f"{err1.__class__.__name__}: {err1}",
+                )
             except WorkspaceBoundaryError as err2:
-                return ToolErrorResponse(self.__class__.__name__, err2).to_str()
+                return ToolResult(
+                    success=False,
+                    func_name=func.__name__,
+                    func_kwargs=kwargs,
+                    error=f"{err2.__class__.__name__}: {err2}",
+                )
             except PermissionError as err3:
-                return ToolErrorResponse(self.__class__.__name__, err3).to_str()
+                return ToolResult(
+                    success=False,
+                    func_name=func.__name__,
+                    func_kwargs=kwargs,
+                    error=f"{err3.__class__.__name__}: {err3}",
+                )
             except Exception as err:
-                return ToolErrorResponse(self.__class__.__name__, err).to_str()
+                return ToolResult(
+                    success=False, func_name=func.__name__, func_kwargs=kwargs, error=f"{err.__class__.__name__}: {err}"
+                )
 
         return wrapper

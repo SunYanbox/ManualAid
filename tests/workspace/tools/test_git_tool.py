@@ -50,90 +50,105 @@ def git_tool(workspace: Workspace):
 class TestGitAllowedCommands:
     def test_status(self, git_tool):
         result = git_tool.git("status")
-        assert "nothing to commit" in result.lower() or "working tree clean" in result.lower()
+        assert "nothing to commit" in result.response.lower() or "working tree clean" in result.lower()
 
     def test_diff(self, git_tool):
         result = git_tool.git("diff")
-        assert "(no output)" in result or result == "" or result == "(no output)"
+        assert "(no output)" in result.response or result.response == "" or result.response == "(no output)"
 
     def test_log(self, git_tool):
         result = git_tool.git("log --oneline -1")
-        assert "initial" in result.lower()
+        assert "initial" in result.response.lower()
 
     def test_show(self, git_tool):
         result = git_tool.git("show --stat")
-        assert "README" in result or "initial" in result.lower()
+        assert result.success is True
+        assert "README" in result.data or "initial" in result.data.lower()
 
     def test_add_and_commit(self, git_tool, git_repo: Path):
         (git_repo / "new_file.txt").write_text("content", encoding="utf-8")
         add_result = git_tool.git("add new_file.txt")
-        assert "failed" not in add_result.lower()
+        assert add_result.success is True
 
         commit_result = git_tool.git('commit -m "test commit"')
-        assert "commi" in commit_result.lower() or "file changed" in commit_result.lower()
+        assert commit_result.success is True
+        assert "commi" in commit_result.data.lower() or "file changed" in commit_result.data.lower()
 
     def test_branch(self, git_tool):
         result = git_tool.git("branch")
-        assert "*" in result or "main" in result or "master" in result
+        assert result.success is True
+        assert "*" in result.data or "main" in result.data or "master" in result.data
 
     def test_restore_specific_file(self, git_tool, git_repo: Path):
         (git_repo / "README.md").write_text("modified\n", encoding="utf-8")
         result = git_tool.git("restore README.md")
-        assert "failed" not in result.lower()
+        assert "failed" not in result.data.lower()
 
 
 class TestGitBlockedCommands:
     def test_push_blocked(self, git_tool):
         result = git_tool.git("push")
-        assert "blocked" in result.lower() or "ERROR" in result
+        assert result.success is False
+        assert "blocked" in result.error.lower() or "ERROR" in result.error
 
     def test_remote_blocked(self, git_tool):
         result = git_tool.git("remote add origin https://example.com/repo.git")
-        assert "blocked" in result.lower() or "ERROR" in result
+        assert result.success is False
+        assert "blocked" in result.error.lower() or "ERROR" in result.error
 
     def test_reset_hard_blocked(self, git_tool):
         result = git_tool.git("reset --hard HEAD")
-        assert "blocked" in result.lower() or "ERROR" in result
+        assert result.success is False
+        assert "blocked" in result.error.lower() or "ERROR" in result.error
 
     def test_branch_d_blocked(self, git_tool):
         result = git_tool.git("branch -D test")
-        assert "blocked" in result.lower() or "ERROR" in result
+        assert result.success is False
+        assert "blocked" in result.error.lower() or "ERROR" in result.error
 
     def test_merge_blocked(self, git_tool):
         result = git_tool.git("merge test-branch")
-        assert "blocked" in result.lower() or "ERROR" in result
+        assert result.success is False
+        assert "blocked" in result.error.lower() or "ERROR" in result.error
 
     def test_rebase_blocked(self, git_tool):
         result = git_tool.git("rebase main")
-        assert "blocked" in result.lower() or "ERROR" in result
+        assert result.success is False
+        assert "blocked" in result.error.lower() or "ERROR" in result.error
 
     def test_clean_blocked(self, git_tool):
         result = git_tool.git("clean -fd")
-        assert "blocked" in result.lower() or "ERROR" in result
+        assert result.success is False
+        assert "blocked" in result.error.lower() or "ERROR" in result.error
 
     def test_fetch_blocked(self, git_tool):
         result = git_tool.git("fetch origin")
-        assert "blocked" in result.lower() or "ERROR" in result
+        assert result.success is False
+        assert "blocked" in result.error.lower() or "ERROR" in result.error
 
     def test_pull_blocked(self, git_tool):
         result = git_tool.git("pull origin main")
-        assert "blocked" in result.lower() or "ERROR" in result
+        assert result.success is False
+        assert "blocked" in result.error.lower() or "ERROR" in result.error
 
 
 class TestGitRestoreSafety:
     def test_bare_restore_rejected(self, git_tool):
         result = git_tool.git("restore")
-        assert "需要指定文件路径" in result or "ERROR" in result or "restore" in result.lower()
+        assert result.success is False
+        assert "需要指定文件路径" in result.error or "ERROR" in result.error or "restore" in result.error.lower()
 
     def test_restore_dot_rejected(self, git_tool):
         result = git_tool.git("restore .")
-        assert "通配符" in result or "ERROR" in result or "restore" in result.lower()
+        assert result.success is False
+        assert "通配符" in result.error or "ERROR" in result.error or "restore" in result.error.lower()
 
 
 class TestGitUnknownCommand:
     def test_unknown_command_rejected(self, git_tool):
         result = git_tool.git("unknown-command")
-        assert "not in the allowed whitelist" in result.lower() or "ERROR" in result
+        assert result.success is False
+        assert "not in the allowed whitelist" in result.error.lower() or "ERROR" in result.error
 
 
 class TestGitIsSafeCommand:
@@ -168,8 +183,14 @@ class TestGitIsSafeCommand:
 class TestGitInjection:
     def test_command_injection_via_semicolon(self, git_tool):
         result = git_tool.git("status; echo pwned")
-        assert "blocked" in result.lower() or "ERROR" in result or "not in the allowed whitelist" in result.lower()
+        assert result.success is False
+        assert (
+            "blocked" in result.error.lower()
+            or "ERROR" in result.error
+            or "not in the allowed whitelist" in result.error.lower()
+        )
 
     def test_invalid_shell_syntax(self, git_tool):
         result = git_tool.git("status $(whoami)")
-        assert "failed" not in result.lower() or "error" not in result.lower()
+        assert result.success is True
+        assert "working tree clean" in result.data.lower() or "nothing to commit" in result.data.lower()

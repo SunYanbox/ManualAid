@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from src.models.tool_error_response import ToolErrorResponse
+from src.models.tools.tool_result import ToolResult
 from src.utils.binary_detector import is_binary_file
 from src.workspace.tools.base_tool import BaseTool
 from src.workspace.workspace import Workspace
@@ -19,61 +20,55 @@ class EditTool(BaseTool):
         super().__init__(workspace, "edit", self.edit.__doc__, write_permission=True)
         self.func = self.edit
         self.params = BaseTool.extract_params(self.edit)
+        self.param_descriptions = {
+            "path": "文件路径",
+            "old_string": "待替换的字符串",
+            "new_string": "替换后的字符串",
+            "max_replacements": "最大替换次数(1~100)",
+            "context_before": "匹配前的上下文文本",
+            "context_after": "匹配后的上下文文本",
+        }
 
     @BaseTool.handle_tool_exceptions
     def edit(
         self,
-        file_path: str,
+        path: str,
         old_string: str,
         new_string: str,
         max_replacements: int = 10,
         context_before: str = "",
         context_after: str = "",
-    ) -> str:
+    ) -> ToolResult:
         """
-        在文件中进行安全的字符串替换(仅预览,不修改磁盘)
-
-        执行 dry-run 替换,生成 diff,记录 PENDING_AUDIT 快照.
-        批准后由 AuditCommitter 执行实际写入.
-
-        Parameters
-        ----------
-        file_path: 文件路径
-        old_string: 待替换的字符串(不能为空)
-        new_string: 替换后的字符串
-        max_replacements: 最大替换次数(默认 10,最大 100)
-        context_before: 匹配前的上下文文本(可选,用于校验)
-        context_after: 匹配后的上下文文本(可选,用于校验)
+        通过在文件中进行安全的字符串替换编辑文件
         """
         # 1. 参数校验
         if not old_string:
-            return ToolErrorResponse(self.__class__.__name__, ValueError("old_string 不能为空")).to_str()
+            return self.make_failed_response(locals().copy(), error=f"{ValueError('old_string 不能为空')}")
 
         if max_replacements < 1:
-            return ToolErrorResponse(self.__class__.__name__, ValueError("max_replacements 必须 >= 1")).to_str()
+            return self.make_failed_response(locals().copy(), error=f"{ValueError('max_replacements 必须 >= 1')}")
         if max_replacements > 100:
             max_replacements = 100
 
         # 2. 路径解析
-        source_file_path = Path(file_path)
-        resolved_path: Path = self.workspace.path_validator.resolve_path(source_file_path)
+        source_path = Path(path)
+        resolved_path: Path = self.workspace.path_validator.resolve_path(source_path)
 
         if not resolved_path.is_file():
-            return ToolErrorResponse(
-                self.__class__.__name__,
-                FileNotFoundError(f"文件不存在: {resolved_path}"),
-            ).to_str()
+            return self.make_failed_response(
+                locals().copy(), error=f"{FileNotFoundError(f'文件不存在: {resolved_path}')}"
+            )
 
         if is_binary_file(resolved_path):
-            return ToolErrorResponse(
-                self.__class__.__name__,
-                ValueError(f"禁止编辑二进制文件: {resolved_path}"),
-            ).to_str()
+            return self.make_failed_response(
+                locals().copy(), error=f"{ValueError(f'禁止编辑二进制文件: {resolved_path}')}"
+            )
 
         # 3. mtime 校验
         mtime_error = self._validate_mtime(resolved_path)
         if mtime_error:
-            return mtime_error
+            return self.make_failed_response(locals().copy(), error=f"无法编辑被修改过的文件:\n{mtime_error}")
 
         # 4. 读取文件内容
         old_content = resolved_path.read_text(encoding="utf-8")
@@ -91,12 +86,17 @@ class EditTool(BaseTool):
             if context_before or context_after:
                 ctx_error = self._check_context(old_content, idx, old_string, context_before, context_after, count)
                 if ctx_error:
-                    return ctx_error
+                    return self.make_failed_response(
+                        locals().copy(), error=f"无法修改上下文不匹配的字符串:\n{ctx_error}"
+                    )
 
             idx += len(old_string)
 
         if count == 0:
-            return f"No changes made: old_string not found in file.\nFile: {file_path}\nSearching for: '{old_string}'"
+            return self.make_failed_response(
+                locals().copy(),
+                error=f"No changes made: old_string not found in file.\nFile: {path}\nSearching for: '{old_string}'",
+            )
 
         # 6. 执行替换(生成新内容)
         new_content = old_content.replace(old_string, new_string, count)
@@ -110,7 +110,7 @@ class EditTool(BaseTool):
 
         old_hash = FileTracker.compute_checksum_from_string(old_content)
         new_hash = FileTracker.compute_checksum_from_string(new_content)
-        session_id = self.workspace._current_session_id
+        session_id = self.workspace.session_id
         snapshot_id = self.workspace.db.record_file_snapshot(
             rel_path,
             old_hash,
@@ -122,12 +122,16 @@ class EditTool(BaseTool):
         )
 
         # 9. 返回预览
-        return (
-            f"[Edit Preview]\n"
-            f"File: {rel_path}\n"
-            f"Snapshot ID: {snapshot_id}\n"
-            f"Replacements: {count}\n"
-            f"Diff:\n{diff_content}"
+        return self.make_success_response(
+            locals().copy(),
+            (
+                "修改已推送到审核系统\n"
+                f"[Edit Preview]\n"
+                f"File: {rel_path}\n"
+                f"Snapshot ID: {snapshot_id}\n"
+                f"Replacements: {count}\n"
+                f"Diff:\n{diff_content}"
+            ),
         )
 
     @staticmethod
