@@ -3,6 +3,8 @@ import re
 from pathlib import Path
 from typing import ClassVar
 
+from src.workspace.exclusion_manager import ExclusionManager
+
 
 class WorkspaceBoundaryError(Exception):
     """访问工作区外的路径时抛出"""
@@ -29,19 +31,9 @@ class PathValidator:
         workspace_root: 工作区根目录,默认为当前目录
     """
 
-    # 敏感文件匹配模式
+    # 敏感文件匹配模式(从 ExclusionManager 统一来源引用)
     SENSITIVE_FILE_PATTERNS: ClassVar[list[re.Pattern]] = [
-        re.compile(r"\.env$"),
-        re.compile(r"\.env\..+$"),
-        re.compile(r".*\.pem$"),
-        re.compile(r"credentials\..*$"),
-        re.compile(r".*\.key$"),
-        re.compile(r".*\.cert$"),
-        re.compile(r"id_rsa$"),
-        re.compile(r"id_ed25519$"),
-        re.compile(r".*\.cred$"),
-        re.compile(r".*\.secret$"),
-        re.compile(r"\.ManualAid[/\\].*\.db$"),
+        re.compile(p) for p in ExclusionManager.SENSITIVE_FILE_PATTERNS
     ]
 
     def __init__(self, workspace_root: str | Path = "."):
@@ -102,9 +94,9 @@ class PathValidator:
     @classmethod
     def _raise_if_sensitive(cls, resolved: Path, original_target: str | Path) -> None:
         """检查路径是否匹配敏感文件模式."""
-        rel_str = str(resolved).replace("\\", "/")
+        resolved_str = str(resolved).replace(os.sep, "/")
         for pattern in cls.SENSITIVE_FILE_PATTERNS:
-            if pattern.search(rel_str):
+            if pattern.search(resolved_str):
                 raise SensitiveFileError(f"禁止访问敏感文件: {original_target}")
 
     def create_file_with_parents(self, target: str | Path, content: str = "") -> Path:

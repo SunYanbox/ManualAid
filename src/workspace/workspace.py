@@ -7,7 +7,6 @@ from pathlib import Path
 from src.models.tool_error_response import ToolErrorResponse
 from src.workspace.exclusion_manager import ExclusionManager
 from src.workspace.path_validator import PathNotFoundError, PathValidator, WorkspaceBoundaryError
-from src.workspace.permissions import PermissionManager
 
 
 def _highlight_matches(line: str, regex: re.Pattern) -> str:
@@ -47,7 +46,6 @@ class Workspace:
         self.root_path = Path(path).resolve()
         self.path_validator: PathValidator = PathValidator(self.root_path)
         self.exclusion_manager: ExclusionManager = ExclusionManager(self.root_path)
-        self.permission_manager: PermissionManager = PermissionManager(self.root_path)
         self.is_git_repo: bool = (self.root_path / ".git").is_dir()
         self.platform: str = sys.platform
         self.date: str = date.today().strftime("%y-%m-%d")
@@ -232,8 +230,6 @@ class Workspace:
             else:
                 for file_path in path.rglob(file_pattern):
                     if file_path.is_file():
-                        if any(self.exclusion_manager.should_exclude_dir(p.name) for p in file_path.parents):
-                            continue
                         rel = str(file_path.relative_to(self.root_path))
                         if any(ir.search(rel) for ir in ignore_res):
                             continue

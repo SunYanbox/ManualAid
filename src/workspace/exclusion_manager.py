@@ -5,6 +5,8 @@
 - 安全排除: 隐私/凭据文件等不应被 AI 访问的路径
 """
 
+from __future__ import annotations
+
 import os
 import re
 from pathlib import Path
@@ -14,7 +16,7 @@ from src.workspace.gitignore_loader import is_ignored_by_gitignore, load_gitigno
 
 
 class ExclusionManager:
-    """排除规则统一管理器.
+    """排除规则统一管理器
 
     聚合三类排除源:
     1. 默认排除(内置的缓存/构建/IDE 目录)
@@ -59,35 +61,20 @@ class ExclusionManager:
         }
     )
 
-    # 安全排除 —— 敏感文件, AI 不应读取
-    SECURITY_EXCLUSIONS: frozenset[str] = frozenset(
-        {
-            ".env",
-            ".env.*",
-            "*.pem",
-            "credentials.*",
-            "*.key",
-            "*.cert",
-            "id_rsa",
-            "id_ed25519",
-            "*.cred",
-            "*.secret",
-            "**/vault/**",
-        }
-    )
-
-    # 安全排除 —— 需要精确匹配的特定文件
+    # 安全排除 —— 需要精确匹配的敏感文件正则(与 SECURITY_EXCLUSIONS 合并后的唯一来源)
+    # 注意: (^|/) 前缀表示匹配路径开始或目录分隔符后; .* 前缀表示匹配任意位置的文件扩展名
     SENSITIVE_FILE_PATTERNS: ClassVar[list[str]] = [
-        r"\.env$",
-        r"\.env\..+$",
+        r"(^|/)\.env$",
+        r"(^|/)\.env\..+$",
         r".*\.pem$",
-        r"credentials\..*$",
+        r"(^|/)credentials\..*$",
         r".*\.key$",
         r".*\.cert$",
-        r"id_rsa$",
-        r"id_ed25519$",
+        r"(^|/)id_rsa$",
+        r"(^|/)id_ed25519$",
         r".*\.cred$",
         r".*\.secret$",
+        r"(^|/)\.ManualAid[/\\].*\.db$",
     ]
 
     def __init__(self, workspace_root: str | Path):
@@ -99,14 +86,6 @@ class ExclusionManager:
 
         self._reload_gitignore()
 
-        # 编译敏感文件正则
-        self._sensitive_file_res: list[re.Pattern] = []
-        for pat in self.SENSITIVE_FILE_PATTERNS:
-            try:
-                self._sensitive_file_res.append(re.compile(pat))
-            except re.error:
-                continue
-
     def _reload_gitignore(self) -> None:
         """(重新)加载 .gitignore."""
         raw, exclude_res, negate_res = load_gitignore(self._workspace_root)
@@ -115,7 +94,7 @@ class ExclusionManager:
         self._gitignore_negate_res = negate_res
 
     def _check_performance_exclusion(self, rel_path_str: str) -> bool:
-        """检查路径是否匹配性能排除规则(基于目录名)."""
+        """检查路径是否匹配性能排除规则(基于目录名)"""
         # 将路径拆分为各层, 检查每层是否在排除集合中
         parts = rel_path_str.replace(os.sep, "/").split("/")
         for part in parts:
@@ -128,15 +107,8 @@ class ExclusionManager:
                     return True
         return False
 
-    def should_exclude_dir(self, dir_name: str) -> bool:
-        """检查目录名是否应该被排除(基于名称的快速检查).
-
-        用于 glob/ls 等基于目录名的过滤场景.
-        """
-        return dir_name in self.PERFORMANCE_EXCLUSIONS
-
     def should_exclude_path(self, path: Path) -> bool:
-        """检查路径是否应被排除(全面检查).
+        """检查路径是否应被排除(全面检查)
 
         依次检查: 默认排除目录名 → gitignore 规则 → 否定规则
 
@@ -161,26 +133,12 @@ class ExclusionManager:
         # 2. gitignore 排除
         return is_ignored_by_gitignore(rel_str, self._gitignore_exclude_res, self._gitignore_negate_res)
 
-    def is_sensitive_file(self, path: Path) -> bool:
-        """检查路径是否为敏感文件.
-
-        Args:
-            path: 文件绝对路径
-
-        Returns:
-            True 表示是敏感文件
-        """
-        try:
-            rel_str = str(path.relative_to(self._workspace_root)).replace(os.sep, "/")
-        except ValueError:
-            return False
-
-        return any(regex.search(rel_str) for regex in self._sensitive_file_res)
-
     def merge_ignore_regexes(self, user_ignore: list[str] | None = None) -> list[re.Pattern]:
-        """合并默认排除 + gitignore + 用户 ignore 为正则列表.
+        """合并默认排除 + gitignore + 用户 ignore 为正则列表
 
-        用于 search_content 等需要正则匹配排除的场景.
+        用于 search_content 等需要正则匹配排除的场景
+
+        敏感文件由 PathValidator 在写入/读取时拦截,搜索场景不额外过滤
 
         Args:
             user_ignore: 用户传入的忽略正则列表
@@ -215,5 +173,5 @@ class ExclusionManager:
 
     @property
     def excluded_dir_names(self) -> set[str]:
-        """获取所有排除目录名集合(用于快速 in 检查)."""
+        """获取所有排除目录名集合(用于快速 in 检查)"""
         return {d for d in self.PERFORMANCE_EXCLUSIONS if not d.startswith("*")}

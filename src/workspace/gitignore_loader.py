@@ -1,4 +1,15 @@
-"""Parse .gitignore files and convert patterns to regex for exclusion matching."""
+"""Parse .gitignore files and convert patterns to regex for exclusion matching.
+
+已知局限性:
+- 不支持嵌套 .gitignore(仅读取根目录下的 .gitignore)
+- 不支持行尾 \\ 续行
+- 不支持 gitignore 扩展语法中的字符类(如 [abc] 会被错误转义)
+- 否定模式的优先级处理与真实 Git 不一致: 当前实现将所有否定模式提升为最高优先级,
+  而真实 Git 按行号顺序逐条处理(后出现的规则覆盖先出现的).
+  当前行为对于 AI 工具场景偏安全(宁可少排除), 故保留此简化实现.
+"""
+
+from __future__ import annotations
 
 import os
 import re
