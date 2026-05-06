@@ -1,4 +1,3 @@
-import contextlib
 import re
 from pathlib import Path
 
@@ -111,6 +110,7 @@ class RegexSearchTool(BaseTool):
             "limit": "最大匹配数量限制",
             "ignore": "忽略匹配正则的文件或文件夹列表",
         }
+        self._exclusion_manager = workspace.exclusion_manager
 
     @BaseTool.handle_tool_exceptions
     def regex_search(
@@ -134,12 +134,8 @@ class RegexSearchTool(BaseTool):
         except re.error as e:
             return self.make_failed_response(kwargs=locals().copy(), error=f"无效的正则表达式: {e}")
 
-        # 收集忽略模式
-        ignore_patterns = []
-        if ignore:
-            for ignore_pattern in ignore:
-                with contextlib.suppress(re.error):
-                    ignore_patterns.append(re.compile(ignore_pattern))
+        # 收集忽略模式: 合并默认排除 + 用户传入的 ignore
+        ignore_patterns = self._exclusion_manager.merge_ignore_regexes(ignore)
 
         # 搜索结果
         results = []

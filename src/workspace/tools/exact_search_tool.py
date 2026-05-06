@@ -1,4 +1,3 @@
-import contextlib
 import re
 from pathlib import Path
 
@@ -86,6 +85,7 @@ class ExactSearchTool(BaseTool):
             "limit": "最大匹配数量限制",
             "ignore": "忽略匹配正则的文件或文件夹列表",
         }
+        self._exclusion_manager = workspace.exclusion_manager
 
     @BaseTool.handle_tool_exceptions
     def exact_search(
@@ -107,12 +107,8 @@ class ExactSearchTool(BaseTool):
         # 准备搜索字符串
         search_string = pattern if case_sensitive else pattern.lower()
 
-        # 收集忽略模式
-        ignore_patterns = []
-        if ignore:
-            for ignore_pattern in ignore:
-                with contextlib.suppress(re.error):
-                    ignore_patterns.append(re.compile(ignore_pattern))
+        # 收集忽略模式: 合并默认排除 + 用户传入的 ignore
+        ignore_patterns = self._exclusion_manager.merge_ignore_regexes(ignore)
 
         # 搜索结果
         results = []

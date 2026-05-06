@@ -15,6 +15,7 @@ class GlobTool(BaseTool):
             "path": "目录路径",
             "max_ret": "最多返回多少条检索结果",
         }
+        self._exclusion_manager = workspace.exclusion_manager
 
     @BaseTool.handle_tool_exceptions
     def glob(self, pattern: str, path: str = ".", max_ret: int = 1000) -> ToolResult:
@@ -30,5 +31,6 @@ class GlobTool(BaseTool):
             data=[
                 f"{'[Folder]' if item.is_dir() else '[File]'} {item.relative_to(self.workspace.root_path)}"
                 for item in islice(root_path.glob(pattern), max_ret)
+                if not self._exclusion_manager.should_exclude_path(item)
             ],
         )
