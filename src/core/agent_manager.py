@@ -173,6 +173,7 @@ class AgentManager:
             return
         self._agents: dict[str, AgentConfig] = {}
         self._agents_dir: Path | None = None
+        self._root_path: Path | None = None
         self._loaded = False
         self._load_lock: threading.Lock = threading.Lock()
         self._current_agent_name: str = "default"
@@ -188,7 +189,8 @@ class AgentManager:
 
     def initialize(self, root_path: str | Path) -> None:
         """Set the workspace root. Agents are loaded lazily on first access."""
-        self._agents_dir = Path(root_path) / MANUALAID_DIR / AGENTS_DIR
+        self._root_path = Path(root_path)
+        self._agents_dir = self._root_path / MANUALAID_DIR / AGENTS_DIR
         self._loaded = False
         self._agents = {}
 
@@ -240,16 +242,20 @@ class AgentManager:
         self._ensure_loaded()
         return sorted(self._agents.keys())
 
-    def write_default(self, root_path: str | Path) -> None:
+    def write_default(self, root_path: str | Path, *, force: bool = False) -> None:
         """Write the default.md agent file if it does not exist.
 
         Content mirrors the prompts.py SYSTEM_ROLE and WORKFLOW_GUIDELINES
         so that users can edit language/behavior by modifying this file.
+
+        Args:
+            root_path: Workspace root directory.
+            force: If True, overwrite existing default.md.
         """
         agents_dir = Path(root_path) / MANUALAID_DIR / AGENTS_DIR
         agents_dir.mkdir(parents=True, exist_ok=True)
         default_path = agents_dir / "default.md"
-        if default_path.exists():
+        if default_path.exists() and not force:
             return
 
         content = f"""---
@@ -269,3 +275,16 @@ tool_permissions:
 {WORKFLOW_GUIDELINES}
 """
         default_path.write_text(content, encoding="utf-8")
+
+    def reset_default(self) -> bool:
+        """Rewrite default.md from current prompts.py constants.
+
+        Returns True on success, False if root_path was never set.
+        """
+        if self._root_path is None:
+            return False
+        self.write_default(self._root_path, force=True)
+        # Invalidate cache so next access re-reads the file
+        self._loaded = False
+        self._agents = {}
+        return True
