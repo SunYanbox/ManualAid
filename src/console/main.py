@@ -80,6 +80,13 @@ def init_workspace(start_path: str | None = None) -> Workspace | None:
     workspace: Workspace = Workspace(str(folder_path))
     tool_registry.register(workspace)
 
+    # Initialize AgentManager and write default agent config
+    from src.core.agent_manager import AgentManager
+
+    agent_manager = AgentManager()
+    agent_manager.initialize(workspace.root_path)
+    agent_manager.write_default(workspace.root_path)
+
     # 在创建新会话之前清理孤立的会话
     _cleanup_orphaned_sessions(workspace.db)
 

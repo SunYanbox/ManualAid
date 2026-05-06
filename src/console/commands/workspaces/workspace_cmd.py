@@ -4,11 +4,14 @@ import warnings
 
 from src.constants.prompts import (
     AUGMENTATION_WRAPPER,
-    SYSTEM_IDENTITY,
+    SYSTEM_CONSTRAINTS,
+    SYSTEM_ROLE,
     TOOL_RULES,
     WORKFLOW_GUIDELINES,
     generate_extensions_section,
 )
+from src.core.agent_manager import AgentManager
+from src.models.agent import AgentConfig
 from src.models.commands import Command, CommandContext, CommandResult
 
 INSTRUCTION: list[str] = ["AGENTS.md", "CLAUDE.md"]
@@ -16,14 +19,19 @@ AGENTS_MD_FENCE_START = "<!-- llm-relevant-start -->"
 AGENTS_MD_FENCE_END = "<!-- llm-relevant-end -->"
 
 
-def _generate_tool_definitions_section(context: CommandContext) -> str:
-    """Generate <tool_definitions> XML block with doc for each registered tool."""
+def _generate_tool_definitions_section(context: CommandContext, agent: AgentConfig) -> str:
+    """Generate <tool_definitions> XML block with doc for each registered tool,
+    filtered by the current agent's tool permissions."""
     tools = context.tool_registry.list_tools()
+
     if not tools.get("sync"):
         return "<tool_definitions><!-- 没有可用的工具 --></tool_definitions>"
 
     docs: list[str] = ["<tool_definitions>"]
     for name in tools["sync"]:
+        # Filter by agent permissions
+        if not agent.tool_permissions.is_tool_allowed(name):
+            continue
         info = context.tool_registry.get_tool_info(name)
         if info:
             doc_xml = info.to_doc()
@@ -82,28 +90,74 @@ def _load_agents_md(context: CommandContext) -> str:
     return ""
 
 
+def _generate_agent_directive_section(agent: AgentConfig) -> str:
+    """Generate <agent_directive> XML block from the current agent."""
+    if not agent.body_role and not agent.body_workflow:
+        return ""
+
+    parts = [f'  <agent_directive name="{agent.name}" precedence="OVERRIDES_BASE">', ""]
+    if agent.body_role:
+        parts.append(agent.body_role)
+        parts.append("")
+    if agent.body_workflow:
+        parts.append(agent.body_workflow)
+        parts.append("")
+    parts.append("  </agent_directive>")
+    return "\n".join(parts)
+
+
 def _assemble_full_prompt(context: CommandContext) -> str:
-    """Assemble the complete system prompt from ordered XML sections."""
+    """Assemble the complete system prompt from ordered XML sections.
+
+    Order: role → constraints → agent_directive → tool_rules → tool_definitions
+           → workflow → workspace_context → augmentation → extensions
+    """
+    agent = AgentManager().get_current()
+
     sections = [
         "<system_prompt>",
         "",
-        SYSTEM_IDENTITY,
-        "",
-        TOOL_RULES,
-        "",
-        _generate_tool_definitions_section(context),
-        "",
-        WORKFLOW_GUIDELINES,
-        "",
-        _generate_workspace_metadata(context),
-        "",
     ]
 
+    # ① System role — skip if agent provides its own role
+    if not agent.body_role:
+        sections.append(SYSTEM_ROLE)
+        sections.append("")
+
+    # ② System constraints — always injected (anti-hallucination handled by tool_rules)
+    sections.append(SYSTEM_CONSTRAINTS)
+    sections.append("")
+
+    # ③ Agent directive (role + workflow from agent .md file, if any)
+    agent_directive = _generate_agent_directive_section(agent)
+    if agent_directive:
+        sections.append(agent_directive)
+        sections.append("")
+
+    # ④ Tool call format rules
+    sections.append(TOOL_RULES)
+    sections.append("")
+
+    # ⑤ Tool definitions
+    sections.append(_generate_tool_definitions_section(context, agent))
+    sections.append("")
+
+    # ⑥ Workflow guidelines — skip if agent provides its own workflow
+    if not agent.body_workflow:
+        sections.append(WORKFLOW_GUIDELINES)
+        sections.append("")
+
+    # ⑦ Workspace metadata
+    sections.append(_generate_workspace_metadata(context))
+    sections.append("")
+
+    # ⑧ Augmentations from AGENTS.md / CLAUDE.md
     augmentations = _load_agents_md(context)
     if augmentations:
         sections.append(augmentations)
         sections.append("")
 
+    # ⑨ Extensions (Skills / MCP hooks)
     sections.append(generate_extensions_section())
     sections.append("")
     sections.append("</system_prompt>")
