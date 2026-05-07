@@ -83,6 +83,11 @@ _TEXT_EXTENSIONS: frozenset[str] = frozenset(
         ".vbs",  # VBScript
         ".reg",  # Windows Registry
         ".desktop",
+        # Godot
+        ".godot",
+        ".gd",
+        ".gd.uid",
+        ".tscn",
     }
 )
 
