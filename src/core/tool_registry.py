@@ -85,6 +85,7 @@ class ToolRegistry:
         from src.workspace.tools.ls_tool import LsTool
         from src.workspace.tools.read_tool import ReadTool
         from src.workspace.tools.regex_search_tool import RegexSearchTool
+        from src.workspace.tools.shell_tool import ShellTool
         from src.workspace.tools.skill_tool import SkillTool
         from src.workspace.tools.stat_tool import StatTool
         from src.workspace.tools.symbol_ref_tool import SymbolRefTool
@@ -98,6 +99,7 @@ class ToolRegistry:
             LsTool,
             ReadTool,
             RegexSearchTool,
+            ShellTool,
             WriteTool,
             StatTool,
             SymbolRefTool,

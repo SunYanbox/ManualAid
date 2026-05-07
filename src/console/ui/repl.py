@@ -220,6 +220,9 @@ class REPL(App):
         audit_committer = AuditCommitter(self.workspace)
         tui_console.audit_tab.set_committer(audit_committer)
 
+        # 注入 Shell 结果标签页
+        tui_console.shell_result_tab.set_database(self.workspace.db)
+
         # 注入统计标签页
         tui_console.stats_tab.set_database(
             self.workspace.db,

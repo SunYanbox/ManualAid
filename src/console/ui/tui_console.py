@@ -10,6 +10,7 @@ from textual.widgets import Collapsible, RichLog, Static, TabbedContent, TabPane
 
 from src.console.ui.widgets.audit_tab import AuditTab
 from src.console.ui.widgets.settings_tab import SettingsTab
+from src.console.ui.widgets.shell_result_tab import ShellResultTab
 from src.console.ui.widgets.stats_tab import StatsTab
 
 
@@ -20,8 +21,9 @@ class TuiConsole(Vertical):
     - Tab 1 (RichLog): 用于普通富文本日志.
     - Tab 2 (Tool Calls): 用于显示工具调用情况.
     - Tab 3 (Audit): 用于审核待处理的写入/编辑操作.
-    - Tab 4 (Statistics): 用于查看会话统计与工具使用排名.
-    - Tab 5 (Settings): 用于配置环境变量和 Skill.
+    - Tab 4 (Shell Results): 用于查看已执行的 Shell 命令输出.
+    - Tab 5 (Statistics): 用于查看会话统计与工具使用排名.
+    - Tab 6 (Settings): 用于配置环境变量和 Skill.
     """
 
     DEFAULT_CSS = """
@@ -62,6 +64,8 @@ class TuiConsole(Vertical):
                 yield Vertical(id="tui-console-tool-calls")
             with TabPane("Audit", id="tab-audit"):
                 yield AuditTab()
+            with TabPane("Shell Results", id="tab-shell-results"):
+                yield ShellResultTab()
             with TabPane("Statistics", id="tab-stats"):
                 yield StatsTab()
             with TabPane("Settings", id="tab-settings"):
@@ -80,6 +84,10 @@ class TuiConsole(Vertical):
         return self.query_one(AuditTab)
 
     @property
+    def shell_result_tab(self) -> ShellResultTab:
+        return self.query_one(ShellResultTab)
+
+    @property
     def stats_tab(self) -> StatsTab:
         return self.query_one(StatsTab)
 
@@ -91,6 +99,8 @@ class TuiConsole(Vertical):
         """切换标签页时刷新内容."""
         if event.pane.id == "tab-audit":
             await self.audit_tab._refresh()
+        elif event.pane.id == "tab-shell-results":
+            await self.shell_result_tab._refresh()
         elif event.pane.id == "tab-stats":
             await self.stats_tab._refresh()
         elif event.pane.id == "tab-settings":
