@@ -1,8 +1,8 @@
-import contextlib
 import re
 from pathlib import Path
 
 from src.models.tools.tool_result import ToolResult
+from src.utils.binary_detector import is_binary_file
 from src.workspace.tools.base_tool import BaseTool
 from src.workspace.workspace import Workspace
 
@@ -86,6 +86,7 @@ class ExactSearchTool(BaseTool):
             "limit": "最大匹配数量限制",
             "ignore": "忽略匹配正则的文件或文件夹列表",
         }
+        self._exclusion_manager = workspace.exclusion_manager
 
     @BaseTool.handle_tool_exceptions
     def exact_search(
@@ -107,12 +108,8 @@ class ExactSearchTool(BaseTool):
         # 准备搜索字符串
         search_string = pattern if case_sensitive else pattern.lower()
 
-        # 收集忽略模式
-        ignore_patterns = []
-        if ignore:
-            for ignore_pattern in ignore:
-                with contextlib.suppress(re.error):
-                    ignore_patterns.append(re.compile(ignore_pattern))
+        # 收集忽略模式: 合并默认排除 + 用户传入的 ignore
+        ignore_patterns = self._exclusion_manager.merge_ignore_regexes(ignore)
 
         # 搜索结果
         results = []
@@ -121,12 +118,24 @@ class ExactSearchTool(BaseTool):
         warnings = ["<ExecuteWarning>"]
 
         # 确定要搜索的文件列表(支持单文件或目录)
-        files_to_search = [search_path] if search_path.is_file() else list(search_path.rglob(file_pattern))
+        files_to_search = (
+            [search_path]
+            if search_path.is_file()
+            else [
+                p
+                for p in search_path.rglob(file_pattern)
+                if p.is_file() and not self._exclusion_manager.should_exclude_path(p)
+            ]
+        )
 
         # 遍历所有文件
         for file_path in files_to_search:
             if not file_path.is_file():
                 continue
+
+            if is_binary_file(file_path):
+                continue
+
             # 检查是否达到限制
             if total_matches >= limit:
                 break

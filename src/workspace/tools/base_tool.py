@@ -244,7 +244,7 @@ class BaseTool:
         """工具方法异常处理装饰器 —— 将异常转换为 ToolResult 失败结果"""
         from functools import wraps
 
-        from src.workspace.path_validator import PathNotFoundError, WorkspaceBoundaryError
+        from src.workspace.path_validator import PathNotFoundError, SensitiveFileError, WorkspaceBoundaryError
 
         @wraps(func)
         def wrapper(self, *args, **kwargs):
@@ -269,12 +269,19 @@ class BaseTool:
                     func_kwargs=kwargs,
                     error=f"{err2.__class__.__name__}: {err2}",
                 )
-            except PermissionError as err3:
+            except SensitiveFileError as err3:
                 return ToolResult(
                     success=False,
                     func_name=func.__name__,
                     func_kwargs=kwargs,
                     error=f"{err3.__class__.__name__}: {err3}",
+                )
+            except PermissionError as err4:
+                return ToolResult(
+                    success=False,
+                    func_name=func.__name__,
+                    func_kwargs=kwargs,
+                    error=f"{err4.__class__.__name__}: {err4}",
                 )
             except Exception as err:
                 return ToolResult(
