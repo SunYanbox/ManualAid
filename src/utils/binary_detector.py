@@ -188,6 +188,9 @@ _BINARY_EXTENSIONS: frozenset[str] = frozenset(
         ".db",
         ".sqlite",
         ".sqlite3",
+        ".pdb",
+        ".pyd",
+        ".o",
     }
 )
 
