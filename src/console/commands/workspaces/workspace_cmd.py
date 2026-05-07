@@ -9,8 +9,10 @@ from src.constants.prompts import (
     TOOL_RULES,
     WORKFLOW_GUIDELINES,
     generate_extensions_section,
+    register_extension_hook,
 )
 from src.core.agent_manager import AgentManager
+from src.core.skill_manager import SkillManager
 from src.models.agent import AgentConfig
 from src.models.commands import Command, CommandContext, CommandResult
 
@@ -19,7 +21,7 @@ AGENTS_MD_FENCE_START = "<!-- llm-relevant-start -->"
 AGENTS_MD_FENCE_END = "<!-- llm-relevant-end -->"
 
 
-def _generate_tool_definitions_section(context: CommandContext, agent: AgentConfig) -> str:
+def _generate_tool_definitions_section(context: CommandContext, agent: AgentConfig, enable_skill: bool = False) -> str:
     """Generate <tool_definitions> XML block with doc for each registered tool,
     filtered by the current agent's tool permissions."""
     tools = context.tool_registry.list_tools()
@@ -29,6 +31,9 @@ def _generate_tool_definitions_section(context: CommandContext, agent: AgentConf
 
     docs: list[str] = ["<tool_definitions>"]
     for name in tools["sync"]:
+        # 与src/workspace/tools/skill_tool.py一致
+        if (not enable_skill) and name == "skill":
+            continue
         # Filter by agent permissions
         if not agent.tool_permissions.is_tool_allowed(name):
             continue
@@ -106,6 +111,33 @@ def _generate_agent_directive_section(agent: AgentConfig) -> str:
     return "\n".join(parts)
 
 
+def _generate_skill_prompt_section() -> str:
+    """Generate Skill-related prompt sections: skill instructions and available skills list.
+
+    Returns:
+        XML-formatted string containing skill prompt and available skills
+    """
+    skill_manager = SkillManager()
+
+    # 获取启用的 skills(会根据数据库中的禁用状态过滤)
+    enabled_skills = skill_manager.get_enabled()
+
+    if not enabled_skills:
+        return ""
+
+    parts = ["", "<available_skills>"]
+
+    # 可用 Skill 列表
+    for skill in sorted(enabled_skills.values(), key=lambda s: s.name):
+        parts.append(f"""  <skill>
+    <name>{skill.name}</name>
+    <description>{skill.description}</description>
+  </skill>""")
+    parts.append("</available_skills>")
+
+    return "\n".join(parts)
+
+
 def _assemble_full_prompt(context: CommandContext) -> str:
     """Assemble the complete system prompt from ordered XML sections.
 
@@ -113,6 +145,7 @@ def _assemble_full_prompt(context: CommandContext) -> str:
            → workflow → workspace_context → augmentation → extensions
     """
     agent = AgentManager().get_current()
+    skill_prompt = _generate_skill_prompt_section()
 
     sections = [
         "<system_prompt>",
@@ -139,7 +172,7 @@ def _assemble_full_prompt(context: CommandContext) -> str:
     sections.append("")
 
     # ⑤ Tool definitions
-    sections.append(_generate_tool_definitions_section(context, agent))
+    sections.append(_generate_tool_definitions_section(context, agent, len(skill_prompt) > 0))
     sections.append("")
 
     # ⑥ Workflow guidelines — skip if agent provides its own workflow
@@ -156,6 +189,9 @@ def _assemble_full_prompt(context: CommandContext) -> str:
     if augmentations:
         sections.append(augmentations)
         sections.append("")
+
+    if len(skill_prompt) > 0:
+        register_extension_hook(lambda: skill_prompt)
 
     # ⑨ Extensions (Skills / MCP hooks)
     sections.append(generate_extensions_section())

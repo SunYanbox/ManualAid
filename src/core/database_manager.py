@@ -595,10 +595,10 @@ class DatabaseManager:
         except json.JSONDecodeError, TypeError:
             return set()
 
-    def set_disabled_skills(self, *names: str) -> None:
+    def set_disabled_skills(self, names) -> None:
         """Set the disabled skill names.
 
         Args:
-            names: Set of skill names to disable
+            names: Collection of skill names to disable (set, list, or tuple)
         """
         self.set_config("skills.disabled", json.dumps(sorted(set(names))), category="skill")

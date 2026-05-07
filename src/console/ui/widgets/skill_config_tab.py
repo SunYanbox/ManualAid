@@ -81,6 +81,8 @@ class SkillConfigTab(Vertical):
         yield Label("Skill 配置", id="skill-header")
         with Horizontal(id="skill-toolbar"):
             yield Button("刷新", id="skill-refresh-btn", variant="default")
+            yield Button("启用选中", id="skill-enable-btn", variant="success")
+            yield Button("禁用选中", id="skill-disable-btn", variant="warning")
             yield Button("启用全部", id="skill-enable-all-btn", variant="success")
             yield Button("禁用全部", id="skill-disable-all-btn", variant="warning")
         yield DataTable(id="skill-table")
@@ -111,6 +113,7 @@ class SkillConfigTab(Vertical):
         if self._skill_manager is None:
             return
 
+        # 重新获取所有技能(会从数据库加载禁用状态)
         self._skills_data = self._skill_manager.get_all()
 
         # 如果列还没初始化,不刷新(等 on_mount 后自动刷新)
@@ -120,10 +123,15 @@ class SkillConfigTab(Vertical):
         table = self.query_one("#skill-table", DataTable)
         table.clear()
 
+        # 获取当前禁用状态用于显示
+        disabled_set = self._skill_manager.get_disabled()
+
         for name, skill in self._skills_data.items():
             is_global = skill.metadata.get("is_global", True)
             skill_type = "全局" if is_global else "项目"
-            status = "✓" if skill.enabled else "✗"
+            # 使用禁用集合判断状态,确保与持久化数据一致
+            is_enabled = name not in disabled_set
+            status = "✓" if is_enabled else "✗"
             description = skill.description[:50] + "..." if len(skill.description) > 50 else skill.description
             table.add_row(status, name, skill_type, description)
 
@@ -174,6 +182,50 @@ class SkillConfigTab(Vertical):
                 self._skill_manager.discover(Path(self._workspace_root))
             self._refresh()
             self.notify("已刷新 Skill 列表")
+
+        elif button_id == "skill-enable-btn":
+            # 启用选中的 Skill
+            table = self.query_one("#skill-table", DataTable)
+            row_index = table.cursor_row
+            if row_index is None or row_index < 0:
+                self.notify("请先选择一个 Skill", severity="warning")
+                return
+
+            row_data = table.get_row_at(row_index)
+            if not row_data:
+                return
+
+            name = row_data[1]
+            disabled = self._skill_manager.get_disabled()
+            if name in disabled:
+                disabled.discard(name)
+                self._skill_manager.set_disabled(disabled, persist=True)
+                self._refresh()
+                self.notify(f"已启用: {name}")
+            else:
+                self.notify(f"{name} 已经是启用状态", severity="information")
+
+        elif button_id == "skill-disable-btn":
+            # 禁用选中的 Skill
+            table = self.query_one("#skill-table", DataTable)
+            row_index = table.cursor_row
+            if row_index is None or row_index < 0:
+                self.notify("请先选择一个 Skill", severity="warning")
+                return
+
+            row_data = table.get_row_at(row_index)
+            if not row_data:
+                return
+
+            name = row_data[1]
+            disabled = self._skill_manager.get_disabled()
+            if name not in disabled:
+                disabled.add(name)
+                self._skill_manager.set_disabled(disabled, persist=True)
+                self._refresh()
+                self.notify(f"已禁用: {name}")
+            else:
+                self.notify(f"{name} 已经是禁用状态", severity="information")
 
         elif button_id == "skill-enable-all-btn":
             self._skill_manager.set_disabled(set(), persist=True)
