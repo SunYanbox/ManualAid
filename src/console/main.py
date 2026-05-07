@@ -14,6 +14,8 @@ from dotenv import load_dotenv
 from src.console.folder_picker import pick_folder
 from src.console.result_manager import ResultManager
 from src.console.ui.repl import REPL
+from src.core.config_manager import ConfigManager
+from src.core.skill_manager import SkillManager
 from src.core.tool_registry import ToolRegistry
 from src.workspace.workspace import Workspace
 
@@ -86,6 +88,15 @@ def init_workspace(start_path: str | None = None) -> Workspace | None:
     agent_manager = AgentManager()
     agent_manager.initialize(workspace.root_path)
     agent_manager.write_default(workspace.root_path)
+
+    # Initialize ConfigManager and apply environment configs
+    config_manager = ConfigManager()
+    config_manager.initialize(workspace.root_path)
+    config_manager.apply_env_configs()
+
+    # Initialize SkillManager and discover skills
+    skill_manager = SkillManager()
+    skill_manager.discover(workspace.root_path)
 
     # 在创建新会话之前清理孤立的会话
     _cleanup_orphaned_sessions(workspace.db)

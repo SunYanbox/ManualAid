@@ -73,7 +73,7 @@ AUGMENTATION_WRAPPER: str = """<augmentation priority="MAXIMUM" precedence="OVER
 # Extension hooks(Skills / MCP placeholders)
 # ---------------------------------------------------------------------------
 
-EXTENSION_HOOKS: list[Callable[[], str]] = []
+__EXTENSION_HOOKS: list[Callable[[], str]] = []
 
 
 def register_extension_hook(hook: Callable[[], str]) -> None:
@@ -81,15 +81,24 @@ def register_extension_hook(hook: Callable[[], str]) -> None:
 
     For use by future Skills/MCP modules at import time.
     """
-    EXTENSION_HOOKS.append(hook)
+    __EXTENSION_HOOKS.append(hook)
+
+
+def clear_extension_hooks() -> None:
+    """Clear all registered extension hooks.
+
+    Should be called after generating extensions section to prevent
+    duplicate registrations on subsequent command invocations.
+    """
+    __EXTENSION_HOOKS.clear()
 
 
 def generate_extensions_section() -> str:
     """Run all registered extension hooks and emit their output inside <extensions>."""
-    if not EXTENSION_HOOKS:
+    if not __EXTENSION_HOOKS:
         return "<extensions>\n  <!-- 未注册扩展. 技能/MCP 工具将在可用时出现于此 -->\n</extensions>"
     parts = ["<extensions>"]
-    for hook in EXTENSION_HOOKS:
+    for hook in __EXTENSION_HOOKS:
         content = hook()
         if content:
             parts.append(content)
