@@ -8,6 +8,7 @@ from src.constants.prompts import (
     SYSTEM_ROLE,
     TOOL_RULES,
     WORKFLOW_GUIDELINES,
+    clear_extension_hooks,
     generate_extensions_section,
     register_extension_hook,
 )
@@ -197,6 +198,8 @@ def _assemble_full_prompt(context: CommandContext) -> str:
     sections.append(generate_extensions_section())
     sections.append("")
     sections.append("</system_prompt>")
+
+    clear_extension_hooks()
 
     return "\n".join(sections)
 
