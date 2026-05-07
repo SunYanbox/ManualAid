@@ -226,6 +226,12 @@ class REPL(App):
             getattr(self.tool_registry, "_current_session_id", None),
         )
 
+        # 注入设置标签页
+        from src.core.skill_manager import SkillManager
+
+        skill_manager = SkillManager()
+        tui_console.settings_tab.set_managers(self.workspace.root_path, skill_manager)
+
         # 创建 command handler
         self.command_handler = CommandHandler(
             self.workspace,

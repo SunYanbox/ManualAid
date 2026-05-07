@@ -1,4 +1,5 @@
 import contextlib
+import json
 import sqlite3
 import threading
 import time
@@ -114,6 +115,13 @@ class DatabaseManager:
                 PRIMARY KEY (session_id, func_name, kwargs_json),
                 FOREIGN KEY (session_id) REFERENCES sessions(id)
             );
+
+            CREATE TABLE IF NOT EXISTS config (
+                key          TEXT PRIMARY KEY,
+                value        TEXT NOT NULL,
+                category     TEXT NOT NULL DEFAULT 'general',
+                updated_at   REAL NOT NULL
+            );
             """
         )
 
@@ -131,6 +139,19 @@ class DatabaseManager:
         # Phase 5 migration: add deleted column to sessions
         if not any(row[1] == "deleted" for row in conn.execute("PRAGMA table_info(sessions)")):
             conn.execute("ALTER TABLE sessions ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0")
+
+        # Phase 6 migration: add config table
+        if not any(row[1] == "key" for row in conn.execute("PRAGMA table_info(config)")):
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS config (
+                    key          TEXT PRIMARY KEY,
+                    value        TEXT NOT NULL,
+                    category     TEXT NOT NULL DEFAULT 'general',
+                    updated_at   REAL NOT NULL
+                )
+                """
+            )
 
         # Create all indexes after migrations so they apply to both
         # fresh databases and those upgraded from older schemas.
@@ -486,3 +507,98 @@ class DatabaseManager:
             "FROM tool_call_summaries WHERE session_id = ? ORDER BY timestamp DESC",
             (session_id,),
         )
+
+    # -- Configuration management --
+
+    def get_config(self, key: str, default: str | None = None) -> str | None:
+        """Get a configuration value by key.
+
+        Args:
+            key: Configuration key
+            default: Default value if key not found
+
+        Returns:
+            Configuration value or default
+        """
+        row = self.fetchone("SELECT value FROM config WHERE key = ?", (key,))
+        return row[0] if row else default
+
+    def set_config(self, key: str, value: str, category: str = "general") -> None:
+        """Set a configuration value.
+
+        Args:
+            key: Configuration key
+            value: Configuration value
+            category: Configuration category (general, skill, env, etc.)
+        """
+        self.execute(
+            "INSERT INTO config (key, value, category, updated_at) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET value = excluded.value, category = excluded.category, "
+            "updated_at = excluded.updated_at",
+            (key, value, category, time.time()),
+        )
+
+    def delete_config(self, key: str) -> None:
+        """Delete a configuration value.
+
+        Args:
+            key: Configuration key
+        """
+        self.execute("DELETE FROM config WHERE key = ?", (key,))
+
+    def get_all_config(self, category: str | None = None) -> list[tuple]:
+        """Get all configuration values, optionally filtered by category.
+
+        Args:
+            category: Optional category filter
+
+        Returns:
+            List of (key, value, category, updated_at) tuples
+        """
+        if category:
+            return self.fetchall(
+                "SELECT key, value, category, updated_at FROM config WHERE category = ? ORDER BY key",
+                (category,),
+            )
+        return self.fetchall("SELECT key, value, category, updated_at FROM config ORDER BY category, key")
+
+    def get_config_by_prefix(self, prefix: str) -> dict[str, str]:
+        """Get all configuration values with a given key prefix.
+
+        Args:
+            prefix: Key prefix to filter by
+
+        Returns:
+            Dictionary of key-value pairs
+        """
+        rows = self.fetchall(
+            "SELECT key, value FROM config WHERE key LIKE ? ORDER BY key",
+            (f"{prefix}%",),
+        )
+        return {row[0]: row[1] for row in rows}
+
+    # -- Skill configuration shortcuts --
+
+    def get_disabled_skills(self) -> set[str]:
+        """Get the set of disabled skill names.
+
+        Returns:
+            Set of disabled skill names
+        """
+        value = self.get_config("skills.disabled")
+        if not value:
+            return set()
+        import json
+
+        try:
+            return set(json.loads(value))
+        except json.JSONDecodeError, TypeError:
+            return set()
+
+    def set_disabled_skills(self, *names: str) -> None:
+        """Set the disabled skill names.
+
+        Args:
+            names: Set of skill names to disable
+        """
+        self.set_config("skills.disabled", json.dumps(sorted(set(names))), category="skill")

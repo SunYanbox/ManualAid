@@ -9,6 +9,7 @@ from textual.containers import Vertical, Widget
 from textual.widgets import Collapsible, RichLog, Static, TabbedContent, TabPane
 
 from src.console.ui.widgets.audit_tab import AuditTab
+from src.console.ui.widgets.settings_tab import SettingsTab
 from src.console.ui.widgets.stats_tab import StatsTab
 
 
@@ -20,6 +21,7 @@ class TuiConsole(Vertical):
     - Tab 2 (Tool Calls): 用于显示工具调用情况.
     - Tab 3 (Audit): 用于审核待处理的写入/编辑操作.
     - Tab 4 (Statistics): 用于查看会话统计与工具使用排名.
+    - Tab 5 (Settings): 用于配置环境变量和 Skill.
     """
 
     DEFAULT_CSS = """
@@ -62,6 +64,8 @@ class TuiConsole(Vertical):
                 yield AuditTab()
             with TabPane("Statistics", id="tab-stats"):
                 yield StatsTab()
+            with TabPane("Settings", id="tab-settings"):
+                yield SettingsTab()
 
     @property
     def main_log(self) -> RichLog:
@@ -79,12 +83,19 @@ class TuiConsole(Vertical):
     def stats_tab(self) -> StatsTab:
         return self.query_one(StatsTab)
 
+    @property
+    def settings_tab(self) -> SettingsTab:
+        return self.query_one(SettingsTab)
+
     async def on_tabbed_content_tab_activated(self, event: TabbedContent.TabActivated) -> None:
         """切换标签页时刷新内容."""
         if event.pane.id == "tab-audit":
             await self.audit_tab._refresh()
         elif event.pane.id == "tab-stats":
             await self.stats_tab._refresh()
+        elif event.pane.id == "tab-settings":
+            # Settings tab refreshes automatically when managers are set
+            pass
 
     def print(self, *args) -> None:
         """将内容写入主日志区"""
