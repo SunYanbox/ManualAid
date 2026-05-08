@@ -1,4 +1,5 @@
 import contextlib
+import json
 import sqlite3
 import threading
 import time
@@ -114,6 +115,26 @@ class DatabaseManager:
                 PRIMARY KEY (session_id, func_name, kwargs_json),
                 FOREIGN KEY (session_id) REFERENCES sessions(id)
             );
+
+            CREATE TABLE IF NOT EXISTS config (
+                key          TEXT PRIMARY KEY,
+                value        TEXT NOT NULL,
+                category     TEXT NOT NULL DEFAULT 'general',
+                updated_at   REAL NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS shell_audit (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                command      TEXT NOT NULL,
+                description  TEXT NOT NULL DEFAULT '',
+                timestamp    REAL NOT NULL,
+                session_id   INTEGER,
+                audit_status TEXT NOT NULL DEFAULT 'PENDING_AUDIT',
+                output       TEXT NOT NULL DEFAULT '',
+                exit_code    INTEGER,
+                executed_at  REAL,
+                FOREIGN KEY (session_id) REFERENCES sessions(id)
+            );
             """
         )
 
@@ -132,6 +153,19 @@ class DatabaseManager:
         if not any(row[1] == "deleted" for row in conn.execute("PRAGMA table_info(sessions)")):
             conn.execute("ALTER TABLE sessions ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0")
 
+        # Phase 6 migration: add config table
+        if not any(row[1] == "key" for row in conn.execute("PRAGMA table_info(config)")):
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS config (
+                    key          TEXT PRIMARY KEY,
+                    value        TEXT NOT NULL,
+                    category     TEXT NOT NULL DEFAULT 'general',
+                    updated_at   REAL NOT NULL
+                )
+                """
+            )
+
         # Create all indexes after migrations so they apply to both
         # fresh databases and those upgraded from older schemas.
         conn.execute("CREATE INDEX IF NOT EXISTS idx_tool_calls_session ON tool_calls(session_id)")
@@ -141,6 +175,8 @@ class DatabaseManager:
             "CREATE INDEX IF NOT EXISTS idx_file_read_records_session_path ON file_read_records(session_id, file_path)"
         )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_tool_call_summaries_session ON tool_call_summaries(session_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_shell_audit_status ON shell_audit(audit_status)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_shell_audit_session ON shell_audit(session_id)")
 
     @staticmethod
     def _migrate_add_pending_content(conn: sqlite3.Connection) -> None:
@@ -257,7 +293,7 @@ class DatabaseManager:
 
         检查一个会话是否在任何相关表中都没有关联数据
         """
-        tables = ["tool_calls", "file_read_records", "file_snapshots", "tool_call_summaries"]
+        tables = ["tool_calls", "file_read_records", "file_snapshots", "tool_call_summaries", "shell_audit"]
         for table in tables:
             row = self.fetchone(
                 f"SELECT COUNT(*) FROM {table} WHERE session_id = ?",
@@ -383,6 +419,102 @@ class DatabaseManager:
             (status,),
         )
 
+    # -- Shell command audit --
+
+    def record_shell_command(
+        self,
+        command: str,
+        description: str = "",
+        session_id: int | None = None,
+    ) -> int:
+        """记录一条待审核的 Shell 命令.
+
+        Args:
+            command: Shell 命令内容
+            description: 命令描述
+            session_id: 会话 ID
+
+        Returns:
+            新记录的 ID
+        """
+        cursor = self.execute(
+            "INSERT INTO shell_audit (command, description, timestamp, session_id, audit_status) "
+            "VALUES (?, ?, ?, ?, 'PENDING_AUDIT')",
+            (command, description, time.time(), session_id),
+        )
+        return cursor.lastrowid
+
+    def update_shell_audit(
+        self,
+        shell_id: int,
+        audit_status: str,
+        output: str = "",
+        exit_code: int | None = None,
+    ) -> None:
+        """更新 Shell 命令审核状态及执行结果.
+
+        Args:
+            shell_id: 记录 ID
+            audit_status: 审核状态 (APPROVED/REJECTED)
+            output: 命令执行输出
+            exit_code: 命令退出码
+        """
+        if output or exit_code is not None:
+            self.execute(
+                "UPDATE shell_audit SET audit_status = ?, output = ?, exit_code = ?, executed_at = ? WHERE id = ?",
+                (audit_status, output, exit_code, time.time(), shell_id),
+            )
+        else:
+            self.execute(
+                "UPDATE shell_audit SET audit_status = ? WHERE id = ?",
+                (audit_status, shell_id),
+            )
+
+    def get_shell_pending_audits(self) -> list[tuple]:
+        """获取所有待审核的 Shell 命令.
+
+        Returns:
+            待审核记录列表 (id, command, description, timestamp, session_id, audit_status)
+        """
+        return self.fetchall(
+            "SELECT id, command, description, timestamp, session_id, audit_status"
+            " FROM shell_audit WHERE audit_status = 'PENDING_AUDIT'"
+        )
+
+    def get_shell_by_id(self, shell_id: int) -> tuple | None:
+        """根据 ID 获取 Shell 命令审核记录.
+
+        Args:
+            shell_id: 记录 ID
+
+        Returns:
+            记录元组或 None
+        """
+        return self.fetchone(
+            "SELECT id, command, description, timestamp, session_id,"
+            " audit_status, output, exit_code, executed_at"
+            " FROM shell_audit WHERE id = ?",
+            (shell_id,),
+        )
+
+    def get_shell_completed(self, limit: int = 200) -> list[tuple]:
+        """获取所有已完成的 Shell 命令(已批准/已拒绝),按执行时间倒序.
+
+        Args:
+            limit: 最大返回条数
+
+        Returns:
+            已完成记录列表, 每条含 (id, command, description, timestamp,
+            session_id, audit_status, output, exit_code, executed_at)
+        """
+        return self.fetchall(
+            "SELECT id, command, description, timestamp, session_id,"
+            " audit_status, output, exit_code, executed_at"
+            " FROM shell_audit WHERE audit_status != 'PENDING_AUDIT'"
+            " ORDER BY COALESCE(executed_at, timestamp) DESC LIMIT ?",
+            (limit,),
+        )
+
     # -- Session statistics and management --
 
     def get_session_summary(self, session_id: int) -> dict:
@@ -428,6 +560,7 @@ class DatabaseManager:
                 conn.execute("DELETE FROM tool_calls WHERE session_id = ?", (session_id,))
                 conn.execute("DELETE FROM file_snapshots WHERE session_id = ?", (session_id,))
                 conn.execute("DELETE FROM file_read_records WHERE session_id = ?", (session_id,))
+                conn.execute("DELETE FROM shell_audit WHERE session_id = ?", (session_id,))
                 conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
                 conn.execute("COMMIT")
             except Exception:
@@ -486,3 +619,98 @@ class DatabaseManager:
             "FROM tool_call_summaries WHERE session_id = ? ORDER BY timestamp DESC",
             (session_id,),
         )
+
+    # -- Configuration management --
+
+    def get_config(self, key: str, default: str | None = None) -> str | None:
+        """Get a configuration value by key.
+
+        Args:
+            key: Configuration key
+            default: Default value if key not found
+
+        Returns:
+            Configuration value or default
+        """
+        row = self.fetchone("SELECT value FROM config WHERE key = ?", (key,))
+        return row[0] if row else default
+
+    def set_config(self, key: str, value: str, category: str = "general") -> None:
+        """Set a configuration value.
+
+        Args:
+            key: Configuration key
+            value: Configuration value
+            category: Configuration category (general, skill, env, etc.)
+        """
+        self.execute(
+            "INSERT INTO config (key, value, category, updated_at) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET value = excluded.value, category = excluded.category, "
+            "updated_at = excluded.updated_at",
+            (key, value, category, time.time()),
+        )
+
+    def delete_config(self, key: str) -> None:
+        """Delete a configuration value.
+
+        Args:
+            key: Configuration key
+        """
+        self.execute("DELETE FROM config WHERE key = ?", (key,))
+
+    def get_all_config(self, category: str | None = None) -> list[tuple]:
+        """Get all configuration values, optionally filtered by category.
+
+        Args:
+            category: Optional category filter
+
+        Returns:
+            List of (key, value, category, updated_at) tuples
+        """
+        if category:
+            return self.fetchall(
+                "SELECT key, value, category, updated_at FROM config WHERE category = ? ORDER BY key",
+                (category,),
+            )
+        return self.fetchall("SELECT key, value, category, updated_at FROM config ORDER BY category, key")
+
+    def get_config_by_prefix(self, prefix: str) -> dict[str, str]:
+        """Get all configuration values with a given key prefix.
+
+        Args:
+            prefix: Key prefix to filter by
+
+        Returns:
+            Dictionary of key-value pairs
+        """
+        rows = self.fetchall(
+            "SELECT key, value FROM config WHERE key LIKE ? ORDER BY key",
+            (f"{prefix}%",),
+        )
+        return {row[0]: row[1] for row in rows}
+
+    # -- Skill configuration shortcuts --
+
+    def get_disabled_skills(self) -> set[str]:
+        """Get the set of disabled skill names.
+
+        Returns:
+            Set of disabled skill names
+        """
+        value = self.get_config("skills.disabled")
+        if not value:
+            return set()
+        import json
+
+        try:
+            return set(json.loads(value))
+        except json.JSONDecodeError, TypeError:
+            return set()
+
+    def set_disabled_skills(self, names) -> None:
+        """Set the disabled skill names.
+
+        Args:
+            names: Collection of skill names to disable (set, list, or tuple)
+        """
+        self.set_config("skills.disabled", json.dumps(sorted(set(names))), category="skill")

@@ -13,6 +13,7 @@ class LsTool(BaseTool):
         self.param_descriptions = {
             "path": "目录路径",
         }
+        self._exclusion_manager = workspace.exclusion_manager
 
     @BaseTool.handle_tool_exceptions
     def ls(self, path: str = ".") -> ToolResult:
@@ -27,5 +28,6 @@ class LsTool(BaseTool):
             data=[
                 f"{'[Folder]' if item.is_dir() else '[File]'} {item.relative_to(self.workspace.root_path)}"
                 for item in folder_path.iterdir()
+                if not self._exclusion_manager.should_exclude_path(item)
             ],
         )

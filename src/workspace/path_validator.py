@@ -1,5 +1,9 @@
 import os
+import re
 from pathlib import Path
+from typing import ClassVar
+
+from src.workspace.exclusion_manager import ExclusionManager
 
 
 class WorkspaceBoundaryError(Exception):
@@ -14,6 +18,12 @@ class PathNotFoundError(Exception):
     pass
 
 
+class SensitiveFileError(Exception):
+    """访问敏感文件时抛出"""
+
+    pass
+
+
 class PathValidator:
     """工作区路径安全校验器,防止路径遍历和符号链接逃逸
 
@@ -21,12 +31,17 @@ class PathValidator:
         workspace_root: 工作区根目录,默认为当前目录
     """
 
+    # 敏感文件匹配模式(从 ExclusionManager 统一来源引用)
+    SENSITIVE_FILE_PATTERNS: ClassVar[list[re.Pattern]] = [
+        re.compile(p) for p in ExclusionManager.SENSITIVE_FILE_PATTERNS
+    ]
+
     def __init__(self, workspace_root: str | Path = "."):
         """初始化路径验证器.
 
         Args:
             workspace_root: 工作区根目录路径,可以是字符串或 Path 对象
-                          所有后续的路径验证都将以此目录为边界
+                          所有后续的路径验证都将以此目录为基准
 
         Raises:
             FileNotFoundError: 当 workspace_root 不存在时抛出
@@ -71,7 +86,18 @@ class PathValidator:
         if not str(resolved).startswith(str(self.root) + os.sep) and resolved != self.root:
             raise WorkspaceBoundaryError(f"路径越界: {target}")
 
+        # 敏感文件检查
+        self._raise_if_sensitive(resolved, target)
+
         return resolved
+
+    @classmethod
+    def _raise_if_sensitive(cls, resolved: Path, original_target: str | Path) -> None:
+        """检查路径是否匹配敏感文件模式."""
+        resolved_str = str(resolved).replace(os.sep, "/")
+        for pattern in cls.SENSITIVE_FILE_PATTERNS:
+            if pattern.search(resolved_str):
+                raise SensitiveFileError(f"禁止访问敏感文件: {original_target}")
 
     def create_file_with_parents(self, target: str | Path, content: str = "") -> Path:
         """在工作区内创建文件,自动创建所有不存在的父目录.

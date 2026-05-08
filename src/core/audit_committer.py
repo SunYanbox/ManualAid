@@ -1,3 +1,4 @@
+import subprocess
 from pathlib import Path
 
 from src.utils.binary_detector import is_binary_file
@@ -90,3 +91,63 @@ class AuditCommitter:
 
         except Exception as e:
             return f"写入失败: {e.__class__.__name__}({e})"
+
+    def commit_shell(self, shell_id: int, approved: bool = True) -> str:
+        """审核 Shell 命令: 通过后执行, 拒绝则忽略.
+
+        Args:
+            shell_id: Shell 审核记录 ID
+            approved: True=批准执行, False=拒绝
+
+        Returns:
+            操作结果消息
+        """
+        db = self.workspace.db
+
+        shell = db.get_shell_by_id(shell_id)
+        if shell is None:
+            return f"Shell 命令不存在: {shell_id}"
+
+        (_id, command, _, _ts, _session_id, audit_status, _output, _exit_code, _executed_at) = shell
+
+        if audit_status != "PENDING_AUDIT":
+            return f"Shell 命令已处理 (当前状态: {audit_status})"
+
+        if not approved:
+            db.update_shell_audit(shell_id, "REJECTED")
+            return f"已拒绝 Shell 命令 (id={shell_id})"
+
+        # 批准 -- 执行命令
+        try:
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                timeout=300,
+                cwd=str(self.workspace.root_path),
+                shell=True,
+            )
+
+            output_parts = []
+            if result.stdout:
+                output_parts.append(result.stdout.rstrip("\n"))
+            if result.stderr:
+                output_parts.append(result.stderr.rstrip("\n"))
+
+            output = "\n".join(output_parts) if output_parts else "(no output)"
+            exit_code = result.returncode
+
+            # 截断超长输出防止 DB 膨胀
+            if len(output) > 10000:
+                output = output[:10000] + "\n... (output truncated at 10000 chars)"
+
+            db.update_shell_audit(shell_id, "APPROVED", output=output, exit_code=exit_code)
+
+            return f"已批准并执行 Shell 命令 (id={shell_id})\nExit code: {exit_code}\nOutput:\n{output}"
+
+        except subprocess.TimeoutExpired:
+            db.update_shell_audit(shell_id, "APPROVED", output="TIMEOUT: 命令执行超时(300s)", exit_code=-1)
+            return f"Shell 命令执行超时 (id={shell_id})"
+        except Exception as e:
+            db.update_shell_audit(shell_id, "APPROVED", output=f"ERROR: {e}", exit_code=-1)
+            return f"Shell 命令执行失败: {e}"

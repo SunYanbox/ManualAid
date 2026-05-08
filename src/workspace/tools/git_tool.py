@@ -133,20 +133,25 @@ class GitTool(BaseTool):
                 kwargs=locals().copy(), error=f"TimeoutExpired(Git 命令执行超时: {time_out_exception})"
             )
 
-        # 5. 处理输出
-        if result.returncode != 0:
-            stderr = (result.stderr or "").strip()
-            return self.make_failed_response(
-                kwargs=locals().copy(),
-                error=f"Git command failed (exit code {result.returncode})" + f":\n{stderr}" if stderr else "",
-            )
-
-        # Combine stdout and stderr
+        # 5. 处理输出 — 总是保留 stdout 和 stderr, 即使 returncode != 0 (如 git diff --exit-code)
         output_parts = []
         if result.stdout:
             output_parts.append(result.stdout.rstrip("\n"))
         if result.stderr:
             output_parts.append(result.stderr.rstrip("\n"))
+
+        if result.returncode != 0:
+            stderr = (result.stderr or "").strip()
+            error_msg = f"Git command exited with code {result.returncode}"
+            if stderr:
+                error_msg += f":\n{stderr}"
+            # 保留 stdout 在 data 中, 同时返回 error
+            return self.make_failed_response(
+                kwargs=locals().copy(),
+                data="\n".join(output_parts) if output_parts else "(no output)",
+                error=error_msg,
+            )
+
         if result.stdout is None and not result.stderr:
             # HACK: subprocess.run with capture_output=True returns None for stdout
             # on this platform. Fallback: re-run with explicit PIPE (bytes mode).
@@ -167,9 +172,14 @@ class GitTool(BaseTool):
                 output_parts.append(out.rstrip("\n"))
             if err:
                 output_parts.append(err.rstrip("\n"))
-            if not output_parts and _result2.returncode != 0:
+            if _result2.returncode != 0:
+                error_msg2 = f"Git command exited with code {_result2.returncode}"
+                if err:
+                    error_msg2 += f":\n{err}"
                 return self.make_failed_response(
-                    kwargs=locals().copy(), error=f"Git command failed (exit code {_result2.returncode})"
+                    kwargs=locals().copy(),
+                    data="\n".join(output_parts) if output_parts else "(no output)",
+                    error=error_msg2,
                 )
 
         return self.make_success_response(

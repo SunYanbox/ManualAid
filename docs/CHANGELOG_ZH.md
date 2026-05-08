@@ -8,6 +8,59 @@
 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/). 并采用
 [语义化版本](https://semver.org/lang/Chinese/).
 
+## [0.6.0] - 2026-05-08
+
+### 新增
+
+- **Agent 系统**: 引入 Agent 配置管理功能,支持通过 YAML
+  frontmatter 定义 Agent 的系统提示词、约束和权限. 实现了 `AgentManager`
+  单例模式, 支持 Agent 的加载、切换和持久化 ([#149](https://github.com/SunYanbox/ManualAid/issues/149)).
+- **Skill 系统**: 添加 Skill 管理功能,支持动态加载和执行自定义 Shell 脚本作为扩展工具. 包含
+  `SkillManager`、`skill_tool`
+  和相关的 TUI 配置界面 ([#155](https://github.com/SunYanbox/ManualAid/issues/155)).
+- **Shell 工具**: 新增 `shell`
+  工具,支持执行 Shell 命令并进行安全审核 ([#155](https://github.com/SunYanbox/ManualAid/issues/155)).
+- **路径验证增强**: 引入 `ExclusionManager`
+  类,统一管理性能排除(.gitignore 规则)和安全排除(敏感文件拦截). 新增
+  `SensitiveFileError` 异常, 直接禁止访问 `.env`、`*.pem`、`id_rsa`
+  等敏感文件 ([#151](https://github.com/SunYanbox/ManualAid/issues/151)).
+- **Gitignore 支持**: 新增 `GitignoreLoader` 模块,支持解析 `.gitignore`
+  文件并应用排除规则到搜索和文件操作工具 ([#151](https://github.com/SunYanbox/ManualAid/issues/151)).
+- **二进制文件检测扩展**: 扩展二进制文件检测器以支持 Godot 项目格式(.godot、.gd、.gd.uid、.tscn)和编译产物(.pdb、.pyd、.o)
+  ([#151](https://github.com/SunYanbox/ManualAid/issues/154)).
+- **搜索工具二进制文件过滤**: 在 `regex_search` 和 `exact_search`
+  工具中集成二进制文件检测机制,自动跳过二进制文件 ([#154](https://github.com/SunYanbox/ManualAid/issues/154)).
+- **Agent 命令**: 新增 `/agent`
+  命令,支持列出 Agent、切换当前 Agent、复制 Agent 配置和重置默认 Agent
+  ([#149](https://github.com/SunYanbox/ManualAid/issues/149)).
+- **配置管理器**: 新增 `ConfigManager`
+  类,统一管理环境变量配置 ([#155](https://github.com/SunYanbox/ManualAid/issues/155)).
+- **审计提交器**: 新增 `AuditCommitter`
+  类,处理审计系统的提交逻辑 ([#155](https://github.com/SunYanbox/ManualAid/issues/155)).
+- **TUI 配置标签页**: 新增环境配置和 Skill 配置标签页,提供图形化配置界面 ([#155](https://github.com/SunYanbox/ManualAid/issues/155)).
+- **Shell 结果标签页**: 新增 Shell 执行结果标签页,展示命令输出 ([#155](https://github.com/SunYanbox/ManualAid/issues/155)).
+
+### 更改
+
+- **系统提示词重构**: 重构系统提示词组装逻辑,支持基于 Agent 配置的动态覆盖. 明确定义提示词组装顺序:Role
+  → Constraints → Agent Directive → Tool Rules → Tool Definitions → Workflow
+  →Workspace Context → Augmentation → Extensions
+  ([#149](https://github.com/SunYanbox/ManualAid/issues/149)).
+- **工具权限过滤**: `/ws`
+  命令现在根据当前 Agent 的工具权限白名单过滤工具定义 ([#149](https://github.com/SunYanbox/ManualAid/issues/149)).
+- **路径排除逻辑重构**: 移除 `PermissionManager` 类,整合敏感文件规则至
+  `ExclusionManager`. 简化搜索与遍历逻辑,统一使用 `ExclusionManager`
+  进行路径过滤 ([#151](https://github.com/SunYanbox/ManualAid/issues/151)).
+- **TUI 启动初始化**: TUI 启动时自动初始化默认 Agent
+  ([#149](https://github.com/SunYanbox/ManualAid/issues/149)).
+- **数据库扩展**: 扩展数据库管理器,支持 Agent 和 Skill 相关数据的持久化 ([#155](https://github.com/SunYanbox/ManualAid/issues/155)).
+
+### 修复
+
+- **Git 工具输出保留**: 修复当 Git 命令返回非零退出码但仍有标准输出时(如
+  `git diff --exit-code`),之前的代码会完全丢弃 stdout 的问题. 现在总是保留 stdout,即使 returncode
+  != 0 ([#150](https://github.com/SunYanbox/ManualAid/issues/150)).
+
 ## [0.5.0] - 2026-05-05
 
 ### 新增
@@ -198,6 +251,7 @@
 
 _初始发布的功能和历史记录._
 
+[0.6.0]: https://github.com/SunYanbox/ManualAid/releases/tag/v0.6.0
 [0.5.0]: https://github.com/SunYanbox/ManualAid/releases/tag/v0.5.0
 [0.4.1]: https://github.com/SunYanbox/ManualAid/releases/tag/v0.4.1
 [0.4.0]: https://github.com/SunYanbox/ManualAid/releases/tag/v0.4.0

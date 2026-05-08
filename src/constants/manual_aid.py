@@ -24,3 +24,6 @@ STATS_FILE = "stats.json"
 
 # 用户配置覆盖文件名
 CONFIG_FILE = "config.json"
+
+# Agent 配置目录
+AGENTS_DIR = "agents"

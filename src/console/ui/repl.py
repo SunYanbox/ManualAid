@@ -6,11 +6,12 @@ from rich.panel import Panel
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
-from textual.widgets import Button, Footer, Label, TextArea
+from textual.widgets import Button, Footer, Label, Select, TextArea
 
 from src.console.handlers.command_handler import CommandHandler
 from src.console.handlers.tool_handler import ToolHandler
 from src.console.ui.tui_console import TuiConsole
+from src.core.agent_manager import AgentManager
 from src.core.input_parser import parse_input
 from src.core.paste_cache import PasteReference
 from src.core.paste_window import show_paste_window
@@ -48,7 +49,7 @@ class REPL(App):
     }
 
     #title-left {
-        width: 20%;
+        width: auto;
         content-align: right middle;
         text-style: bold;
         color: $success;
@@ -56,7 +57,7 @@ class REPL(App):
     }
 
     #title-version {
-        width: 20%;
+        width: auto;
         content-align: left middle;
         color: $text-muted;
         text-style: italic;
@@ -64,8 +65,14 @@ class REPL(App):
         margin-left: 1;
     }
 
+    #agent-select {
+        width: auto;
+        max-width: 40;
+        margin: 0 1;
+    }
+
     #title-right {
-        width: 60%;
+        width: 1fr;
         content-align: center middle;
         color: $text-muted;
     }
@@ -154,12 +161,23 @@ class REPL(App):
     def compose(self) -> ComposeResult:
         """构建控件树"""
 
-        # 标题栏:左侧名称 + 中间工作区路径 + 右侧版本号
+        # 标题栏:左侧名称 + 版本号 + Agent选择 + 工作区路径
         with Horizontal(id="title-bar"), Horizontal():
             yield Label(self.CONSOLE_TITLE, id="title-left")
             from src.constants import __version__
 
             yield Label(f"v{__version__}", id="title-version")
+
+            # Agent selector dropdown
+            mgr = AgentManager()
+            options = [(a, a) for a in mgr.agent_names()]
+            yield Select(
+                options,
+                id="agent-select",
+                prompt="Agent",
+                value=mgr.current_agent_name,
+            )
+
             yield Label("工作区", id="title-right")
 
         # 输出区域: 使用新的 TuiConsole 组件
@@ -191,9 +209,10 @@ class REPL(App):
         self.tui_console = tui_console
         self.result_manager.console = tui_console
 
-        # 更新标题栏右侧显示实际工作区路径
+        # 更新标题栏右侧显示实际工作区路径和当前 Agent
         title_right = self.query_one("#title-right", Label)
-        title_right.update(f"工作区: {self.workspace.root_path}")
+        mgr = AgentManager()
+        title_right.update(f"Agent: {mgr.current_agent_name} | 工作区: {self.workspace.root_path}")
 
         # 创建审核提交模块并注入审核标签页
         from src.core.audit_committer import AuditCommitter
@@ -201,11 +220,20 @@ class REPL(App):
         audit_committer = AuditCommitter(self.workspace)
         tui_console.audit_tab.set_committer(audit_committer)
 
+        # 注入 Shell 结果标签页
+        tui_console.shell_result_tab.set_database(self.workspace.db)
+
         # 注入统计标签页
         tui_console.stats_tab.set_database(
             self.workspace.db,
             getattr(self.tool_registry, "_current_session_id", None),
         )
+
+        # 注入设置标签页
+        from src.core.skill_manager import SkillManager
+
+        skill_manager = SkillManager()
+        tui_console.settings_tab.set_managers(self.workspace.root_path, skill_manager)
 
         # 创建 command handler
         self.command_handler = CommandHandler(
@@ -227,6 +255,15 @@ class REPL(App):
 
         # 自动聚焦输入框
         self.query_one("#input-field", TextArea).focus()
+
+    def on_select_changed(self, event: Select.Changed) -> None:
+        """Handle agent selection change from dropdown."""
+        if event.select.id == "agent-select":
+            mgr = AgentManager()
+            if mgr.switch_agent(str(event.value)):
+                title_right = self.query_one("#title-right", Label)
+                title_right.update(f"Agent: {mgr.current_agent_name} | 工作区: {self.workspace.root_path}")
+                self.tui_console.print(f"[dim]Switched to agent: {mgr.current_agent_name}[/dim]")
 
     # -- 输入处理 -----------------------------------------------------------
 

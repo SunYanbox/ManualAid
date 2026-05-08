@@ -83,6 +83,11 @@ _TEXT_EXTENSIONS: frozenset[str] = frozenset(
         ".vbs",  # VBScript
         ".reg",  # Windows Registry
         ".desktop",
+        # Godot
+        ".godot",
+        ".gd",
+        ".gd.uid",
+        ".tscn",
     }
 )
 
@@ -183,6 +188,9 @@ _BINARY_EXTENSIONS: frozenset[str] = frozenset(
         ".db",
         ".sqlite",
         ".sqlite3",
+        ".pdb",
+        ".pyd",
+        ".o",
     }
 )
 

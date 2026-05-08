@@ -5,10 +5,8 @@ from datetime import date
 from pathlib import Path
 
 from src.models.tool_error_response import ToolErrorResponse
+from src.workspace.exclusion_manager import ExclusionManager
 from src.workspace.path_validator import PathNotFoundError, PathValidator, WorkspaceBoundaryError
-
-# 默认排除的目录 后续改为从项目配置加载
-DEFAULT_EXCLUDED_DIRS = {".git", "__pycache__", "node_modules", ".venv", "venv", "dist", "build", ".idea", ".vscode"}
 
 
 def _highlight_matches(line: str, regex: re.Pattern) -> str:
@@ -47,6 +45,7 @@ class Workspace:
             return
         self.root_path = Path(path).resolve()
         self.path_validator: PathValidator = PathValidator(self.root_path)
+        self.exclusion_manager: ExclusionManager = ExclusionManager(self.root_path)
         self.is_git_repo: bool = (self.root_path / ".git").is_dir()
         self.platform: str = sys.platform
         self.date: str = date.today().strftime("%y-%m-%d")
@@ -84,8 +83,11 @@ class Workspace:
         try:
             path = self.path_validator.validate(folder_path)
 
-            # 初始化排除目录集合
-            exclude_set = set(exclude_dirs or DEFAULT_EXCLUDED_DIRS)
+            # 初始化排除目录集合: 合并默认排除 + 用户传入排除
+            if exclude_dirs is not None:
+                exclude_set = set(exclude_dirs) | self.exclusion_manager.excluded_dir_names
+            else:
+                exclude_set = self.exclusion_manager.excluded_dir_names
 
             # 编译正则表达式
             flags = 0 if case_sensitive else re.IGNORECASE
@@ -218,14 +220,8 @@ class Workspace:
         try:
             path = self.path_validator.validate(folder_path)
 
-            # 预编译 ignore 正则
-            ignore_res: list[re.Pattern] = []
-            if ignore:
-                for ign in ignore:
-                    try:
-                        ignore_res.append(re.compile(ign))
-                    except re.error:
-                        continue
+            # 预编译 ignore 正则: 合并默认排除 + 用户传入的 ignore
+            ignore_res: list[re.Pattern] = self.exclusion_manager.merge_ignore_regexes(ignore)
 
             # 收集文件(一次遍历)
             files_to_search: list[Path] = []
@@ -234,8 +230,6 @@ class Workspace:
             else:
                 for file_path in path.rglob(file_pattern):
                     if file_path.is_file():
-                        if any(p.name in DEFAULT_EXCLUDED_DIRS for p in file_path.parents):
-                            continue
                         rel = str(file_path.relative_to(self.root_path))
                         if any(ir.search(rel) for ir in ignore_res):
                             continue

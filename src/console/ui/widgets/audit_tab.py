@@ -81,6 +81,13 @@ class AuditTab(Vertical):
         padding: 0 1;
         margin-bottom: 1;
     }
+
+    .audit-section-label {
+        height: auto;
+        padding: 0 0 0 0;
+        text-style: bold;
+        color: $text;
+    }
     """
 
     def __init__(self) -> None:
@@ -108,55 +115,80 @@ class AuditTab(Vertical):
 
         await self.remove_children()
 
-        pending = self._committer.workspace.db.get_snapshots_by_audit_status("PENDING_AUDIT")
-
-        if not pending:
-            await self.mount(Label("没有待审核的更改.", id="audit-empty"))
-            return
-
-        # Group by file_path
-        grouped: defaultdict[str, list[tuple]] = defaultdict(list)
-        for snap in pending:
-            grouped[snap[1]].append(snap)
-
         # Result area for showing commit results
         result_log = Vertical(id="audit-result-log")
         await self.mount(result_log)
 
+        pending_files = self._committer.workspace.db.get_snapshots_by_audit_status("PENDING_AUDIT")
+        pending_shells = self._committer.workspace.db.get_shell_pending_audits()
+
+        total_items = len(pending_files) + len(pending_shells)
+
+        if total_items == 0:
+            await self.mount(Label("没有待审核的更改.", id="audit-empty"))
+            return
+
+        # Group file snapshots by file_path
+        file_grouped: defaultdict[str, list[tuple]] = defaultdict(list)
+        for snap in pending_files:
+            file_grouped[snap[1]].append(snap)
+
         header = Label(
-            f"待审核更改 ({sum(len(snaps) for snaps in grouped.values())} 项)",
+            f"待审核更改 ({total_items} 项)",
             id="audit-header",
         )
         await self.mount(header)
 
-        for file_path in sorted(grouped):
-            snaps = grouped[file_path]
-            # Collect all children for all snaps of this file
-            all_snap_widgets: list[Static | Horizontal] = []
-            for snap in snaps:
-                snap_id = snap[0]
-                diff_content = snap[4] or "(空 diff)"
+        # Render pending shell commands first
+        if pending_shells:
+            shell_children: list[Label | Collapsible] = [Label("Shell 命令:", classes="audit-section-label")]
+            for shell in pending_shells:
+                shell_id, command, description, _ts, _sid, _status = shell
+                preview = f"$ {command}"
+                if description:
+                    preview += f"\n  # {description}"
 
-                diff_container = Vertical(Static(diff_content, markup=False), classes="audit-diff")
+                cmd_display = Static(preview, markup=False, classes="audit-diff")
                 btn_row = Horizontal(
-                    Button("批准", variant="primary", id=f"approve-{snap_id}", classes="audit-approve"),
-                    Button("拒绝", variant="error", id=f"reject-{snap_id}", classes="audit-reject"),
+                    Button("批准", variant="primary", id=f"shell_approve-{shell_id}", classes="audit-approve"),
+                    Button("拒绝", variant="error", id=f"shell_reject-{shell_id}", classes="audit-reject"),
                     classes="audit-buttons",
                 )
-                all_snap_widgets.append(diff_container)
-                all_snap_widgets.append(btn_row)
+                collapsible = Collapsible(
+                    Vertical(cmd_display, btn_row),
+                    title=f"Shell #{shell_id}: {command.strip()[:60]}{'...' if len(command.strip()) > 60 else ''}",
+                    classes="audit-collapsible",
+                )
+                shell_children.append(collapsible)
+            await self.mount(Vertical(*shell_children))
 
-            content_widgets = Vertical(*all_snap_widgets)
+        # Render file snapshot changes
+        if pending_files:
+            for file_path in sorted(file_grouped):
+                snaps = file_grouped[file_path]
+                all_snap_widgets: list[Static | Horizontal] = []
+                for snap in snaps:
+                    snap_id = snap[0]
+                    diff_content = snap[4] or "(空 diff)"
 
-            collapsible = Collapsible(
-                content_widgets,
-                title=f"{file_path} ({len(snaps)} 次更改)",
-                classes="audit-collapsible",
-            )
-            # Collapse excess items initially — keep first 3 expanded
-            if len(self.children) > 6:  # header + result_log + 3 expanded
-                collapsible.collapsed = True
-            await self.mount(collapsible)
+                    diff_container = Vertical(Static(diff_content, markup=False), classes="audit-diff")
+                    btn_row = Horizontal(
+                        Button("批准", variant="primary", id=f"approve-{snap_id}", classes="audit-approve"),
+                        Button("拒绝", variant="error", id=f"reject-{snap_id}", classes="audit-reject"),
+                        classes="audit-buttons",
+                    )
+                    all_snap_widgets.append(diff_container)
+                    all_snap_widgets.append(btn_row)
+
+                content_widgets = Vertical(*all_snap_widgets)
+                collapsible = Collapsible(
+                    content_widgets,
+                    title=f"{file_path} ({len(snaps)} 次更改)",
+                    classes="audit-collapsible",
+                )
+                if len(self.children) > 6:
+                    collapsible.collapsed = True
+                await self.mount(collapsible)
 
     async def on_button_pressed(self, event: Button.Pressed) -> None:
         """处理批准/拒绝按钮点击."""
@@ -169,16 +201,20 @@ class AuditTab(Vertical):
         if len(parts) != 2:
             return
 
-        action, snap_id_str = parts
+        action, id_str = parts
         try:
-            snapshot_id = int(snap_id_str)
+            item_id = int(id_str)
         except ValueError:
             return
 
         if action == "approve":
-            result = self._committer.commit(snapshot_id, approved=True)
+            result = self._committer.commit(item_id, approved=True)
         elif action == "reject":
-            result = self._committer.commit(snapshot_id, approved=False)
+            result = self._committer.commit(item_id, approved=False)
+        elif action == "shell_approve":
+            result = self._committer.commit_shell(item_id, approved=True)
+        elif action == "shell_reject":
+            result = self._committer.commit_shell(item_id, approved=False)
         else:
             return
 
