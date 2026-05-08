@@ -8,6 +8,76 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-05-08
+
+### Added
+
+- **Agent System**: Introduced Agent configuration management with YAML
+  frontmatter support for defining system prompts, constraints, and permissions.
+  Implemented `AgentManager` singleton pattern supporting Agent loading,
+  switching, and persistence
+  ([#149](https://github.com/SunYanbox/ManualAid/issues/149)).
+- **Skill System**: Added Skill management functionality supporting dynamic
+  loading and execution of custom Shell scripts as extension tools. Includes
+  `SkillManager`, `skill_tool`, and related TUI configuration interface
+  ([#155](https://github.com/SunYanbox/ManualAid/issues/155)).
+- **Shell Tool**: New `shell` tool for executing Shell commands with safety
+  auditing ([#155](https://github.com/SunYanbox/ManualAid/issues/155)).
+- **Path Validation Enhancement**: Introduced `ExclusionManager` class to unify
+  performance exclusion (.gitignore rules) and security exclusion (sensitive
+  file blocking). Added `SensitiveFileError` exception to directly block access
+  to `.env`, `*.pem`, `id_rsa` and other sensitive files
+  ([#151](https://github.com/SunYanbox/ManualAid/issues/151)).
+- **Gitignore Support**: New `GitignoreLoader` module to parse `.gitignore`
+  files and apply exclusion rules to search and file operation tools
+  ([#151](https://github.com/SunYanbox/ManualAid/issues/151)).
+- **Binary Detection Extension**: Extended binary file detector to support Godot
+  project formats (.godot, .gd, .gd.uid, .tscn) and compilation artifacts (.pdb,
+  .pyd, .o) ([#151](https://github.com/SunYanbox/ManualAid/issues/154)).
+- **Search Tool Binary Filtering**: Integrated binary file detection mechanism
+  in `regex_search` and `exact_search` tools to automatically skip binary files
+  ([#154](https://github.com/SunYanbox/ManualAid/issues/154)).
+- **Agent Command**: New `/agent` command supporting listing agents, switching
+  current agent, copying agent configuration, and resetting default agent
+  ([#149](https://github.com/SunYanbox/ManualAid/issues/149)).
+- **Config Manager**: New `ConfigManager` class for unified environment variable
+  configuration management
+  ([#155](https://github.com/SunYanbox/ManualAid/issues/155)).
+- **Audit Committer**: New `AuditCommitter` class to handle audit system commit
+  logic ([#155](https://github.com/SunYanbox/ManualAid/issues/155)).
+- **TUI Configuration Tabs**: New environment configuration and skill
+  configuration tabs providing graphical configuration interface
+  ([#155](https://github.com/SunYanbox/ManualAid/issues/155)).
+- **Shell Result Tab**: New shell execution result tab displaying command output
+  ([#155](https://github.com/SunYanbox/ManualAid/issues/155)).
+
+### Changed
+
+- **System Prompt Refactor**: Refactored system prompt assembly logic to support
+  Agent-based dynamic overrides. Explicitly defined prompt assembly order: Role
+  → Constraints → Agent Directive → Tool Rules → Tool Definitions → Workflow →
+  Workspace Context → Augmentation → Extensions
+  ([#149](https://github.com/SunYanbox/ManualAid/issues/149)).
+- **Tool Permission Filtering**: `/ws` command now filters tool definitions
+  based on current Agent's tool permission whitelist
+  ([#149](https://github.com/SunYanbox/ManualAid/issues/149)).
+- **Path Exclusion Logic Refactor**: Removed `PermissionManager` class and
+  integrated sensitive file rules into `ExclusionManager`. Simplified search and
+  traversal logic with unified `ExclusionManager` for path filtering
+  ([#151](https://github.com/SunYanbox/ManualAid/issues/151)).
+- **TUI Startup Initialization**: TUI now automatically initializes default
+  agent on startup ([#149](https://github.com/SunYanbox/ManualAid/issues/149)).
+- **Database Extension**: Extended database manager to support Agent and Skill
+  related data persistence
+  ([#155](https://github.com/SunYanbox/ManualAid/issues/155)).
+
+### Fixed
+
+- **Git Tool Output Preservation**: Fixed issue where Git commands returning
+  non-zero exit code but still producing stdout (e.g., `git diff --exit-code`)
+  would discard stdout entirely. Now always preserves stdout even when
+  returncode != 0 ([#150](https://github.com/SunYanbox/ManualAid/issues/150)).
+
 ## [0.5.0] - 2026-05-05
 
 ### Added
@@ -251,6 +321,7 @@ and this project adheres to
 
 _Initial release features and history._
 
+[0.6.0]: https://github.com/SunYanbox/ManualAid/releases/tag/v0.6.0
 [0.5.0]: https://github.com/SunYanbox/ManualAid/releases/tag/v0.5.0
 [0.4.1]: https://github.com/SunYanbox/ManualAid/releases/tag/v0.4.1
 [0.4.0]: https://github.com/SunYanbox/ManualAid/releases/tag/v0.4.0
