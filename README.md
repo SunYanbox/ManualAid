@@ -9,25 +9,34 @@ LLM chat interfaces. Paste LLM-generated tool calls (in XML format), review and
 audit dangerous operations, and manage sessions with full history tracking --
 all running locally on your machine.
 
-> **Version**: 0.5.0 | **Python**: >=3.14
+> **Version**: 0.6.0 | **Python**: >=3.14
 
 ---
 
 ## Features
 
-- **TUI Console** -- Four-tab Textual interface: RichLog, Tool Calls, Audit,
-  Statistics
-- **12 Built-in Tools** -- File system exploration, search, editing, Git
-  integration
+- **TUI Console** -- Multi-tab Textual interface: RichLog, Tool Calls, Audit,
+  Statistics, Environment Config, Skill Config
+- **14 Built-in Tools** -- File system exploration, search, editing, Git
+  integration, Shell execution, Skill system
+- **Agent System** -- Support Agent configuration via YAML frontmatter for
+  different roles and permission workflows
+- **Skill System** -- Dynamically load and execute custom Shell scripts as
+  extension tools
 - **Safe Editing** -- Two-phase commit for write/edit operations with diff
   preview and manual approval
 - **Git Integration** -- Whitelist-based Git command execution with safety
   filters
+- **Gitignore Support** -- Automatically parse and apply `.gitignore` file rules
+  to search and file operations
+- **Sensitive File Protection** -- Automatically block access to `.env`,
+  `*.pem`, `id_rsa` and other sensitive files
 - **Session Management** -- Automatic session tracking, rename, delete, and
   switch
 - **Tool Usage Analytics** -- Per-session and global tool call statistics with
   ranking
-- **Audit System** -- Pending write/edit snapshots with approve/reject workflow
+- **Audit System** -- Pending write/edit/Shell snapshots with approve/reject
+  workflow
 - **Result Caching** -- Auto-copy results to clipboard with configurable
   expiration
 - **Multi-window Launch** -- Spawn new ManualAid windows for different
@@ -84,15 +93,17 @@ tabs.
 
 ## Console Interface
 
-The TUI is built with [Textual](https://textual.textualize.io/) and has four
+The TUI is built with [Textual](https://textual.textualize.io/) and has six
 tabs:
 
-| Tab        | Purpose                                              |
-| ---------- | ---------------------------------------------------- |
-| RichLog    | General log output and messages                      |
-| Tool Calls | Collapsible tool execution results                   |
-| Audit      | Pending write/edit operations awaiting approval      |
-| Statistics | Session summaries, tool rankings, session management |
+| Tab                | Purpose                                               |
+| ------------------ | ----------------------------------------------------- |
+| RichLog            | General log output and messages                       |
+| Tool Calls         | Collapsible tool execution results                    |
+| Audit              | Pending write/edit/Shell operations awaiting approval |
+| Statistics         | Session summaries, tool rankings, session management  |
+| Environment Config | Environment variable and configuration management     |
+| Skill Config       | Custom skill script management and configuration      |
 
 ### Keyboard Shortcuts
 
@@ -111,13 +122,14 @@ tabs:
 | `/help`      | `/h` / `/?`    | Show help text                                                                  |
 | `/cls`       |                | Clear the log display                                                           |
 | `/workspace` | `/ws`          | Generate a system prompt containing workspace information and tool definitions. |
+| `/agent`     |                | List, switch, copy, or reset agent configurations                               |
 | `/new`       |                | Launch new ManualAid window                                                     |
 
 ---
 
 ## Available Tools
 
-ManualAid registers 12 tools for LLM use via XML function calls:
+ManualAid registers 14 tools for LLM use via XML function calls:
 
 ### Query Tools (read-only)
 
@@ -140,9 +152,16 @@ ManualAid registers 12 tools for LLM use via XML function calls:
 
 ### Dangerous Tools (require audit approval)
 
-| Tool  | Description                           |
-| ----- | ------------------------------------- |
-| `git` | Whitelist-based Git command execution |
+| Tool    | Description                                |
+| ------- | ------------------------------------------ |
+| `git`   | Whitelist-based Git command execution      |
+| `shell` | Execute Shell commands (requires approval) |
+
+### Extension Tools
+
+| Tool    | Description                                             |
+| ------- | ------------------------------------------------------- |
+| `skill` | Dynamically load and execute custom Shell script skills |
 
 > Tool calls use XML format. See `/help` in the console for syntax examples.
 
@@ -150,12 +169,14 @@ ManualAid registers 12 tools for LLM use via XML function calls:
 
 ## Audit Workflow
 
-Write and edit operations go through a two-phase safety workflow:
+Write, edit, and Shell command operations go through a two-phase safety
+workflow:
 
-1. **Preview** -- The tool computes a diff and stores a snapshot with
-   `PENDING_AUDIT` status
-2. **Review** -- Switch to the Audit tab to review the diff
-3. **Decide** -- Click Approve to commit the change, or Reject to discard it
+1. **Preview** -- The tool computes a diff or command content and stores a
+   snapshot with `PENDING_AUDIT` status
+2. **Review** -- Switch to the Audit tab to review the diff or command details
+3. **Decide** -- Click Approve to commit the change/execute command, or Reject
+   to discard it
 
 Git commands that are not in the safe list (`status`, `diff`, `log`, `show`)
 also require audit approval before execution.
