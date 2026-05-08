@@ -133,7 +133,7 @@ class GitTool(BaseTool):
                 kwargs=locals().copy(), error=f"TimeoutExpired(Git 命令执行超时: {time_out_exception})"
             )
 
-        # 5. 处理输出 — 总是保留 stdout, 即使 returncode != 0 (如 git diff --exit-code)
+        # 5. 处理输出 — 总是保留 stdout 和 stderr, 即使 returncode != 0 (如 git diff --exit-code)
         output_parts = []
         if result.stdout:
             output_parts.append(result.stdout.rstrip("\n"))
