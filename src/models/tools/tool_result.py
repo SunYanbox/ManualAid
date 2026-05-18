@@ -70,9 +70,7 @@ class ToolResult:
     LIST_TRUNCATE_THRESHOLD: ClassVar[int] = int(os.getenv("TOOL_LIST_TRUNCATE_THRESHOLD", "100"))
     DICT_TRUNCATE_THRESHOLD: ClassVar[int] = int(os.getenv("TOOL_DICT_TRUNCATE_THRESHOLD", "100"))
 
-    def __init__(
-        self, success: bool, func_name: str, func_kwargs: dict, data: Any = None, error: str | None = None
-    ) -> None:
+    def __init__(self, success: bool, func_name: str, func_kwargs: dict, data: Any = None, error: str | None = None) -> None:
         self.success: bool = success
         self.func_name: str = func_name
         self.func_kwargs: dict = func_kwargs
@@ -96,10 +94,7 @@ class ToolResult:
         result_length = len(result)
         if isinstance(result, str):
             if result_length > cls.MAX_RESULT_LENGTH:
-                return (
-                    result[: cls.MAX_RESULT_LENGTH]
-                    + f"... [字符串结果已截断 显示的字符数: {cls.LIST_TRUNCATE_THRESHOLD} / {result_length}]"
-                )
+                return result[: cls.MAX_RESULT_LENGTH] + f"... [字符串结果已截断 显示的字符数: {cls.LIST_TRUNCATE_THRESHOLD} / {result_length}]"
         elif isinstance(result, (list, tuple)):
             if result_length > cls.LIST_TRUNCATE_THRESHOLD:
                 return [
@@ -119,9 +114,7 @@ class ToolResult:
         if cls.HAD_VALIDATE:
             return None
         if cls.MAX_RESULT_LENGTH < 10:
-            warnings.warn(
-                f"TOOL_MAX_RESULT_LENGTH 过小({cls.MAX_RESULT_LENGTH}),建议至少为100", UserWarning, stacklevel=2
-            )
+            warnings.warn(f"TOOL_MAX_RESULT_LENGTH 过小({cls.MAX_RESULT_LENGTH}),建议至少为100", UserWarning, stacklevel=2)
             cls.MAX_RESULT_LENGTH = 100
 
         if cls.LIST_TRUNCATE_THRESHOLD < 10:

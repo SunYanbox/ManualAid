@@ -23,9 +23,7 @@ def temp_db(tmp_path):
 class TestToolCallSummariesTable:
     def test_table_exists(self, temp_db):
         cursor = temp_db._get_connection()
-        tables = cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='tool_call_summaries'"
-        ).fetchall()
+        tables = cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='tool_call_summaries'").fetchall()
         assert len(tables) == 1
         assert tables[0][0] == "tool_call_summaries"
 
@@ -109,9 +107,7 @@ class TestToolCallSummariesTable:
 
     def test_index_exists(self, temp_db):
         cursor = temp_db._get_connection()
-        indexes = cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_tool_call_summaries_session'"
-        ).fetchall()
+        indexes = cursor.execute("SELECT name FROM sqlite_master WHERE type='index' AND name='idx_tool_call_summaries_session'").fetchall()
         assert len(indexes) == 1
 
 

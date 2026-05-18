@@ -79,10 +79,7 @@ class SkillInfo:
             if not description:
                 # 从 SKILL.md 第一行提取标题
                 first_line = content.split("\n")[0] if content else ""
-                if first_line.startswith("#"):
-                    description = first_line.lstrip("#").strip()
-                else:
-                    description = first_line.strip() or skill_dir.name
+                description = first_line.lstrip("#").strip() if first_line.startswith("#") else first_line.strip() or skill_dir.name
 
         # 收集其他文件
         files: list[str] = []

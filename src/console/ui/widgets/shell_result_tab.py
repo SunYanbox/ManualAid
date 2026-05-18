@@ -141,8 +141,7 @@ class ShellResultTab(Vertical):
             collapsed = i > 3
             collapsible = Collapsible(
                 Vertical(output_container, btn_row),
-                title=f"[{status_color}]{status_icon}[/{status_color}] "
-                f"Shell #{shell_id}: {command.strip()[:60]}{'...' if len(command.strip()) > 60 else ''}",
+                title=f"[{status_color}]{status_icon}[/{status_color}] Shell #{shell_id}: {command.strip()[:60]}{'...' if len(command.strip()) > 60 else ''}",
                 classes="shell-collapsible",
                 collapsed=collapsed,
             )

@@ -42,9 +42,7 @@ class PasteWindow:
         frame = tk.Frame(window)
         frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-        text_widget = scrolledtext.ScrolledText(
-            frame, wrap=tk.WORD, font=("Consolas", 11), undo=True, autoseparators=True, maxundo=100
-        )
+        text_widget = scrolledtext.ScrolledText(frame, wrap=tk.WORD, font=("Consolas", 11), undo=True, autoseparators=True, maxundo=100)
         text_widget.pack(fill="both", expand=True)
         self._text_widget = text_widget
 
@@ -174,9 +172,7 @@ class PasteWindow:
             return content
         return ""
 
-    def show(
-        self, callback: Callable[[str], None] | None = None, initial_text: str = "", title: str = "粘贴超大文本"
-    ) -> None:
+    def show(self, callback: Callable[[str], None] | None = None, initial_text: str = "", title: str = "粘贴超大文本") -> None:
         """
         显示粘贴窗口(独立线程,非阻塞)
 
@@ -191,9 +187,7 @@ class PasteWindow:
             PasteWindow._current_thread.join(timeout=1.0)
 
         # 创建新线程
-        PasteWindow._current_thread = threading.Thread(
-            target=self._run_tkinter, args=(initial_text, title), daemon=True
-        )
+        PasteWindow._current_thread = threading.Thread(target=self._run_tkinter, args=(initial_text, title), daemon=True)
         PasteWindow._current_thread.start()
 
     def hide(self) -> None:
