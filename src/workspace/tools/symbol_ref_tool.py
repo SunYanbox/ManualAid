@@ -300,10 +300,7 @@ def _get_type_label(match_type: str) -> str:
 def _format_results(results: list[dict], symbol_name: str, language: str, limit: int) -> str:
     """格式化搜索结果"""
     if not results:
-        return (
-            f"未找到符号 '{symbol_name}' 的定义或引用"
-            f"(语言: {language})\n\n提示: 可以尝试指定不同的语言类型或调整搜索路径"
-        )
+        return f"未找到符号 '{symbol_name}' 的定义或引用(语言: {language})\n\n提示: 可以尝试指定不同的语言类型或调整搜索路径"
 
     total_matches = sum(len(r["matches"]) for r in results)
     truncated = total_matches > limit
@@ -399,9 +396,7 @@ class SymbolRefTool(BaseTool):
         patterns = _generate_patterns(symbol_name, detected_lang, include_definitions, include_references)
 
         if not patterns:
-            return self.make_failed_response(
-                kwargs=locals().copy(), error=f"无法为符号 '{symbol_name}' 生成有效的搜索模式(语言: {detected_lang})"
-            )
+            return self.make_failed_response(kwargs=locals().copy(), error=f"无法为符号 '{symbol_name}' 生成有效的搜索模式(语言: {detected_lang})")
 
         # 使用并发搜索执行所有模式
         all_results = _search_all_patterns(
@@ -416,6 +411,4 @@ class SymbolRefTool(BaseTool):
         )
 
         # 格式化输出
-        return self.make_success_response(
-            kwargs=locals().copy(), data=_format_results(all_results, symbol_name, detected_lang, limit)
-        )
+        return self.make_success_response(kwargs=locals().copy(), data=_format_results(all_results, symbol_name, detected_lang, limit))

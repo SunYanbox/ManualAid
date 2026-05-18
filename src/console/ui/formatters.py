@@ -62,10 +62,7 @@ class OutputFormatter:
             Rich markup formatted title
         """
         params_str = OutputFormatter.format_tool_params(args, kwargs)
-        return (
-            f"[bold cyan]##{index}[/bold cyan] [bold green]{func_name}[/bold green]([dim]{params_str}[/dim])"
-            + f" [yellow]({lines_count} lines)[/yellow]"
-        )
+        return f"[bold cyan]##{index}[/bold cyan] [bold green]{func_name}[/bold green]([dim]{params_str}[/dim])" + f" [yellow]({lines_count} lines)[/yellow]"
 
     @staticmethod
     def detect_language(file_path: str) -> str:

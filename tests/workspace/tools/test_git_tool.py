@@ -184,11 +184,7 @@ class TestGitInjection:
     def test_command_injection_via_semicolon(self, git_tool):
         result = git_tool.git("status; echo pwned")
         assert result.success is False
-        assert (
-            "blocked" in result.error.lower()
-            or "ERROR" in result.error
-            or "not in the allowed whitelist" in result.error.lower()
-        )
+        assert "blocked" in result.error.lower() or "ERROR" in result.error or "not in the allowed whitelist" in result.error.lower()
 
     def test_invalid_shell_syntax(self, git_tool):
         result = git_tool.git("status $(whoami)")

@@ -50,9 +50,7 @@ class TestWritePreview:
     def test_write_creates_snapshot(self, write_tool, tmp_path: Path):
         write_tool.write("new_file.txt", "hello")
 
-        rows = write_tool.workspace.db.fetchall(
-            "SELECT old_hash, new_hash, audit_status, pending_content FROM file_snapshots"
-        )
+        rows = write_tool.workspace.db.fetchall("SELECT old_hash, new_hash, audit_status, pending_content FROM file_snapshots")
         assert len(rows) == 1
         assert rows[0][0] is None  # old_hash for new file
         assert rows[0][2] == "PENDING_AUDIT"
@@ -137,9 +135,7 @@ class TestWriteSnapshotPendingContent:
         read_tool.read("test.txt")
         write_tool.write("test.txt", "updated content")
 
-        snap = write_tool.workspace.db.fetchone(
-            "SELECT pending_content, audit_status FROM file_snapshots WHERE file_path = 'test.txt'"
-        )
+        snap = write_tool.workspace.db.fetchone("SELECT pending_content, audit_status FROM file_snapshots WHERE file_path = 'test.txt'")
         assert snap is not None
         assert snap[0] == "updated content"
         assert snap[1] == "PENDING_AUDIT"

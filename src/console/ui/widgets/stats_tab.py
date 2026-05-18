@@ -298,13 +298,7 @@ class StatsTab(Vertical):
                 current_name = row[0]
 
         # --- Section 1: Overview ---
-        overview_text = (
-            f"[bold]Overview[/bold]\n"
-            f"Total Sessions: {total_sessions}\n"
-            f"Total Tool Calls: {total_calls}\n"
-            f"Overall Success Rate: {success_rate:.1f}%\n"
-            f"Active Session: {current_name or 'N/A'}"
-        )
+        overview_text = f"[bold]Overview[/bold]\nTotal Sessions: {total_sessions}\nTotal Tool Calls: {total_calls}\nOverall Success Rate: {success_rate:.1f}%\nActive Session: {current_name or 'N/A'}"
         self.mount(Static(overview_text, id="stats-overview"))
 
         # --- Section 2: Current session stats ---
@@ -354,9 +348,7 @@ class StatsTab(Vertical):
                 nav = Horizontal(
                     Button("<< Prev", id="page-prev", variant="default", disabled=(self._session_page == 0)),
                     Label(f" Page {self._session_page + 1}/{total_pages} "),
-                    Button(
-                        "Next >>", id="page-next", variant="default", disabled=(self._session_page >= total_pages - 1)
-                    ),
+                    Button("Next >>", id="page-next", variant="default", disabled=(self._session_page >= total_pages - 1)),
                     id="stats-pagination",
                     classes="stats-pagination",
                 )
@@ -447,8 +439,7 @@ class StatsTab(Vertical):
             self.app.push_screen(
                 QuestionDialog(
                     "Delete Session",
-                    f"Are you sure you want to delete session '{session_id}'?\n"
-                    "All tool calls and snapshots for this session will also be deleted.",
+                    f"Are you sure you want to delete session '{session_id}'?\nAll tool calls and snapshots for this session will also be deleted.",
                 ),
                 on_confirm,
             )

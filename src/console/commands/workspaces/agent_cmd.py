@@ -20,12 +20,7 @@ def _reset_default(mgr: AgentManager, context: CommandContext) -> CommandResult:
 
 def _show_current(mgr: AgentManager, context: CommandContext) -> CommandResult:
     agent = mgr.get_current()
-    context.console.print(
-        f"[bold]Current Agent:[/bold] {agent.name}\n"
-        f"[dim]{agent.description}[/dim]\n"
-        f"Whitelist: {agent.tool_permissions.whitelist or '(all)'}\n"
-        f"Blacklist: {agent.tool_permissions.blacklist or '(none)'}"
-    )
+    context.console.print(f"[bold]Current Agent:[/bold] {agent.name}\n[dim]{agent.description}[/dim]\nWhitelist: {agent.tool_permissions.whitelist or '(all)'}\nBlacklist: {agent.tool_permissions.blacklist or '(none)'}")
     return CommandResult(success=True)
 
 

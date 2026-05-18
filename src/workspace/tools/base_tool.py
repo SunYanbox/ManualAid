@@ -131,11 +131,7 @@ class BaseTool:
         """将工具转换为标准格式"""
         func_call: str = f'<func_call name="{self.name}">\n'
         for name, params in self.params.items():
-            func_call += (
-                f'    <param name="{name}">'
-                + ("" if "default" not in params else str(params.get("default")))
-                + "</param>\n"
-            )
+            func_call += f'    <param name="{name}">' + ("" if "default" not in params else str(params.get("default"))) + "</param>\n"
         func_call += "</func_call>"
         return func_call
 
@@ -185,9 +181,7 @@ class BaseTool:
                 session_id = self.workspace.session_id
                 if session_id is not None:
                     rel_path = str(resolved_path.relative_to(self.workspace.root_path))
-                    self.workspace.db.record_file_read(
-                        session_id, rel_path, meta["mtime"], meta["size"], meta["checksum"]
-                    )
+                    self.workspace.db.record_file_read(session_id, rel_path, meta["mtime"], meta["size"], meta["checksum"])
         except Exception:
             pass
 
@@ -209,11 +203,7 @@ class BaseTool:
         current_mtime = resolved_path.stat().st_mtime
 
         if abs(current_mtime - stored_mtime) > 0.001:
-            return (
-                f"ERROR: FILE_MODIFIED_EXTERNALLY - "
-                f'The file "{rel_path}" was modified externally since last read. '
-                f'Please re-read the file with the "read" tool before editing it.'
-            )
+            return f'ERROR: FILE_MODIFIED_EXTERNALLY - The file "{rel_path}" was modified externally since last read. Please re-read the file with the "read" tool before editing it.'
         return None
 
     @staticmethod
@@ -226,9 +216,7 @@ class BaseTool:
         return "".join(diff)
 
     @classmethod
-    def make_tool_result_response(
-        cls, success: bool, kwargs: dict, data: Any = None, error: str | None = None
-    ) -> ToolResult:
+    def make_tool_result_response(cls, success: bool, kwargs: dict, data: Any = None, error: str | None = None) -> ToolResult:
         return ToolResult(success=success, func_name=cls.__name__, func_kwargs=kwargs, data=data, error=error)
 
     @classmethod
@@ -284,8 +272,6 @@ class BaseTool:
                     error=f"{err4.__class__.__name__}: {err4}",
                 )
             except Exception as err:
-                return ToolResult(
-                    success=False, func_name=func.__name__, func_kwargs=kwargs, error=f"{err.__class__.__name__}: {err}"
-                )
+                return ToolResult(success=False, func_name=func.__name__, func_kwargs=kwargs, error=f"{err.__class__.__name__}: {err}")
 
         return wrapper

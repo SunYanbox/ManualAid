@@ -25,9 +25,5 @@ class LsTool(BaseTool):
             return self.make_failed_response(kwargs=locals().copy(), error=f'参数错误: "{folder_path}"不是一个目录')
         return self.make_success_response(
             kwargs=locals().copy(),
-            data=[
-                f"{'[Folder]' if item.is_dir() else '[File]'} {item.relative_to(self.workspace.root_path)}"
-                for item in folder_path.iterdir()
-                if not self._exclusion_manager.should_exclude_path(item)
-            ],
+            data=[f"{'[Folder]' if item.is_dir() else '[File]'} {item.relative_to(self.workspace.root_path)}" for item in folder_path.iterdir() if not self._exclusion_manager.should_exclude_path(item)],
         )

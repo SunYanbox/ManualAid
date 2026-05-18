@@ -145,15 +145,7 @@ class RegexSearchTool(BaseTool):
         warnings = ["<ExecuteWarning>"]
 
         # 确定要搜索的文件列表(支持单文件或目录)
-        files_to_search = (
-            [search_path]
-            if search_path.is_file()
-            else [
-                p
-                for p in search_path.rglob(file_pattern)
-                if p.is_file() and not self._exclusion_manager.should_exclude_path(p)
-            ]
-        )
+        files_to_search = [search_path] if search_path.is_file() else [p for p in search_path.rglob(file_pattern) if p.is_file() and not self._exclusion_manager.should_exclude_path(p)]
 
         # 遍历文件
         for file_path in files_to_search:
