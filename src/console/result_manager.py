@@ -79,6 +79,4 @@ class ResultManager:
         """Clean up expired entries"""
         now = time.time()
         expire_seconds = self.CLEANUP_MINUTES * 60
-        self._history = [
-            entry for entry in self._history if not (entry.copied and now - entry.timestamp > expire_seconds)
-        ]
+        self._history = [entry for entry in self._history if not (entry.copied and now - entry.timestamp > expire_seconds)]

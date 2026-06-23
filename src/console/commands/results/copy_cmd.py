@@ -41,11 +41,7 @@ class CopyCommand(Command):
                         if tool_obj:
                             copy_to_clipboard(tool_obj.to_func_call())
                             return CommandResult(success=False, message=f"已成功复制工具{tool_name}的标准调用格式")
-            warn = (
-                f"使用{self.__class__.__name__}时, 传入的参数tool({tool})"
-                f"不存在于工具{context.tool_registry.list_tools()}中"
-                f"或对应的已注册工具意外被删除"
-            )
+            warn = f"使用{self.__class__.__name__}时, 传入的参数tool({tool})不存在于工具{context.tool_registry.list_tools()}中或对应的已注册工具意外被删除"
             context.console.print(f"[yellow]{warn}[/yellow]")
             warnings.warn(warn, stacklevel=2)
 

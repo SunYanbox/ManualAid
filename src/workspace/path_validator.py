@@ -32,9 +32,7 @@ class PathValidator:
     """
 
     # 敏感文件匹配模式(从 ExclusionManager 统一来源引用)
-    SENSITIVE_FILE_PATTERNS: ClassVar[list[re.Pattern]] = [
-        re.compile(p) for p in ExclusionManager.SENSITIVE_FILE_PATTERNS
-    ]
+    SENSITIVE_FILE_PATTERNS: ClassVar[list[re.Pattern]] = [re.compile(p) for p in ExclusionManager.SENSITIVE_FILE_PATTERNS]
 
     def __init__(self, workspace_root: str | Path = "."):
         """初始化路径验证器.

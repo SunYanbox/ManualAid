@@ -16,10 +16,7 @@ def _search_exact_in_file(lines: list[str], search_string: str, case_sensitive: 
 
         if whole_word:
             # 全词匹配:使用正则表达式
-            if case_sensitive:
-                word_pattern = re.compile(r"\b" + re.escape(search_string) + r"\b")
-            else:
-                word_pattern = re.compile(r"\b" + re.escape(search_string) + r"\b", re.IGNORECASE)
+            word_pattern = re.compile(r"\b" + re.escape(search_string) + r"\b") if case_sensitive else re.compile(r"\b" + re.escape(search_string) + r"\b", re.IGNORECASE)
 
             if word_pattern.search(line_content):
                 matches.append({"line_num": i + 1, "content": line.rstrip("\n\r")})
@@ -31,9 +28,7 @@ def _search_exact_in_file(lines: list[str], search_string: str, case_sensitive: 
     return matches
 
 
-def _format_exact_results(
-    results: list[dict], pattern: str, limit: int, file_count: int, case_sensitive: bool, whole_word: bool
-) -> str:
+def _format_exact_results(results: list[dict], pattern: str, limit: int, file_count: int, case_sensitive: bool, whole_word: bool) -> str:
     """格式化精确搜索结果"""
     if not results:
         return f"未找到匹配字符串 '{pattern}' 的内容"
@@ -118,15 +113,7 @@ class ExactSearchTool(BaseTool):
         warnings = ["<ExecuteWarning>"]
 
         # 确定要搜索的文件列表(支持单文件或目录)
-        files_to_search = (
-            [search_path]
-            if search_path.is_file()
-            else [
-                p
-                for p in search_path.rglob(file_pattern)
-                if p.is_file() and not self._exclusion_manager.should_exclude_path(p)
-            ]
-        )
+        files_to_search = [search_path] if search_path.is_file() else [p for p in search_path.rglob(file_pattern) if p.is_file() and not self._exclusion_manager.should_exclude_path(p)]
 
         # 遍历所有文件
         for file_path in files_to_search:

@@ -153,9 +153,7 @@ class TestEditContextValidation:
 
     def test_context_with_multiple_matches(self, edit_tool, workspace):
         _create_file(workspace, "test.txt", "before X after\nignore\nbefore X after")
-        result = edit_tool.edit(
-            "test.txt", "X", "Y", max_replacements=2, context_before="before ", context_after=" after"
-        )
+        result = edit_tool.edit("test.txt", "X", "Y", max_replacements=2, context_before="before ", context_after=" after")
 
         assert "Edit Preview" in result.data
         assert "Replacements: 2" in result.data

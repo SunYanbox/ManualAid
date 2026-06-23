@@ -122,10 +122,7 @@ def launch(path: str, console: Any) -> bool:
         console.print(f"[bold red]{error_msg}[/bold red]")
 
         # 显示手动启动帮助
-        if _is_frozen():
-            manual_cmd = f'"{_get_executable_path()}" -p "{workspace_path}"'
-        else:
-            manual_cmd = f'python main.py -p "{workspace_path}"'
+        manual_cmd = f'"{_get_executable_path()}" -p "{workspace_path}"' if _is_frozen() else f'python main.py -p "{workspace_path}"'
 
         info_panel = Panel(
             f"[yellow]手动启动命令:[/yellow]\n{manual_cmd}\n\n[dim]请在新终端中手动运行以上命令[/dim]",

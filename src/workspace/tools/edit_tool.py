@@ -56,14 +56,10 @@ class EditTool(BaseTool):
         resolved_path: Path = self.workspace.path_validator.resolve_path(source_path)
 
         if not resolved_path.is_file():
-            return self.make_failed_response(
-                locals().copy(), error=f"{FileNotFoundError(f'文件不存在: {resolved_path}')}"
-            )
+            return self.make_failed_response(locals().copy(), error=f"{FileNotFoundError(f'文件不存在: {resolved_path}')}")
 
         if is_binary_file(resolved_path):
-            return self.make_failed_response(
-                locals().copy(), error=f"{ValueError(f'禁止编辑二进制文件: {resolved_path}')}"
-            )
+            return self.make_failed_response(locals().copy(), error=f"{ValueError(f'禁止编辑二进制文件: {resolved_path}')}")
 
         # 3. mtime 校验
         mtime_error = self._validate_mtime(resolved_path)
@@ -86,9 +82,7 @@ class EditTool(BaseTool):
             if context_before or context_after:
                 ctx_error = self._check_context(old_content, idx, old_string, context_before, context_after, count)
                 if ctx_error:
-                    return self.make_failed_response(
-                        locals().copy(), error=f"无法修改上下文不匹配的字符串:\n{ctx_error}"
-                    )
+                    return self.make_failed_response(locals().copy(), error=f"无法修改上下文不匹配的字符串:\n{ctx_error}")
 
             idx += len(old_string)
 
@@ -124,14 +118,7 @@ class EditTool(BaseTool):
         # 9. 返回预览
         return self.make_success_response(
             locals().copy(),
-            (
-                "修改已推送到审核系统\n"
-                f"[Edit Preview]\n"
-                f"File: {rel_path}\n"
-                f"Snapshot ID: {snapshot_id}\n"
-                f"Replacements: {count}\n"
-                f"Diff:\n{diff_content}"
-            ),
+            (f"修改已推送到审核系统\n[Edit Preview]\nFile: {rel_path}\nSnapshot ID: {snapshot_id}\nReplacements: {count}\nDiff:\n{diff_content}"),
         )
 
     @staticmethod
@@ -150,11 +137,7 @@ class EditTool(BaseTool):
             if actual_before != context_before:
                 return ToolErrorResponse(
                     "EditTool",
-                    ValueError(
-                        f"Match {match_number}: context_before mismatch.\n"
-                        f"  Expected: '{context_before}'\n"
-                        f"  Actual:   '{actual_before}'"
-                    ),
+                    ValueError(f"Match {match_number}: context_before mismatch.\n  Expected: '{context_before}'\n  Actual:   '{actual_before}'"),
                 ).to_str()
 
         if context_after:
@@ -164,11 +147,7 @@ class EditTool(BaseTool):
             if actual_after != context_after:
                 return ToolErrorResponse(
                     "EditTool",
-                    ValueError(
-                        f"Match {match_number}: context_after mismatch.\n"
-                        f"  Expected: '{context_after}'\n"
-                        f"  Actual:   '{actual_after}'"
-                    ),
+                    ValueError(f"Match {match_number}: context_after mismatch.\n  Expected: '{context_after}'\n  Actual:   '{actual_after}'"),
                 ).to_str()
 
         return None

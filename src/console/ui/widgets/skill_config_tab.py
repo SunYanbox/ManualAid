@@ -153,13 +153,7 @@ class SkillConfigTab(Vertical):
         if not skill:
             return
 
-        detail_text = (
-            f"[bold]{skill.name}[/bold]\n"
-            f"位置: {skill.location}\n"
-            f"类型: {'全局' if skill.metadata.get('is_global', True) else '项目'}\n"
-            f"状态: {'启用' if skill.enabled else '禁用'}\n\n"
-            f"描述: {skill.description}"
-        )
+        detail_text = f"[bold]{skill.name}[/bold]\n位置: {skill.location}\n类型: {'全局' if skill.metadata.get('is_global', True) else '项目'}\n状态: {'启用' if skill.enabled else '禁用'}\n\n描述: {skill.description}"
 
         detail = self.query_one("#skill-detail", Static)
         detail.update(detail_text)

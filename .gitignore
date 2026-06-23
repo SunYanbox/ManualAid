@@ -208,6 +208,9 @@ __marimo__/
 
 # Self Workspace
 .ManualAid/
+.claude/
+# claude-tap
+.traces/
 
 # Format Tools
 node_modules/

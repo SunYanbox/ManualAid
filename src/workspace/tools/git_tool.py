@@ -72,9 +72,7 @@ class GitTool(BaseTool):
             return self.make_failed_response(kwargs=locals().copy(), error=str(e))
 
         if not tokens:
-            return self.make_failed_response(
-                kwargs=locals().copy(), error=str(ValueError(f"无法解析命令: `{command_str}`"))
-            )
+            return self.make_failed_response(kwargs=locals().copy(), error=str(ValueError(f"无法解析命令: `{command_str}`")))
 
         base_command = tokens[0]
 
@@ -83,10 +81,7 @@ class GitTool(BaseTool):
             allowed_list = ", ".join(sorted(_ALLOWED_COMMANDS))
             return self.make_failed_response(
                 kwargs=locals().copy(),
-                error=(
-                    f"ERROR: Git command '{base_command}' is not in the allowed whitelist.\n"
-                    f"Allowed commands: {allowed_list}"
-                ),
+                error=(f"ERROR: Git command '{base_command}' is not in the allowed whitelist.\nAllowed commands: {allowed_list}"),
             )
 
         # 2. 拦截正则检查
@@ -94,26 +89,18 @@ class GitTool(BaseTool):
             if pattern.search(command_str):
                 return self.make_failed_response(
                     kwargs=locals().copy(),
-                    error=(
-                        f"ERROR: The command was blocked by security policy.\n"
-                        f"Pattern matched: {pattern.pattern}\n"
-                        f"Command: {command_str}"
-                    ),
+                    error=(f"ERROR: The command was blocked by security policy.\nPattern matched: {pattern.pattern}\nCommand: {command_str}"),
                 )
 
         # 3. restore 安全检查 — 必须指定文件路径
         if base_command == "restore":
             non_flag_args = [t for t in tokens[1:] if not t.startswith("-")]
             if not non_flag_args:
-                return self.make_failed_response(
-                    kwargs=locals().copy(), error=str(ValueError("restore 需要指定文件路径,不允许裸 restore"))
-                )
+                return self.make_failed_response(kwargs=locals().copy(), error=str(ValueError("restore 需要指定文件路径,不允许裸 restore")))
             for arg in non_flag_args:
                 stripped = arg.strip()
                 if stripped in (".", "*", "all") or stripped.startswith("*"):
-                    return self.make_failed_response(
-                        kwargs=locals().copy(), error=str(ValueError("restore 需要指定具体文件路径,不允许使用通配符"))
-                    )
+                    return self.make_failed_response(kwargs=locals().copy(), error=str(ValueError("restore 需要指定具体文件路径,不允许使用通配符")))
 
         # 4. 执行命令
         try:
@@ -129,9 +116,7 @@ class GitTool(BaseTool):
         except FileNotFoundError:
             return self.make_failed_response(kwargs=locals().copy(), error=str(OSError("Git 未安装或不在系统 PATH 中")))
         except subprocess.TimeoutExpired as time_out_exception:
-            return self.make_failed_response(
-                kwargs=locals().copy(), error=f"TimeoutExpired(Git 命令执行超时: {time_out_exception})"
-            )
+            return self.make_failed_response(kwargs=locals().copy(), error=f"TimeoutExpired(Git 命令执行超时: {time_out_exception})")
 
         # 5. 处理输出 — 总是保留 stdout 和 stderr, 即使 returncode != 0 (如 git diff --exit-code)
         output_parts = []
@@ -182,9 +167,7 @@ class GitTool(BaseTool):
                     error=error_msg2,
                 )
 
-        return self.make_success_response(
-            kwargs=locals().copy(), data="\n".join(output_parts) if output_parts else "(no output)"
-        )
+        return self.make_success_response(kwargs=locals().copy(), data="\n".join(output_parts) if output_parts else "(no output)")
 
     @staticmethod
     def is_safe_command(command_str: str) -> bool:

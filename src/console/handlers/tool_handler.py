@@ -54,10 +54,7 @@ def _format_tool_params(kwargs: dict) -> str:
 def _create_result_title(index: int, func_name: str, kwargs: dict, lines_count: int) -> str:
     """Create result title with Rich markup"""
     params_str = _format_tool_params(kwargs)
-    return (
-        f"[bold cyan]##{index}[/bold cyan] [bold green]{func_name}[/bold green]([dim]{params_str}[/dim])"
-        + f" [yellow]({lines_count} lines)[/yellow]"
-    )
+    return f"[bold cyan]##{index}[/bold cyan] [bold green]{func_name}[/bold green]([dim]{params_str}[/dim])" + f" [yellow]({lines_count} lines)[/yellow]"
 
 
 class ToolHandler:
@@ -116,8 +113,6 @@ class ToolHandler:
         tool_result_widget = ToolsResultWidget()
         tool_result_widget.set_collection(collection)
 
-        self.console.print_collapsible_with_widget(
-            truncate_single_string(f"调用工具结果 | {tool_names}") + f" | {time.ctime(time.time())}", tool_result_widget
-        )
+        self.console.print_collapsible_with_widget(truncate_single_string(f"调用工具结果 | {tool_names}") + f" | {time.ctime(time.time())}", tool_result_widget)
 
         return True

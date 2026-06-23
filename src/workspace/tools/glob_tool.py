@@ -28,9 +28,5 @@ class GlobTool(BaseTool):
 
         return self.make_success_response(
             kwargs=locals().copy(),
-            data=[
-                f"{'[Folder]' if item.is_dir() else '[File]'} {item.relative_to(self.workspace.root_path)}"
-                for item in islice(root_path.glob(pattern), max_ret)
-                if not self._exclusion_manager.should_exclude_path(item)
-            ],
+            data=[f"{'[Folder]' if item.is_dir() else '[File]'} {item.relative_to(self.workspace.root_path)}" for item in islice(root_path.glob(pattern), max_ret) if not self._exclusion_manager.should_exclude_path(item)],
         )

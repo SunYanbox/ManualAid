@@ -157,17 +157,13 @@ class TestFileReadRecords:
 
 class TestFileSnapshots:
     def test_record_file_snapshot(self, db: DatabaseManager):
-        snapshot_id = db.record_file_snapshot(
-            "src/main.py", "old_hash", "new_hash", "--- a/src/main.py\n+++ b/src/main.py\n"
-        )
+        snapshot_id = db.record_file_snapshot("src/main.py", "old_hash", "new_hash", "--- a/src/main.py\n+++ b/src/main.py\n")
         assert isinstance(snapshot_id, int)
         assert snapshot_id > 0
 
     def test_snapshot_stored_correctly(self, db: DatabaseManager):
         session_id = db.create_session()
-        db.record_file_snapshot(
-            "src/main.py", None, "new_hash", "diff content", audit_status="PENDING_AUDIT", session_id=session_id
-        )
+        db.record_file_snapshot("src/main.py", None, "new_hash", "diff content", audit_status="PENDING_AUDIT", session_id=session_id)
 
         rows = db.fetchall("SELECT file_path, old_hash, new_hash, diff_content, audit_status FROM file_snapshots")
         assert len(rows) == 1

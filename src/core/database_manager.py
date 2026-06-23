@@ -171,9 +171,7 @@ class DatabaseManager:
         conn.execute("CREATE INDEX IF NOT EXISTS idx_tool_calls_session ON tool_calls(session_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_tool_calls_func ON tool_calls(func_name)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_file_snapshots_audit ON file_snapshots(audit_status)")
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_file_read_records_session_path ON file_read_records(session_id, file_path)"
-        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_file_read_records_session_path ON file_read_records(session_id, file_path)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_tool_call_summaries_session ON tool_call_summaries(session_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_shell_audit_status ON shell_audit(audit_status)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_shell_audit_session ON shell_audit(session_id)")
@@ -337,8 +335,7 @@ class DatabaseManager:
         audit_status: str = "none",
     ) -> int:
         cursor = self.execute(
-            "INSERT INTO tool_calls (session_id, func_name, kwargs, timestamp, duration_ms, status, audit_status) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO tool_calls (session_id, func_name, kwargs, timestamp, duration_ms, status, audit_status) VALUES (?, ?, ?, ?, ?, ?, ?)",
             (session_id, func_name, kwargs, time.time(), duration_ms, status, audit_status),
         )
         return cursor.lastrowid
@@ -368,8 +365,7 @@ class DatabaseManager:
 
     def get_file_read_record(self, session_id: int, file_path: str) -> tuple | None:
         return self.fetchone(
-            "SELECT id, session_id, file_path, mtime, size, checksum, last_read_at, read_count "
-            "FROM file_read_records WHERE session_id = ? AND file_path = ?",
+            "SELECT id, session_id, file_path, mtime, size, checksum, last_read_at, read_count FROM file_read_records WHERE session_id = ? AND file_path = ?",
             (session_id, file_path),
         )
 
@@ -386,9 +382,7 @@ class DatabaseManager:
         pending_content: str = "",
     ) -> int:
         cursor = self.execute(
-            "INSERT INTO file_snapshots "
-            "(file_path, old_hash, new_hash, diff_content, timestamp, session_id, audit_status, pending_content) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO file_snapshots (file_path, old_hash, new_hash, diff_content, timestamp, session_id, audit_status, pending_content) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (file_path, old_hash, new_hash, diff_content, time.time(), session_id, audit_status, pending_content),
         )
         return cursor.lastrowid
@@ -400,22 +394,17 @@ class DatabaseManager:
         )
 
     def get_pending_audits(self) -> list[tuple]:
-        return self.fetchall(
-            "SELECT id, file_path, old_hash, new_hash, diff_content, timestamp, session_id, audit_status"
-            " FROM file_snapshots WHERE audit_status = 'PENDING_AUDIT'"
-        )
+        return self.fetchall("SELECT id, file_path, old_hash, new_hash, diff_content, timestamp, session_id, audit_status FROM file_snapshots WHERE audit_status = 'PENDING_AUDIT'")
 
     def get_snapshot_by_id(self, snapshot_id: int) -> tuple | None:
         return self.fetchone(
-            "SELECT id, file_path, old_hash, new_hash, diff_content, timestamp, session_id, audit_status,"
-            " pending_content FROM file_snapshots WHERE id = ?",
+            "SELECT id, file_path, old_hash, new_hash, diff_content, timestamp, session_id, audit_status, pending_content FROM file_snapshots WHERE id = ?",
             (snapshot_id,),
         )
 
     def get_snapshots_by_audit_status(self, status: str) -> list[tuple]:
         return self.fetchall(
-            "SELECT id, file_path, old_hash, new_hash, diff_content, timestamp, session_id, audit_status,"
-            " pending_content FROM file_snapshots WHERE audit_status = ?",
+            "SELECT id, file_path, old_hash, new_hash, diff_content, timestamp, session_id, audit_status, pending_content FROM file_snapshots WHERE audit_status = ?",
             (status,),
         )
 
@@ -438,8 +427,7 @@ class DatabaseManager:
             新记录的 ID
         """
         cursor = self.execute(
-            "INSERT INTO shell_audit (command, description, timestamp, session_id, audit_status) "
-            "VALUES (?, ?, ?, ?, 'PENDING_AUDIT')",
+            "INSERT INTO shell_audit (command, description, timestamp, session_id, audit_status) VALUES (?, ?, ?, ?, 'PENDING_AUDIT')",
             (command, description, time.time(), session_id),
         )
         return cursor.lastrowid
@@ -476,10 +464,7 @@ class DatabaseManager:
         Returns:
             待审核记录列表 (id, command, description, timestamp, session_id, audit_status)
         """
-        return self.fetchall(
-            "SELECT id, command, description, timestamp, session_id, audit_status"
-            " FROM shell_audit WHERE audit_status = 'PENDING_AUDIT'"
-        )
+        return self.fetchall("SELECT id, command, description, timestamp, session_id, audit_status FROM shell_audit WHERE audit_status = 'PENDING_AUDIT'")
 
     def get_shell_by_id(self, shell_id: int) -> tuple | None:
         """根据 ID 获取 Shell 命令审核记录.
@@ -491,9 +476,7 @@ class DatabaseManager:
             记录元组或 None
         """
         return self.fetchone(
-            "SELECT id, command, description, timestamp, session_id,"
-            " audit_status, output, exit_code, executed_at"
-            " FROM shell_audit WHERE id = ?",
+            "SELECT id, command, description, timestamp, session_id, audit_status, output, exit_code, executed_at FROM shell_audit WHERE id = ?",
             (shell_id,),
         )
 
@@ -508,10 +491,7 @@ class DatabaseManager:
             session_id, audit_status, output, exit_code, executed_at)
         """
         return self.fetchall(
-            "SELECT id, command, description, timestamp, session_id,"
-            " audit_status, output, exit_code, executed_at"
-            " FROM shell_audit WHERE audit_status != 'PENDING_AUDIT'"
-            " ORDER BY COALESCE(executed_at, timestamp) DESC LIMIT ?",
+            "SELECT id, command, description, timestamp, session_id, audit_status, output, exit_code, executed_at FROM shell_audit WHERE audit_status != 'PENDING_AUDIT' ORDER BY COALESCE(executed_at, timestamp) DESC LIMIT ?",
             (limit,),
         )
 
@@ -527,9 +507,7 @@ class DatabaseManager:
             return {}
 
         total = self.fetchone(
-            "SELECT COUNT(*), SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END), "
-            "SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) "
-            "FROM tool_calls WHERE session_id = ?",
+            "SELECT COUNT(*), SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END), SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) FROM tool_calls WHERE session_id = ?",
             (session_id,),
         )
         total_calls, success_count, fail_count = total or (0, 0, 0)
@@ -571,15 +549,11 @@ class DatabaseManager:
         """Returns list of (func_name, call_count, avg_duration_ms, total_duration_ms) ordered by count DESC."""
         if session_id is not None:
             return self.fetchall(
-                "SELECT func_name, COUNT(*) as cnt, AVG(duration_ms) as avg_dur, SUM(duration_ms) as total_dur "
-                "FROM tool_calls WHERE session_id = ? "
-                "GROUP BY func_name ORDER BY cnt DESC LIMIT ?",
+                "SELECT func_name, COUNT(*) as cnt, AVG(duration_ms) as avg_dur, SUM(duration_ms) as total_dur FROM tool_calls WHERE session_id = ? GROUP BY func_name ORDER BY cnt DESC LIMIT ?",
                 (session_id, limit),
             )
         return self.fetchall(
-            "SELECT func_name, COUNT(*) as cnt, AVG(duration_ms) as avg_dur, SUM(duration_ms) as total_dur "
-            "FROM tool_calls "
-            "GROUP BY func_name ORDER BY cnt DESC LIMIT ?",
+            "SELECT func_name, COUNT(*) as cnt, AVG(duration_ms) as avg_dur, SUM(duration_ms) as total_dur FROM tool_calls GROUP BY func_name ORDER BY cnt DESC LIMIT ?",
             (limit,),
         )
 
@@ -615,8 +589,7 @@ class DatabaseManager:
     def get_tool_call_summaries(self, session_id: int) -> list[tuple]:
         """Get all tool call summaries for a session ordered by timestamp DESC."""
         return self.fetchall(
-            "SELECT session_id, func_name, kwargs_json, result, timestamp "
-            "FROM tool_call_summaries WHERE session_id = ? ORDER BY timestamp DESC",
+            "SELECT session_id, func_name, kwargs_json, result, timestamp FROM tool_call_summaries WHERE session_id = ? ORDER BY timestamp DESC",
             (session_id,),
         )
 
@@ -644,9 +617,7 @@ class DatabaseManager:
             category: Configuration category (general, skill, env, etc.)
         """
         self.execute(
-            "INSERT INTO config (key, value, category, updated_at) VALUES (?, ?, ?, ?) "
-            "ON CONFLICT(key) DO UPDATE SET value = excluded.value, category = excluded.category, "
-            "updated_at = excluded.updated_at",
+            "INSERT INTO config (key, value, category, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, category = excluded.category, updated_at = excluded.updated_at",
             (key, value, category, time.time()),
         )
 

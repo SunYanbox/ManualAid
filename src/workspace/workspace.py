@@ -84,10 +84,7 @@ class Workspace:
             path = self.path_validator.validate(folder_path)
 
             # 初始化排除目录集合: 合并默认排除 + 用户传入排除
-            if exclude_dirs is not None:
-                exclude_set = set(exclude_dirs) | self.exclusion_manager.excluded_dir_names
-            else:
-                exclude_set = self.exclusion_manager.excluded_dir_names
+            exclude_set = set(exclude_dirs) | self.exclusion_manager.excluded_dir_names if exclude_dirs is not None else self.exclusion_manager.excluded_dir_names
 
             # 编译正则表达式
             flags = 0 if case_sensitive else re.IGNORECASE
@@ -118,9 +115,7 @@ class Workspace:
             # 异步搜索文件
             results = []
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                futures = {
-                    executor.submit(self._search_in_file, file_path, regex): file_path for file_path in files_to_search
-                }
+                futures = {executor.submit(self._search_in_file, file_path, regex): file_path for file_path in files_to_search}
 
                 for future in as_completed(futures):
                     file_path = futures[future]
@@ -241,10 +236,7 @@ class Workspace:
             # 并发搜索所有文件, 每个文件内一次读取、一次测试所有模式
             all_matches: list[dict] = []
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                futures = {
-                    executor.submit(self._search_multi_in_file, file_path, patterns): file_path
-                    for file_path in files_to_search
-                }
+                futures = {executor.submit(self._search_multi_in_file, file_path, patterns): file_path for file_path in files_to_search}
                 for future in as_completed(futures):
                     try:
                         file_results = future.result()

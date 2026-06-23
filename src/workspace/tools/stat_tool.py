@@ -89,23 +89,11 @@ class StatTool(BaseTool):
             file_type = "?"
 
         # 所有者权限
-        owner = (
-            ("r" if mode & stat_constants.S_IRUSR else "-")
-            + ("w" if mode & stat_constants.S_IWUSR else "-")
-            + ("x" if mode & stat_constants.S_IXUSR else "-")
-        )
+        owner = ("r" if mode & stat_constants.S_IRUSR else "-") + ("w" if mode & stat_constants.S_IWUSR else "-") + ("x" if mode & stat_constants.S_IXUSR else "-")
         # 组权限
-        group = (
-            ("r" if mode & stat_constants.S_IRGRP else "-")
-            + ("w" if mode & stat_constants.S_IWGRP else "-")
-            + ("x" if mode & stat_constants.S_IXGRP else "-")
-        )
+        group = ("r" if mode & stat_constants.S_IRGRP else "-") + ("w" if mode & stat_constants.S_IWGRP else "-") + ("x" if mode & stat_constants.S_IXGRP else "-")
         # 其他用户权限
-        other = (
-            ("r" if mode & stat_constants.S_IROTH else "-")
-            + ("w" if mode & stat_constants.S_IWOTH else "-")
-            + ("x" if mode & stat_constants.S_IXOTH else "-")
-        )
+        other = ("r" if mode & stat_constants.S_IROTH else "-") + ("w" if mode & stat_constants.S_IWOTH else "-") + ("x" if mode & stat_constants.S_IXOTH else "-")
 
         permissions = f"{file_type}{owner}{group}{other}"
         output.append(f"权限: {permissions}")

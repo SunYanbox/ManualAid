@@ -42,9 +42,7 @@ class ReadTool(BaseTool):
         file_path: Path = self.workspace.path_validator.validate(path)
 
         if not file_path.is_file():
-            return self.make_failed_response(
-                kwargs=locals().copy(), error=str(ValueError(f"读取文件{file_path}时未读取到完整文件"))
-            )
+            return self.make_failed_response(kwargs=locals().copy(), error=str(ValueError(f"读取文件{file_path}时未读取到完整文件")))
 
         if is_binary_file(file_path):
             return self.make_failed_response(
@@ -56,12 +54,7 @@ class ReadTool(BaseTool):
         if file_size > MAX_FILE_SIZE:
             return self.make_failed_response(
                 kwargs=locals().copy(),
-                error=str(
-                    ValueError(
-                        f"文件过大 ({file_size} 字节), 超过最大限制 ({MAX_FILE_SIZE} 字节): {file_path}. "
-                        f"请使用范围参数 (start/end) 分批读取."
-                    )
-                ),
+                error=str(ValueError(f"文件过大 ({file_size} 字节), 超过最大限制 ({MAX_FILE_SIZE} 字节): {file_path}. 请使用范围参数 (start/end) 分批读取.")),
             )
 
         with open(file_path, encoding=encoding) as f:
@@ -88,10 +81,7 @@ class ReadTool(BaseTool):
         if actual_end < actual_start:
             return self.make_failed_response(
                 kwargs=locals().copy(),
-                error=(
-                    f"错误:解析后的结束行 {actual_end} 小于起始行 {actual_start} "
-                    f"(原始参数: start={start}, end={end}, context={context})"
-                ),
+                error=(f"错误:解析后的结束行 {actual_end} 小于起始行 {actual_start} (原始参数: start={start}, end={end}, context={context})"),
             )
 
         result_lines = []

@@ -26,14 +26,10 @@ class WriteTool(BaseTool):
         path: Path = self.workspace.path_validator.resolve_path(source_path)
 
         if path.exists() and path.is_dir():
-            return self.make_failed_response(
-                kwargs=locals().copy(), error=str(ValueError(f"路径 {path} 是一个目录,无法写入"))
-            )
+            return self.make_failed_response(kwargs=locals().copy(), error=str(ValueError(f"路径 {path} 是一个目录,无法写入")))
 
         if is_binary_file(path):
-            return self.make_failed_response(
-                kwargs=locals().copy(), error=str(ValueError(f"禁止写入二进制文件: {path}"))
-            )
+            return self.make_failed_response(kwargs=locals().copy(), error=str(ValueError(f"禁止写入二进制文件: {path}")))
 
         mtime_error = self._validate_mtime(path)
         if mtime_error:
@@ -66,11 +62,5 @@ class WriteTool(BaseTool):
 
         return self.make_success_response(
             kwargs=locals().copy(),
-            data=(
-                f"修改已推送到审核系统\n"
-                f"[Write Preview]\n"
-                f"File: {rel_path}\n"
-                f"Snapshot ID: {snapshot_id}\n"
-                f"Diff:\n{diff_content}"
-            ),
+            data=(f"修改已推送到审核系统\n[Write Preview]\nFile: {rel_path}\nSnapshot ID: {snapshot_id}\nDiff:\n{diff_content}"),
         )
