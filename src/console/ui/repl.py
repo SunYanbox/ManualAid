@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import TYPE_CHECKING, ClassVar
 
 from rich.panel import Panel
@@ -15,6 +16,7 @@ from src.core.agent_manager import AgentManager
 from src.core.input_parser import parse_input
 from src.core.paste_cache import PasteReference
 from src.core.paste_window import show_paste_window
+from src.i18n import setup_i18n
 from src.utils.generate_help_text import generate_help_text
 from src.utils.string_snapshot import truncate_for_display
 
@@ -31,6 +33,8 @@ if TYPE_CHECKING:
 
 class REPL(App):
     """ManualAid REPL —— 基于 Textual 的终端应用"""
+
+    _: ClassVar[Callable[[str], str]] = lambda x: x
 
     CONSOLE_TITLE = "ManualAid"
 
@@ -108,18 +112,23 @@ class REPL(App):
         width: auto;
         margin-left: 1;
         margin-right: 0;
-        padding: 1;
+        padding: 0 1;
     }
 
     /* 提交按钮 */
     #submit-btn {
-        width: 1;
-        min-height: 1;
+        width: 8;
+        height: 3;
     }
 
     #big-paste-btn {
-        width: 1;
-        min-height: 1;
+        width: 14;
+        height: 3;
+    }
+
+    #paste-submit-btn {
+        width: 16;
+        height: 3;
     }
 
     /* 隐藏 footer 中的 palette */
@@ -133,6 +142,7 @@ class REPL(App):
         Binding("ctrl+q", "quit_confirm", "退出", show=True),
         Binding("ctrl+j", "submit_text", "提交", show=True),
         Binding("alt+v", "paste_big_text", "粘贴大文本", show=True),
+        Binding("ctrl+shift+v", "paste_submit", "粘贴并提交", show=True),
     ]
 
     def __init__(
@@ -187,7 +197,7 @@ class REPL(App):
         with Horizontal(id="input-area"):
             with Vertical(id="input-container"):
                 yield Label(
-                    "输入命令或 [yellow]<func_call>[/yellow] 标签,Ctrl+J 提交",
+                    self.__class__._("输入命令或 [yellow]<func_call>[/yellow] 标签,Ctrl+J 提交"),
                     id="input-label",
                 )
                 yield TextArea(
@@ -196,8 +206,9 @@ class REPL(App):
                     id="input-field",
                 )
             with Vertical(id="button-area"):
-                yield Button("提交", id="submit-btn", variant="primary")
-                yield Button("大文本粘贴", id="big-paste-btn", variant="primary")
+                yield Button(self.__class__._("提交"), id="submit-btn", variant="primary")
+                yield Button(self.__class__._("大文本粘贴"), id="big-paste-btn", variant="primary")
+                yield Button(self.__class__._("粘贴并提交"), id="paste-submit-btn", variant="success")
 
         yield Footer(show_command_palette=False)
 
@@ -205,6 +216,9 @@ class REPL(App):
 
     def on_mount(self) -> None:
         """控件挂载后初始化 handler 并打印欢迎横幅"""
+        # Setup i18n
+        self.__class__._ = setup_i18n(self.workspace.root_path)
+
         tui_console = self.query_one(TuiConsole)
         self.tui_console = tui_console
         self.result_manager.console = tui_console
@@ -263,7 +277,7 @@ class REPL(App):
             if mgr.switch_agent(str(event.value)):
                 title_right = self.query_one("#title-right", Label)
                 title_right.update(f"Agent: {mgr.current_agent_name} | 工作区: {self.workspace.root_path}")
-                self.tui_console.print(f"[dim]Switched to agent: {mgr.current_agent_name}[/dim]")
+                self.tui_console.print(f"[dim]{self.__class__._('Switched to agent: {agent_name}').format(agent_name=mgr.current_agent_name)}[/dim]")
 
     # -- 输入处理 -----------------------------------------------------------
 
@@ -271,8 +285,10 @@ class REPL(App):
         """处理提交按钮点击"""
         if event.button.id == "submit-btn":
             self._do_submit()
-        if event.button.id == "big-paste-btn":
+        elif event.button.id == "big-paste-btn":
             self.action_paste_big_text()
+        elif event.button.id == "paste-submit-btn":
+            self.action_paste_submit()
 
     def _do_submit(self) -> None:
         """从 TextArea 中取出文本并提交"""
@@ -299,6 +315,24 @@ class REPL(App):
                 self.call_from_thread(self._insert_paste_text, text)
 
         show_paste_window(callback=on_paste_result)
+
+    def action_paste_submit(self):
+        """Read clipboard and submit directly (skips TextArea)."""
+        try:
+            import pyperclip
+
+            clipboard_text = pyperclip.paste()
+        except Exception as e:
+            self.tui_console.print(f"[red]{self.__class__._('无法读取剪贴板: {error}').format(error=e)}[/red]")
+            return
+
+        if not clipboard_text or not clipboard_text.strip():
+            self.tui_console.print(f"[yellow]{self.__class__._('剪贴板为空,请先复制内容到剪贴板')}[/yellow]")
+            return
+
+        # Submit the clipboard text directly
+        self.tui_console.print(f"> {truncate_for_display(clipboard_text)}")
+        self._dispatch(clipboard_text)
 
     def _insert_paste_text(self, text: str) -> None:
         """在主线程中插入粘贴的文本"""
@@ -345,7 +379,7 @@ class REPL(App):
         if session_id is not None and hasattr(self.workspace, "db"):
             self.workspace.db.close_session(session_id)
         if self.tui_console:
-            self.tui_console.print("[bold]再见![/bold]")
+            self.tui_console.print(f"[bold]{self.__class__._('再见!')}[/bold]")
         self.exit()
 
     def _print_welcome(self) -> None:
@@ -354,8 +388,8 @@ class REPL(App):
         assert self.command_handler is not None
 
         self.tui_console.print(f"[bold green]{self.CONSOLE_TITLE}[/bold green]")
-        self.tui_console.print(f"[dim]工作区: {self.workspace.root_path}[/dim]")
+        self.tui_console.print(f"[dim]{self.__class__._('工作区: {workspace_root}').format(workspace_root=self.workspace.root_path)}[/dim]")
         self.tui_console.print("")
         self.tui_console.print(generate_help_text(self.command_handler.registry.list_commands()))
-        self.tui_console.print("[dim]输入 /help 查看命令,Ctrl+Q 退出[/dim]")
+        self.tui_console.print(f"[dim]{self.__class__._('输入 /help 查看命令,Ctrl+Q 退出')}[/dim]")
         self.tui_console.print("")

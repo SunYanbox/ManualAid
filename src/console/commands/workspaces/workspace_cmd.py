@@ -83,16 +83,12 @@ def _load_agents_md(context: CommandContext) -> str:
             else:
                 relevant = content.strip()
                 warnings.warn(
-                    f"{agents_md.relative_to(workspace.root_path)} is missing LLM-relevant fence markers. "
-                    f"Add {AGENTS_MD_FENCE_START}/{AGENTS_MD_FENCE_END} to filter content. "
-                    f"Injecting full content as fallback.",
+                    f"{agents_md.relative_to(workspace.root_path)} is missing LLM-relevant fence markers. Add {AGENTS_MD_FENCE_START}/{AGENTS_MD_FENCE_END} to filter content. Injecting full content as fallback.",
                     UserWarning,
                     stacklevel=2,
                 )
 
-            return AUGMENTATION_WRAPPER.replace("{source}", str(agents_md.relative_to(workspace.root_path))).replace(
-                "{content}", relevant
-            )
+            return AUGMENTATION_WRAPPER.replace("{source}", str(agents_md.relative_to(workspace.root_path))).replace("{content}", relevant)
     return ""
 
 

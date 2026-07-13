@@ -314,3 +314,5 @@ __tests__/runner/*
 # IDE files
 .idea
 *.code-workspace
+.agents
+skills-lock.json
