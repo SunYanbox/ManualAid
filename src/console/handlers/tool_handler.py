@@ -3,15 +3,12 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING
 
+from src.console.result_manager import ResultManager
 from src.console.ui.widgets.tools_result_widget import ToolsResultWidget
 from src.constants.files import EXTENSION_TO_LANGUAGE
 from src.models.commands import CommandParseResult
 from src.models.tools.tool_result_collection import ToolResultCollection
-from src.utils.string_snapshot import truncate_for_display, truncate_params_string, truncate_single_string
-
-if TYPE_CHECKING:
-    from src.console.result_manager import ResultManager
-    from src.core.tool_registry import ToolRegistry
+from src.utils.string_snapshot import truncate_for_display, truncate_single_string
 
 
 def _detect_language(func_name: str, func_kwargs: dict) -> str | None:
@@ -32,29 +29,8 @@ def _detect_language(func_name: str, func_kwargs: dict) -> str | None:
     return "text"
 
 
-def _format_tool_params(kwargs: dict) -> str:
-    """Format tool parameters as concise string"""
-    parts = []
-
-    # Keyword arguments
-    for key, value in kwargs.items():
-        if isinstance(value, str):
-            parts.append(f'{key}="{truncate_single_string(value)}"')
-        else:
-            parts.append(f"{key}={value}")
-
-    if not parts:
-        return "no parameters"
-
-    params_str = truncate_params_string(", ".join(parts))
-
-    return params_str
-
-
-def _create_result_title(index: int, func_name: str, kwargs: dict, lines_count: int) -> str:
-    """Create result title with Rich markup"""
-    params_str = _format_tool_params(kwargs)
-    return f"[bold cyan]##{index}[/bold cyan] [bold green]{func_name}[/bold green]([dim]{params_str}[/dim])" + f" [yellow]({lines_count} lines)[/yellow]"
+if TYPE_CHECKING:
+    from src.core.tool_registry import ToolRegistry
 
 
 class ToolHandler:

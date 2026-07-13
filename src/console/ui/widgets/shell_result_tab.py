@@ -5,9 +5,10 @@ from __future__ import annotations
 import datetime
 from typing import ClassVar
 
-from textual.containers import Horizontal, Vertical
-from textual.widgets import Button, Collapsible, Label, Static
+from textual.containers import Vertical
+from textual.widgets import Button, Label, Static
 
+from src.console.ui.widgets.collapsible_helper import make_collapsible_with_copy_button
 from src.core.copy2clip import copy_to_clipboard
 
 
@@ -45,23 +46,12 @@ class ShellResultTab(Vertical):
         color: $text;
     }
 
-    .shell-collapsible {
-        height: auto;
-        margin-bottom: 1;
-    }
-
     .shell-output-container {
         max-height: 20;
         overflow-y: auto;
         padding: 1;
         background: $surface;
         border: solid $primary;
-        margin-bottom: 1;
-    }
-
-    .shell-button-row {
-        height: auto;
-        align: left middle;
         margin-bottom: 1;
     }
     """
@@ -131,42 +121,21 @@ class ShellResultTab(Vertical):
                 lines.append(f"\n[bold]Output:[/bold]\n{output}")
 
             content = "\n".join(lines)
-
             output_text = Static(content, markup=True)
-            output_container = Vertical(output_text, classes="shell-output-container")
-            copy_btn = Button("复制输出", id=f"shell_copy-{shell_id}")
-            btn_row = Horizontal(copy_btn, classes="shell-button-row")
 
             # First items expanded by default, rest collapsed
             collapsed = i > 3
-            collapsible = Collapsible(
-                Vertical(output_container, btn_row),
-                title=f"[{status_color}]{status_icon}[/{status_color}] Shell #{shell_id}: {command.strip()[:60]}{'...' if len(command.strip()) > 60 else ''}",
-                classes="shell-collapsible",
-                collapsed=collapsed,
+            title = f"[{status_color}]{status_icon}[/{status_color}] Shell #{shell_id}: {command.strip()[:60]}{'...' if len(command.strip()) > 60 else ''}"
+
+            await self.mount(
+                make_collapsible_with_copy_button(
+                    content=Vertical(output_text),
+                    title=title,
+                    copy_handler=lambda text: copy_to_clipboard(text or "(空输出)"),
+                    collapsed=collapsed,
+                )
             )
-            await self.mount(collapsible)
 
-    async def on_button_pressed(self, event: Button.Pressed) -> None:
-        """处理复制按钮点击."""
-        button_id = event.button.id or ""
-        if not button_id.startswith("shell_copy-"):
-            return
-
-        try:
-            shell_id = int(button_id.split("-", 1)[1])
-        except ValueError, IndexError:
-            return
-
-        if self._db is None:
-            return
-
-        shells = self._db.get_shell_completed()
-        for shell in shells:
-            if shell[0] == shell_id:
-                output = shell[6] or "(空输出)"
-                copy_to_clipboard(output)
-                self.notify("输出已复制到剪贴板", timeout=3)
-                return
-
-        self.notify("未找到对应记录", severity="error", timeout=3)
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle any button presses (future extensibility)."""
+        pass
