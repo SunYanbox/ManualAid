@@ -26,7 +26,7 @@
     "ci": "npm run format:fix && npm run test && npm run format:check"
   },
   "devDependencies": {
-    "markdownlint-cli": "^0.49.0",
-    "prettier": "^3.8.4"
+    "markdownlint-cli": "^0.49.1",
+    "prettier": "^3.9.5"
   }
 }
