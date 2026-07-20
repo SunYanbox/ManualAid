@@ -4,66 +4,28 @@ from pathlib import Path
 from typing import ClassVar
 
 from textual.containers import Horizontal, Vertical
-from textual.screen import ModalScreen
 from textual.widgets import Button, DataTable, Input, Label, Static
 
+from src.console.ui.widgets.base_dialog import ModalDialog
 from src.core.config_manager import DEFAULT_ENVS
 
 
-class EnvEditDialog(ModalScreen[str | None]):
+class EnvEditDialog(ModalDialog[str | None]):
     """Modal dialog for editing an environment variable value"""
-
-    DEFAULT_CSS = """
-    EnvEditDialog {
-        align: center middle;
-    }
-
-    #env-edit-dialog {
-        width: 50;
-        height: auto;
-        padding: 2;
-        border: thick $primary;
-        background: $surface;
-    }
-
-    #env-edit-dialog > Label {
-        text-style: bold;
-        margin-bottom: 1;
-    }
-
-    .env-edit-field {
-        margin-bottom: 1;
-    }
-
-    #env-key-display {
-        margin-bottom: 1;
-        color: $text;
-        text-style: bold;
-    }
-
-    #env-edit-buttons {
-        height: auto;
-        align: right middle;
-    }
-
-    #env-edit-buttons Button {
-        margin-left: 1;
-    }
-    """
 
     def __init__(self, key: str = "", value: str = "") -> None:
         super().__init__()
         self._key = key
         self._value = value
 
-    def compose(self):
-        with Vertical(id="env-edit-dialog"):
+    def compose(self) -> None:
+        with Vertical(id="modal-container"):
             yield Label("编辑环境变量")
-            yield Label("键:", classes="env-edit-field")
+            yield Label("键:", id="env-key-label")
             yield Static(self._key, id="env-key-display")
-            yield Label("值:", classes="env-edit-field")
+            yield Label("值:", id="env-value-label")
             yield Input(value=self._value, id="env-value-input", placeholder="配置值")
-            with Horizontal(id="env-edit-buttons"):
+            with Horizontal(id="modal-buttons"):
                 yield Button("取消", id="cancel-btn", variant="default")
                 yield Button("确定", id="ok-btn", variant="primary")
 
@@ -130,6 +92,15 @@ class EnvConfigTab(Vertical):
         background: $surface;
         border: solid $primary;
         color: $text-muted;
+    }
+
+    #env-key-label {
+        color: $text;
+        text-style: bold;
+    }
+
+    #env-value-label {
+        margin-top: 1;
     }
     """
 

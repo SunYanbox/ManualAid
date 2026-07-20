@@ -5,8 +5,9 @@ from __future__ import annotations
 from typing import ClassVar
 
 from textual.containers import Vertical
-from textual.widgets import Collapsible, DataTable, Static
+from textual.widgets import DataTable, Static
 
+from src.console.ui.widgets.collapsible_helper import make_collapsible_item
 from src.models.tools.tool_result_collection import ToolResultCollection
 from src.utils.string_snapshot import truncate_params_string
 
@@ -107,19 +108,21 @@ class ToolsResultWidget(Vertical):
 
         for tool_name in self._collection.tools():
             results = self._collection.results.get(tool_name, [])
-            for index, (kwargs, result) in enumerate(results):
+            for kwargs, result in results:
                 # Create title with tool name and parameter summary
                 params_str = ", ".join(f"{k}={v}" for k, v in kwargs.items()) if kwargs else "no parameters"
                 truncated_params = truncate_params_string(params_str)
                 title = f"[bold cyan]{tool_name}[/bold cyan] | [dim]{truncated_params}[/dim]"
 
-                # Create content widget
-                content_widget = Static(result, id=f"result-{tool_name}-{index}")
+                # Create content widget. Do not derive Textual ids from tool
+                # names; display names may contain non-identifier characters.
+                content_widget = Static(result)
 
-                # Create collapsible
-                collapsible = Collapsible(
-                    content_widget,
-                    title=title,
-                    id=f"collapsible-{tool_name}-{index}",
+                # Create collapsible (all collapsed by default per Task 6)
+                container.mount(
+                    make_collapsible_item(
+                        content=Vertical(content_widget),
+                        title=title,
+                        collapsed=True,
+                    )
                 )
-                container.mount(collapsible)

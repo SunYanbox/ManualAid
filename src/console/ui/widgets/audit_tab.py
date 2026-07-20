@@ -158,6 +158,7 @@ class AuditTab(Vertical):
                     Vertical(cmd_display, btn_row),
                     title=f"Shell #{shell_id}: {command.strip()[:60]}{'...' if len(command.strip()) > 60 else ''}",
                     classes="audit-collapsible",
+                    collapsed=True,  # All collapsed by default
                 )
                 shell_children.append(collapsible)
             await self.mount(Vertical(*shell_children))
@@ -185,6 +186,7 @@ class AuditTab(Vertical):
                     content_widgets,
                     title=f"{file_path} ({len(snaps)} 次更改)",
                     classes="audit-collapsible",
+                    collapsed=True,  # All collapsed by default
                 )
                 if len(self.children) > 6:
                     collapsible.collapsed = True

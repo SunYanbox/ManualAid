@@ -82,6 +82,11 @@ def init_workspace(start_path: str | None = None) -> Workspace | None:
     workspace: Workspace = Workspace(str(folder_path))
     tool_registry.register(workspace)
 
+    # Setup logging
+    from src.core.logger import setup_logging
+
+    setup_logging(folder_path)
+
     # Initialize AgentManager and write default agent config
     from src.core.agent_manager import AgentManager
 
